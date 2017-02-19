@@ -1,0 +1,17 @@
+let a = 10;
+let b = 20;
+let c = a + b;
+c;
+let d = "hello ";
+let e = "world!";
+let f = d + e;
+set f = f + f;
+f;
+
+let ptr_a = &a;
+let ptr_b = &b;
+
+memset ptr_a = *ptr_b;
+// a is now 20
+set c = c + a;
+c;

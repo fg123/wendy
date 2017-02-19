@@ -1,0 +1,35 @@
+// Testing recursive functions
+let factorial => (x) {
+	let my_local_fac => (x) {
+		if (x == 1) {
+			ret 1;
+		}
+		else {
+			ret x * my_local_fac(x - 1);
+		};
+	};
+	ret my_local_fac(x);
+};
+
+let my_compare => (a, b, op) {
+	ret op(a, b);
+};
+
+let greater_than => (a, b) {
+	ret a > b;
+};
+
+let power => (a, b) {
+	if (b == 1) {
+		ret a;
+	}
+	else {
+		ret a * power(a, b - 1);
+	};
+};
+my_compare(21, 20, greater_than);
+
+my_compare(3, 4, power);
+factorial(5);
+
+

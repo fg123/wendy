@@ -1,0 +1,35 @@
+// Basic Function Call with <none> return
+let f => () { 
+	"In Function"; 
+};
+f();
+
+// Testing Basic Function
+let add1 => (x) {
+	ret x + 1;
+};
+
+add1(10);
+
+// Testing Function Reassignment
+set add1 = 10;
+add1;
+
+set add1 => (x) {
+	ret x + x;
+};
+
+add1(10);
+
+let nat_range => (start, end, step) {
+	if (start >= end) {
+		ret "";
+	}
+	else {
+		ret start + " " + nat_range(start + step, end, step);
+	};
+};
+
+nat_range(5, 10, 2);
+
+add1(add1(10));

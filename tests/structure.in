@@ -1,0 +1,4 @@
+struct point => (x, y);
+let a = point(10, 40);
+point_x(a);
+point_y(a);

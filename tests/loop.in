@@ -1,0 +1,5 @@
+let x = 5;
+loop (x >= 0) {
+	x;
+	dec x;
+};
