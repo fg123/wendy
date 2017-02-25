@@ -238,8 +238,6 @@ void identifier() {
 		handle_struct(); 
 	
 	}
-	else if (strcmp(text, "req") == 0)	{ add_token(REQ); }
-	else if (strcmp(text, "err") == 0)	{ add_token(ERR); }
 	else { add_token(IDENTIFIER); }
 }
 
@@ -281,7 +279,7 @@ void scan_token() {
 		case '%': add_token(PERCENT); break;
 		case '@': add_token(AT); break;
 		case ';': add_token(SEMICOLON); break;
-		case ':': add_token(match('=') ? DEFCOLON : COLON); break;
+		case ':': add_token(COLON); break;
 		case '#': add_token(HASH); break;
 		case '*': add_token(STAR); break;
 		case '!': add_token(match('=') ? NOT_EQUAL : NOT); break;
@@ -334,7 +332,7 @@ void scan_token() {
 		// END SWITCH HERE
 	}
 }
-int scan_tokens(char* source_) {
+int scan_tokens(char* source_, token** destination) {
 	source = source_;
 	// allocate enough space for the max length of the source, probably not
 	//   needed but it's a good setup.
@@ -352,14 +350,16 @@ int scan_tokens(char* source_) {
 	}
 	// append end of file
 	//add_token_V(EOFILE, make_data_str("EOFILE"));
-
+	*destination = tokens;
 	return t_curr;
 }
 
-void copy_tokens(token* destination) {
-	memcpy(destination, tokens, t_curr * sizeof(token));
-	free(tokens);
-}
+//void copy_tokens(token** destination) {
+
+//	*destination = tokens;
+//	memcpy(destination, tokens, t_curr * sizeof(token));
+//	free(tokens);
+//}
 
 void add_token(token_type type) {
 	char val[current - start + 1];
@@ -372,11 +372,11 @@ void add_token_V(token_type type, data val) {
 	if (t_curr != 0 && tokens[t_curr - 1].t_type == ELSE
 			&& type == IF) {
 
-		token new_t = { ELSEIF, make_data_str("else if"), line };
+		token new_t = { ELSEIF, line,make_data_str("else if") };
 		tokens[t_curr - 1] = new_t;
 	}
 	else {
-		token new_t = { type, val, line };
+		token new_t = { type, line, val };
 		tokens[t_curr++] = new_t;
 	}
 	if (t_curr == tokens_alloc_size) {
@@ -392,10 +392,8 @@ void add_token_V(token_type type, data val) {
 	}
 }
 
-void print_token_list(token* tokens) {
-	int max = t_curr;
-//	printf("%d ", max);
-	for(int i = 0; i < max; i++) {
+void print_token_list(token* tokens, size_t size) {
+	for(int i = 0; i < size; i++) {
 
 		if(tokens[i].t_type == NUMBER) {
 			printf("{ %d -> %f }\n", tokens[i].t_type, tokens[i].t_data.number);

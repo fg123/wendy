@@ -22,9 +22,6 @@
 #define NOT_NO_VAL "Expected value after ! operator."
 #define NOT_REQ_BOOL "Expected Boolean value after ! operator."
 #define SYNTAX_ERROR "Syntax Error!"
-#define OP_SYNTAX_ERROR_BEF ": Syntax Error: Expected Value before call!"
-#define OP_SYNTAX_ERROR_AFT ": Syntax Error: Expected Value after call!"
-#define NUM_EXPECT_AFT_CALL ": Syntax Error: Expected Number after call!"
 #define TYPE_ERROR "Type Error!"
 #define MATH_DISASTER "Division by 0!"
 #define EXPR_MULT_VALUE "Expression did not evaluate to single value."
@@ -35,7 +32,7 @@
 #define MEMSET_NOT_NUM "Memset requires an integer address!"
 #define INPUT_ERROR "Input scanning error!"
 
-#define UNKNOWN_TOKEN ": Unknown Token!"
+#define UNKNOWN_TOKEN "Unknown Token!"
 
 // error(line, message) prints an error message to the screen
 void error(int line, char* message);

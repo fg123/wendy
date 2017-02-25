@@ -26,7 +26,7 @@ typedef struct {
 	address val;
 } stack_entry;
 
-// A TOKEN IS 1040 BYTES, we allow 128mb of Memory
+// A TOKEN IS 1032 BYTES, we allow 128mb of Memory
 // 128mb * 1024kb/mb * 1024b/kb = 134217728 bytes = 129055.5 Tokens in 128 MB
 // Lets choose an arbitrary closest prime because why not: 129061
 //

@@ -5,7 +5,6 @@
 #include "stack.h"
 #include "memory.h"
 
-
 // WendyScript Interpreter in C
 // By: Felix Guo
 // 
@@ -19,13 +18,14 @@ int main(int argc, char** argv) {
 	push_memory(none_token());
 	// ADDRESS 1 REFERS TO EMPTY RETURNS TOKEN
 	push_memory(make_token(NONERET, make_data_str("<noneret>")));
+
 	if (argc > 2) {
 		printf("Usage: wendy or wendy [file]\n");
 		return 1;
 	}
 	else if (argc == 1) {
 		printf("Welcome to %s\nCreated by: Felix Guo\n", WENDY_VERSION);
-		printf("T%zd-D%zd-SE%zd\n", sizeof(token), sizeof(data), sizeof(stack_entry));
+		printf("T(%zd=%zd+%zd+D(%zd))-SE%zd\n", sizeof(token), sizeof(token_type), sizeof(int), sizeof(data), sizeof(stack_entry));
 		char *input_buffer;
 		// ENTER REPL MODE
 		push_frame();

@@ -2,14 +2,12 @@
 #define SCANNER_H
 
 #include "token.h"
+#include <stdlib.h>
 
 // scanner.h provides tools to convert a code string into a list of tokens.
 
 // scan_tokens(source) creates a list of tokens from the source
-int scan_tokens(char* source_);
-
-// copy_token(destination) actually copies the tokens over
-void copy_tokens(token* destination);
+int scan_tokens(char* source_, token** destination);
 
 // scan_token() processes the next token
 void scan_token();
@@ -22,10 +20,7 @@ void add_token(token_type type);
 void add_token_V(token_type type, data val);
 
 // print_token_list() prints the list of tokens
-void print_token_list(token* tokens);
-
-// error(line, message) prints an error message to the screen
-void error(int line, char* message);
+void print_token_list(token* tokens, size_t size);
 
 
 #endif

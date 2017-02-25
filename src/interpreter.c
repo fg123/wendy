@@ -16,13 +16,12 @@ static size_t tokens_count;
 
 void run(char* input_string) {
 	size_t source_len = strlen(input_string);
-	tokens_count = scan_tokens(input_string);
+	tokens_count = scan_tokens(input_string, &tokens);
 
 //	printf("SIZE OF TOKENS: %d\n", tokens_count);
-	tokens = malloc(tokens_count * sizeof(token));
-	copy_tokens(tokens);
-
-//	print_token_list(tokens);
+//	tokens = malloc(tokens_count * sizeof(token));
+//	copy_tokens(&tokens);
+//	print_token_list(tokens, tokens_count);
 	bool b;
 	eval_fn(0, 0, 0, 0, &b);
 //	print_token(eval(tokens, size));
@@ -34,6 +33,8 @@ address eval_identifier(address start, size_t size) {
 	// Either we have a *(MEMORY ADDR) or we have identifier[] or identifier
 	// We scan until we find right brackets or right parentheses and then
 	//   we track back like usual.
+//	printf("EVALIDENTIFIER at");
+//	print_token(&tokens[start]);
 	token_stack* expr_stack = 0;
 	if (size < 1) {
 		error(tokens[start].t_line, SYNTAX_ERROR);
@@ -336,23 +337,17 @@ bool parse_line(address start, size_t size, address* return_val) {
 		}
 	}
 	else if (f_token.t_type == INC) {
-		if (size != 2) {
+		if (size < 2) {
 			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		// INC Syntax
 		//   1. INC identifier; 
 		//   Requires identifier be of number type.
-		if (tokens[start + 1].t_type != IDENTIFIER) {
-			error(f_token.t_line, SYNTAX_ERROR);
-			return false;
-		}
-		if (!id_exist(tokens[start + 1].t_data.string)) {
-			error(f_token.t_line, SYNTAX_ERROR);
-			return false;
-		}
-		token* t = get_value_of_id(tokens[start + 1].t_data.string, 
-				f_token.t_line);
+	
+		address mem_to_mod = eval_identifier(start + 1, size - 1);
+
+		token* t = get_value_of_address(mem_to_mod, f_token.t_line);
 		if (t->t_type != NUMBER) {
 			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
@@ -360,23 +355,17 @@ bool parse_line(address start, size_t size, address* return_val) {
 		t->t_data.number++;
 	}
 	else if (f_token.t_type == DEC) {
-		if (size != 2) {
+		if (size < 2) {
 			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		// DEC Syntax
 		//   1. DEC identifier; 
 		//   Requires identifier be of number type.
-		if (tokens[start + 1].t_type != IDENTIFIER) {
-			error(f_token.t_line, SYNTAX_ERROR);
-			return false;
-		}
-		if (!id_exist(tokens[start + 1].t_data.string)) {
-			error(f_token.t_line, SYNTAX_ERROR);
-			return false;
-		}
-		token* t = get_value_of_id(tokens[start + 1].t_data.string, 
-				f_token.t_line);
+	
+		address mem_to_mod = eval_identifier(start + 1, size - 1);
+
+		token* t = get_value_of_address(mem_to_mod, f_token.t_line);
 		if (t->t_type != NUMBER) {
 			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
@@ -384,22 +373,20 @@ bool parse_line(address start, size_t size, address* return_val) {
 		t->t_data.number--;
 	}
 	else if (f_token.t_type == INPUT) {
-		if (size != 2) {
+		if (size < 2) {
 			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		// INPUT Syntax
 		//   1. INPUT identifier; 
 		//   Requires identifier be of number type.
-		if (tokens[start + 1].t_type != IDENTIFIER) {
-			error(f_token.t_line, SYNTAX_ERROR);
-			return false;
-		}
+		address mem_to_mod = eval_identifier(start + 1, size - 1);
+	
 		// Scan one line from the input.
 		char buffer[MAX_STRING_LEN];
 		if (fgets(buffer, MAX_STRING_LEN, stdin)) {
-			token* t = get_value_of_id(tokens[start + 1].t_data.string,
-					f_token.t_line);
+			
+			token* t = get_value_of_address(mem_to_mod, f_token.t_line);
 			char* end_ptr = buffer;
 			errno = 0;
 			double d = strtod(buffer, &end_ptr);

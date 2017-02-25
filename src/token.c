@@ -20,7 +20,7 @@ token false_token() {
 }
 
 token make_token(token_type t, data d) {
-	token token_ = { t, d };
+	token token_ = { t, 0, d };
 	return token_;
 }
 

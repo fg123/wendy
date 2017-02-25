@@ -7,7 +7,7 @@
 
 bool last_printed_newline;
 
-typedef enum token_type_t { 
+typedef enum { 
 	// Single-character Tokens
 	LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACK, RIGHT_BRACK,
 	COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR, COLON, AT, HASH, PERCENT,
@@ -26,13 +26,13 @@ typedef enum token_type_t {
 	AND, OR, IF, ELSE, ELSEIF, TRUE, FALSE,
 
 	// Definitons
-	LET, SET, LOOP, DEFCOLON, DEFFN,
+	LET, SET, LOOP, DEFFN,
 	
 	// Special Commands
-	RET, INPUT, INC, DEC, STRUCT, REQ, ERR, MEMSET, PRINTSTACK,
+	RET, INPUT, INC, DEC, STRUCT, MEMSET, PRINTSTACK,
 
 	// Special Forms
-	NONE, EOFILE, CONDSCOPE, ARRAYREF, NONEPTR, NONERET
+	NONE, NONERET
 } token_type;
 
 typedef union {
@@ -40,10 +40,10 @@ typedef union {
 	char string[MAX_STRING_LEN];
 } data;
 
-typedef struct {
+typedef struct {	
 	token_type t_type;
-	data t_data;
 	int t_line;
+	data t_data;
 } token;
 
 // make_token(t, d) returns a new token
@@ -52,7 +52,7 @@ token make_token(token_type t, data d);
 // make_data_int(i) makes a data union with the integer provided
 data make_data_num(double i);
 
-// makeDataStr(char*) makes a data union with the string provided
+// makeDataStr(s) makes a data union with the string provided
 data make_data_str(char* s);
 
 // none_token() returns a none token
