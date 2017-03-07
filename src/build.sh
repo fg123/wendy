@@ -8,7 +8,7 @@ if [ "$1" != "-b" ]; then
 	echo Running Tests...
 
 	for f in ../tests/*.err ; do
-		rm $f
+		rm -f $f
 	done
 
     for f in ../tests/*.in ; do
@@ -35,3 +35,8 @@ if [ "$1" != "-b" ]; then
 else
 	echo Ran in build-only mode.
 fi
+
+echo Copying Wendy Library Files
+cp -R wendy-lib ../bin/
+echo Copied
+echo Finished!

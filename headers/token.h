@@ -17,7 +17,10 @@ typedef enum {
 	NOT, NOT_EQUAL,
 	EQUAL, EQUAL_EQUAL, 
 	GREATER, GREATER_EQUAL,
-	LESS, LESS_EQUAL,
+	LESS, LESS_EQUAL, 
+	
+	// #: token
+	LAMBDA,
 
 	// Literals.
 	IDENTIFIER, STRING, NUMBER,
@@ -29,7 +32,8 @@ typedef enum {
 	LET, SET, LOOP, DEFFN,
 	
 	// Special Commands
-	RET, INPUT, INC, DEC, STRUCT, MEMSET, PRINTSTACK,
+	RET, INPUT, INC, DEC, STRUCT, MEMSET, PRINTSTACK, REQ, EXPLODE,
+	TIME,
 
 	// Special Forms
 	NONE, NONERET
@@ -63,6 +67,9 @@ token false_token();
 
 // true_token() returns a true token
 token true_token();
+
+// time_token() returns the current time in a number token
+token time_token();
 
 // print_token(t) prints the value of the token to the string
 void print_token(const token* t);

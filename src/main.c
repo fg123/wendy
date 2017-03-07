@@ -1,17 +1,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "interpreter.h"
-#include <readline/readline.h>
 #include "stack.h"
 #include "memory.h"
+#include "error.h"
+#include "execpath.h"
+
+const char* WENDY_VERSION = "Wendy 1.1";
+const unsigned int INPUT_BUFFER_SIZE = 2048;
+
+#ifdef _WIN32
+#include <string.h>
+
+/* Fake readline function */
+char* readline(char* prompt) {
+  fputs(prompt, stdout);
+  char* cpy = malloc(INPUT_BUFFER_SIZE);
+  fgets(cpy, INPUT_BUFFER_SIZE, stdin);
+  return cpy;
+}
+
+/* Otherwise include the editline headers */
+#else
+#include <readline/readline.h>
+#endif
 
 // WendyScript Interpreter in C
 // By: Felix Guo
 // 
 // main.c: used to handle REPL and calling the interpreter on a file.
-
-const char* WENDY_VERSION = "Wendy 1.1";
-const unsigned int INPUT_BUFFER_SIZE = 2048;
 
 int main(int argc, char** argv) {
 	// ADDRESS 0 REFERS TO NONE_TOKEN
@@ -25,13 +42,17 @@ int main(int argc, char** argv) {
 	}
 	else if (argc == 1) {
 		printf("Welcome to %s\nCreated by: Felix Guo\n", WENDY_VERSION);
+		char* path = get_path();
+		printf("Path: %s\n", path);
+		free(path);
 		printf("T(%zd=%zd+%zd+D(%zd))-SE%zd\n", sizeof(token), sizeof(token_type), sizeof(int), sizeof(data), sizeof(stack_entry));
 		char *input_buffer;
 		// ENTER REPL MODE
-		push_frame();
+		push_frame("main");
 		while (1) {
 			input_buffer = readline("> ");
 			if(!input_buffer) return 0;
+		//	init_error(input_buffer);
 			run(input_buffer);
 			free(input_buffer);
 		}
@@ -52,7 +73,8 @@ int main(int argc, char** argv) {
 				fread (buffer, 1, length, f);
 				buffer[length] = '\0'; // fread doesn't add a null terminator!
 
-				push_frame();
+				push_frame("main");
+		//		init_error(buffer);
 				run(buffer);
 			}
 			if (!last_printed_newline) {

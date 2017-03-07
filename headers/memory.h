@@ -36,7 +36,8 @@ token memory[MEMORY_SIZE];
 
 // 128bytes per entry, 8mb of stack size
 // 8 * 1024 * 1024 = 8388608 bytes = 65536 entries in 8mb
-stack_entry call_stack[65536];
+#define STACK_SIZE 65536
+stack_entry call_stack[STACK_SIZE];
 
 extern address frame_pointer;
 extern address stack_pointer;
@@ -44,8 +45,8 @@ extern address stack_pointer;
 // memory_pointer stores the address of the next available memory space
 extern address memory_pointer;
 
-// push_frame() creates a new stack frame (when starting a function call)
-void push_frame();
+// push_frame(name) creates a new stack frame (when starting a function call)
+void push_frame(char* name);
 
 // push_auto_frame() creates an automatical local variable frame
 void push_auto_frame();
@@ -68,8 +69,8 @@ void replace_memory(token t, address a);
 // stack frame (eg variable declaration).
 void push_stack_entry(char* id, address val);
 
-// id_exist(id) returns true if id exists in the current stackframe 
-bool id_exist(char* id);
+// id_exist(id, search_main) returns true if id exists in the current stackframe 
+bool id_exist(char* id, bool search_main);
 
 // get_address_of_id(id, line) returns address of the id given
 //   requires: id exist in the stackframe
@@ -84,5 +85,8 @@ token* get_value_of_address(address a, int line);
 
 // print_call_stack prints out the callstack
 void print_call_stack();
+
+// get_address_pos_of_id(id, line) gets the stack address of the id
+address get_stack_pos_of_id(char* id, int line);
 
 #endif

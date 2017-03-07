@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <execpath.h>
 
 static size_t source_len;
 static size_t current; // is used to keep track of source current
@@ -60,6 +61,74 @@ bool is_digit(char c) {
 // is_alpha_numeric(c) returns true if c is alpha AND numeric
 bool is_alpha_numeric(char c) {
 	return is_alpha(c) || is_digit(c);
+}
+
+// handle_req() processes when a file is "req"ed, this is called when we 
+//   encounter a req
+//   We first find the file and get the file's contents, then append it
+//   right after in the source code and increase the length as needed.
+void handle_req() {
+
+	add_token_V(REQ, make_data_str("req"));
+	// we scan a string
+	// t_curr points to space after REQ
+	int str_loc = t_curr;
+	while (peek() != ';' && !is_at_end()) {
+		start = current;
+		scan_token();
+	}
+	// the last token should be a string now
+	if (is_at_end() || tokens[str_loc].t_type != STRING) {
+		error(line, SYNTAX_ERROR);
+		return;
+	}
+	// consume the semicolon
+	advance();
+	add_token_V(SEMICOLON, make_data_str(";"));
+
+	// We need path to the wendy libraries
+	char* path = get_path();
+	long length = 0;
+	
+	char* buffer;
+	strcat(path, "wendy-lib/");
+	strcat(path, tokens[str_loc].t_data.string);
+	FILE * f = fopen(path, "r");
+	if (f) {
+		fseek (f, 0, SEEK_END);
+		length = ftell (f);
+		fseek (f, 0, SEEK_SET);
+		buffer = malloc(length + 1); // + 1 for null terminator
+		if (buffer) {
+			fread (buffer, 1, length, f);
+			buffer[length] = '\0'; // fread doesn't add a null terminator!
+			int newlen = source_len + strlen(buffer);
+			char* tmp = realloc(source, newlen + 1);
+			size_t o_source_len = source_len;
+			if (tmp) {
+				source = tmp;
+				source_len = newlen;
+			}
+			else {
+				printf("req: Realloc Error! \n");
+				exit(1);
+			}
+			// at this point, we inset the buffer into the source
+			// current should be the next item, we move it down buffer bytes
+//			printf("old source: \n%s\n", source);
+			memmove(&source[current + strlen(buffer)], 
+					&source[current], o_source_len - current + 1);
+			memcpy(&source[current], buffer, strlen(buffer));
+//			printf("newsource: \n%s\n", source);
+		}
+		free(buffer);
+		fclose (f);
+	}
+	else {
+		error(line, REQ_FILE_READ_ERR);
+	}
+
+	free(path);
 }
 
 // handle_struct() processes the next struct definition
@@ -215,8 +284,8 @@ void identifier() {
 	memcpy(text, &source[start], current - start);
 	text[current - start] = '\0';
 
-	if (strcmp(text, "empty") == 0) { add_token_V(NUMBER, make_data_num(0)); }
-	else if (strcmp(text, "and") == 0)	{ add_token(AND); }
+	/*if (strcmp(text, "empty") == 0) { add_token_V(NUMBER, make_data_num(0)); }
+	else*/ if (strcmp(text, "and") == 0)	{ add_token(AND); }
 	else if (strcmp(text, "else") == 0)	{ add_token(ELSE); }
 	else if (strcmp(text, "false") == 0)	{ add_token(FALSE); }
 	else if (strcmp(text, "if") == 0)	{ add_token(IF); }
@@ -226,10 +295,15 @@ void identifier() {
 	else if (strcmp(text, "printstack") == 0)	{ add_token(PRINTSTACK); }
 	else if (strcmp(text, "let") == 0)	{ add_token(LET); }
 	else if (strcmp(text, "set") == 0)	{ add_token(SET); }
-	else if (strcmp(text, "memset") == 0){ add_token(MEMSET); }
+//	else if (strcmp(text, "memset") == 0){ add_token(MEMSET); }
 	else if (strcmp(text, "loop") == 0)	{ add_token(LOOP); }
 	else if (strcmp(text, "none") == 0)	{ add_token(NONE); }
 	else if (strcmp(text, "ret") == 0)	{ add_token(RET); }
+	else if (strcmp(text, "explode") == 0) { add_token(EXPLODE); }
+	else if (strcmp(text, "req") == 0)	{ 
+		handle_req();
+	}
+	else if (strcmp(text, "time") == 0) { add_token(TIME); }
 	else if (strcmp(text, "inc") == 0)	{ add_token(INC); }
 	else if (strcmp(text, "dec") == 0)	{ add_token(DEC); }
 	else if (strcmp(text, "input") == 0)	{ add_token(INPUT); }
@@ -273,14 +347,22 @@ void scan_token() {
 		case '&': add_token(AMPERSAND); break;
 		case ',': add_token(COMMA); break;
 		case '.': add_token(DOT); break;
-		case '-': add_token(MINUS); break;
+		case '-': 
+			if (is_digit(peek())) {
+				advance();
+				handle_number();
+			}
+			else {
+				add_token(MINUS); 
+			}
+			break;
 		case '+': add_token(PLUS); break;
 		case '\\': add_token(INTSLASH); break;
 		case '%': add_token(PERCENT); break;
 		case '@': add_token(AT); break;
 		case ';': add_token(SEMICOLON); break;
 		case ':': add_token(COLON); break;
-		case '#': add_token(HASH); break;
+		case '#': add_token(match(':') ? LAMBDA : HASH); break;
 		case '*': add_token(STAR); break;
 		case '!': add_token(match('=') ? NOT_EQUAL : NOT); break;
 		case '=': 
@@ -333,11 +415,13 @@ void scan_token() {
 	}
 }
 int scan_tokens(char* source_, token** destination) {
-	source = source_;
 	// allocate enough space for the max length of the source, probably not
 	//   needed but it's a good setup.
 
-	source_len = strlen(source);
+	source_len = strlen(source_);
+	source = malloc(source_len + 1);
+	strcpy(source, source_);
+
 	tokens_alloc_size = source_len;
 	tokens = (token*)malloc(tokens_alloc_size * sizeof(token));
 	t_curr = 0;
@@ -351,6 +435,8 @@ int scan_tokens(char* source_, token** destination) {
 	// append end of file
 	//add_token_V(EOFILE, make_data_str("EOFILE"));
 	*destination = tokens;
+	//free(source);
+	init_error(source);
 	return t_curr;
 }
 
@@ -386,7 +472,7 @@ void add_token_V(token_type type, data val) {
 			tokens = tmp;
 		}
 		else {
-			printf("MEMORY ERROR DUE TO REALLOC WHAT THE FUCK BURN THIS SHIT\n");
+			printf("You have been blessed by a realloc error. Good luck figuring this out!\n");
 			exit(1);
 		}
 	}

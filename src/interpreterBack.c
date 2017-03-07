@@ -16,14 +16,12 @@ static size_t tokens_count;
 
 void run(char* input_string) {
 	tokens_count = scan_tokens(input_string, &tokens);
-
-//	printf("SIZE OF TOKENS: %d\n", tokens_count);
-//	tokens = malloc(tokens_count * sizeof(token));
-//	copy_tokens(&tokens);
-//	print_token_list(tokens, tokens_count);
+	
 	bool b;
 	eval_fn(0, 0, 0, 0, &b);
 //	print_token(eval(tokens, size));
+	
+
 	free_error();
 	free(tokens);
 }
@@ -42,7 +40,7 @@ address eval_identifier(address start, size_t size) {
 		// Evaluate the Rest and That's the Address
 		token t = eval(start + 1, size - 1);
 		if (t.t_type != NUMBER) {
-			error(tokens[start].t_line, SYNTAX_ERROR, "*");
+			error(tokens[start].t_line, SYNTAX_ERROR);
 			return 0;
 		}
 		else {
@@ -141,7 +139,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 	token f_token = tokens[start];
 	if (f_token.t_type == LET) {
 		if (size < 2) { 
-			error(f_token.t_line, SYNTAX_ERROR, "let");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false; 
 		}
 		// LET Syntax
@@ -153,14 +151,13 @@ bool parse_line(address start, size_t size, address* return_val) {
 		if (tokens[start + 1].t_type != IDENTIFIER) {
 			// not an identifier
 //			printf("NOT IDEN\n");
-			error(f_token.t_line, SYNTAX_ERROR, "let");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		else {
 			if (id_exist(tokens[start + 1].t_data.string, false)) {
 				// ALREADY DECLARED
-				error(f_token.t_line, TOKEN_DECLARED, 
-						tokens[start + 1].t_data.string); 
+				error(f_token.t_line, TOKEN_DECLARED); 
 				return false;
 			}
 			// check if declaration or definition
@@ -196,7 +193,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 					if (i >= start + size) 
 					{
 						
-						error(tokens[start].t_line, SYNTAX_ERROR, "let");
+						error(tokens[start].t_line, SYNTAX_ERROR);
 						return false;
 					}
 				}
@@ -234,7 +231,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 				//   right syntax.
 				if (tokens[start + 3].t_type != LEFT_PAREN || 
 					tokens[start + size - 1].t_type != RIGHT_BRACE) {
-					error(f_token.t_line, SYNTAX_ERROR, "let");
+					error(f_token.t_line, SYNTAX_ERROR);
 				}
 				else {
 					// Push the address of the next instruction
@@ -246,14 +243,14 @@ bool parse_line(address start, size_t size, address* return_val) {
 				}
 			}
 			else {
-				error(f_token.t_line, SYNTAX_ERROR, "let");
+				error(f_token.t_line, SYNTAX_ERROR);
 				return false;
 			}
 		}
 	}
 	else if (f_token.t_type == SET) {
 		if (size < 4) {
-			error(f_token.t_line, SYNTAX_ERROR, "set");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		// SET Syntax
@@ -261,7 +258,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 		//   2. SET identifier => (arg1, arg2, ...) { function block; };
 		if (tokens[start + 1].t_type != IDENTIFIER) {
 			// not an identifier
-			error(f_token.t_line, SYNTAX_ERROR, "set");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		else {
@@ -273,7 +270,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 				id_size++;
 				if (start + 1 + id_size == size) {
 					// Can't find equal or deffn
-					error(f_token.t_line, SYNTAX_ERROR, "set");
+					error(f_token.t_line, SYNTAX_ERROR);
 					return false;
 				}
 			}
@@ -289,7 +286,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 				// Same as defined above for the LET statement  
 				if (tokens[start + 2 + id_size].t_type != LEFT_PAREN || 
 					tokens[start + size - 1].t_type != RIGHT_BRACE) {
-					error(f_token.t_line, SYNTAX_ERROR, "set");
+					error(f_token.t_line, SYNTAX_ERROR);
 				}
 				else {
 					// Push the address of the next instruction
@@ -300,14 +297,45 @@ bool parse_line(address start, size_t size, address* return_val) {
 
 			}
 			else {
-				error(f_token.t_line, SYNTAX_ERROR, "set");
+				error(f_token.t_line, SYNTAX_ERROR);
 				return false;
 			}
 		}
 	}
+	else if (f_token.t_type == MEMSET) {
+		if (size < 4) {
+			error(f_token.t_line, SYNTAX_ERROR);
+			return false;
+		}
+		// MEMSET Syntax
+		//   1. SET number = evaluable-value;
+		// We need to read until the equal sign to find the address.
+
+		int i = 0; 
+		while (tokens[start + i + 1].t_type != EQUAL) {
+			i++;
+			if (i == size) {
+				error(f_token.t_line, SYNTAX_ERROR);
+				return false;
+			}
+		}
+		token res = eval(start + 1, i);
+
+		if (res.t_type != NUMBER) {
+			// not an identifier
+			error(f_token.t_line, SYNTAX_ERROR);
+			return false;
+		}
+		else {
+			// check if declaration or definition
+			// replace the memory with the new
+			replace_memory(eval(start + 2 + i, size - (2 + i)), 
+					res.t_data.number);
+		}
+	}
 	else if (f_token.t_type == EXPLODE) {
 		if (size != 2 || tokens[start + 1].t_type != IDENTIFIER) {
-			error(f_token.t_line, SYNTAX_ERROR, "explode");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		// EXPLODE Syntax
@@ -318,7 +346,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 		token* t = get_value_of_id(tokens[start + 1].t_data.string, 
 				f_token.t_line);
 		if (t->t_type != STRING) {
-			error(f_token.t_line, SYNTAX_ERROR, "explode");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		size_t length = strlen(t->t_data.string);
@@ -336,7 +364,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 	}
 	else if (f_token.t_type == INC) {
 		if (size < 2) {
-			error(f_token.t_line, SYNTAX_ERROR, "inc");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		// INC Syntax
@@ -347,14 +375,14 @@ bool parse_line(address start, size_t size, address* return_val) {
 
 		token* t = get_value_of_address(mem_to_mod, f_token.t_line);
 		if (t->t_type != NUMBER) {
-			error(f_token.t_line, SYNTAX_ERROR, "inc");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		t->t_data.number++;
 	}
 	else if (f_token.t_type == DEC) {
 		if (size < 2) {
-			error(f_token.t_line, SYNTAX_ERROR, "dec");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		// DEC Syntax
@@ -365,14 +393,14 @@ bool parse_line(address start, size_t size, address* return_val) {
 
 		token* t = get_value_of_address(mem_to_mod, f_token.t_line);
 		if (t->t_type != NUMBER) {
-			error(f_token.t_line, SYNTAX_ERROR, "dec");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		t->t_data.number--;
 	}
 	else if (f_token.t_type == INPUT) {
 		if (size < 2) {
-			error(f_token.t_line, SYNTAX_ERROR, "input");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		// INPUT Syntax
@@ -406,12 +434,11 @@ bool parse_line(address start, size_t size, address* return_val) {
 		}
 	}
 	else if (f_token.t_type == STRUCT || f_token.t_type == REQ) {
-		// handled by scanner
 		return false;	
 	}
 	else if (f_token.t_type == IF) {
 		if (size < 5) {
-			error(f_token.t_line, SYNTAX_ERROR, "if");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		// IF Syntax
@@ -434,7 +461,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 				// increment until left bracket
 				i++; 
 				if (i >= size + start) {
-					error(tokens[i].t_line, SYNTAX_ERROR, "if");
+					error(tokens[i].t_line, SYNTAX_ERROR);
 					return false;
 				}
 			}
@@ -513,7 +540,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 	}
 	else if (f_token.t_type == LOOP) {
 		if (size < 5) {
-			error(f_token.t_line, SYNTAX_ERROR, "loop");
+			error(f_token.t_line, SYNTAX_ERROR);
 			return false;
 		}
 		// LOOP Syntax
@@ -530,7 +557,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 				i++;
 //				print_token(&tokens[i]);
 				if (i >= size + start) {
-					error(tokens[i].t_line, SYNTAX_ERROR, "loop");
+					error(tokens[i].t_line, SYNTAX_ERROR);
 					return false;
 				}
 			}
@@ -596,7 +623,7 @@ token eval_uniop(token op, token a) {
 	if (op.t_type == STAR) {
 		// pointer operator
 		if (a.t_type != NUMBER) {
-			error(a.t_line, SYNTAX_ERROR, "*");
+			error(a.t_line, SYNTAX_ERROR);
 			return none_token();
 		}
 		token* c = get_value_of_address(a.t_data.number, a.t_line);
@@ -605,7 +632,7 @@ token eval_uniop(token op, token a) {
 	}
 	else if (op.t_type == AMPERSAND) {
 		if (a.t_type != IDENTIFIER) {
-			error(a.t_line, SYNTAX_ERROR, "&");
+			error(a.t_line, SYNTAX_ERROR);
 			return none_token();
 		}
 		token res = make_token(NUMBER, make_data_num(
@@ -614,7 +641,7 @@ token eval_uniop(token op, token a) {
 	}
 	else if (op.t_type == MINUS) {
 		if (a.t_type != NUMBER) {
-			error(a.t_line, SYNTAX_ERROR, "-");
+			error(a.t_line, SYNTAX_ERROR);
 			return none_token();
 		}
 		token res = make_token(NUMBER, make_data_num(-1 * a.t_data.number));
@@ -622,7 +649,7 @@ token eval_uniop(token op, token a) {
 	}
 	else if (op.t_type == NOT) {
 		if (a.t_type != TRUE &&  a.t_type != FALSE) {
-			error(a.t_line, SYNTAX_ERROR, "!");
+			error(a.t_line, SYNTAX_ERROR);
 			return none_token();
 		}
 		return a.t_type == TRUE ? false_token() : true_token();	
@@ -678,7 +705,7 @@ token eval_binop(token op, token a, token b) {
 
 						// check integer 
 						if (a_n != floor(a_n) || b_n != floor(b_n)) {
-							error(op.t_line, TYPE_ERROR, "/"); 
+							error(op.t_line, TYPE_ERROR); 
 							return none_token();
 						}
 						else {
@@ -699,7 +726,7 @@ token eval_binop(token op, token a, token b) {
 				}
 				break;
 			default: 
-				error(a.t_line, TYPE_ERROR, op.t_data.string);
+				error(a.t_line, TYPE_ERROR);
 				break;
 		}
 	}
@@ -739,7 +766,7 @@ token eval_binop(token op, token a, token b) {
 			return make_token(STRING, make_data_str(result));
 		}
 		else {
-			error(a.t_line, TYPE_ERROR, op.t_data.string);
+			error(a.t_line, TYPE_ERROR);
 			return none_token();
 		}
 	}
@@ -753,13 +780,13 @@ token eval_binop(token op, token a, token b) {
 				return (a.t_type == FALSE && b.t_type == FALSE) ?
 					false_token() : true_token();
 			default: 
-				error(a.t_line, TYPE_ERROR, op.t_data.string);
+				error(a.t_line, TYPE_ERROR);
 				break;
 		}
 
 	}
 	else {
-		error(a.t_line, TYPE_ERROR, op.t_data.string);
+		error(a.t_line, TYPE_ERROR);
 		return none_token();
 	}
 
@@ -1159,14 +1186,14 @@ token eval(address start, size_t size) {
 			//   start + size is the end pointer.
 			if (i + 5 >= start + size) {
 				// Too short!
-				error(tokens[i].t_line, SYNTAX_ERROR, "lambda");
+				error(tokens[i].t_line, SYNTAX_ERROR);
 				return none_token();
 			}
 			// Syntax checking can be performed when the function is called,
 			// We'll do a lambda function syntax check for the colon and the
 			//   braces.
 			if (tokens[++i].t_type != LEFT_PAREN) {
-				error(tokens[i].t_line, SYNTAX_ERROR, "lambda");
+				error(tokens[i].t_line, SYNTAX_ERROR);
 				return none_token();
 			}
 			address fn_start = i;
@@ -1174,7 +1201,7 @@ token eval(address start, size_t size) {
 			while (1) {
 				i++;
 				if (i >= start + size) {
-					error(tokens[i].t_line, SYNTAX_ERROR, "lambda");
+					error(tokens[i].t_line, SYNTAX_ERROR);
 					return none_token();
 				}
 				if (tokens[i].t_type == LEFT_BRACE) {
@@ -1187,7 +1214,7 @@ token eval(address start, size_t size) {
 			while (1) {
 				i++;
 				if (i >= start + size) {
-					error(tokens[i].t_line, SYNTAX_ERROR, "lambda");
+					error(tokens[i].t_line, SYNTAX_ERROR);
 					return none_token();
 				}
 				if (tokens[i].t_type == RIGHT_BRACE && brace_count == 0) {

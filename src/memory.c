@@ -11,24 +11,33 @@ address frame_pointer = 0;
 address stack_pointer = 0;
 address memory_pointer = 0;
 
+static const char FUNCTION_START_CHAR = '>';
 // pointer to the end of the main frame
 address main_end_pointer = 0; 
 
-void push_frame() {
+void push_frame(char* name) {
 	// store current frame pointer
-	stack_entry new_entry = { "0", frame_pointer };
+	stack_entry new_entry = { "> ", frame_pointer };
+	strcat(new_entry.id, name);
+	strcat(new_entry.id, "()");
 	// this new entry will be stored @ location stack_pointer, so we move the 
 	//   frame pointer to this location
 	frame_pointer = stack_pointer;
 	// add and increment stack_pointer
 	call_stack[stack_pointer++] = new_entry;
+	if (stack_pointer >= STACK_SIZE) {
+		error(0, STACK_OVERFLOW); 
+	} 
 }
 
 void push_auto_frame() {
 	// store current frame pointer
-	stack_entry new_entry = { "1", frame_pointer };
+	stack_entry new_entry = { "<auto_frame>", frame_pointer };
 	frame_pointer = stack_pointer;
 	call_stack[stack_pointer++] = new_entry;
+	if (stack_pointer >= STACK_SIZE) {
+		error(0, STACK_OVERFLOW); 
+	} 
 }
 
 bool pop_frame(bool is_ret) {
@@ -36,8 +45,8 @@ bool pop_frame(bool is_ret) {
 	address trace = frame_pointer;
 	if (is_ret)
 	{
-		// character 0 is a function frame pointer, we trace until we find it
-		while (call_stack[trace].id[0] != '0') {
+		// character [ is a function frame pointer, we trace until we find it
+		while (call_stack[trace].id[0] != FUNCTION_START_CHAR) {
 			trace = call_stack[trace].val;
 		}
 	}
@@ -49,18 +58,25 @@ bool pop_frame(bool is_ret) {
 	frame_pointer = call_stack[trace].val;
 
 	// function ret or popped a function
-	return (is_ret || call_stack[trace].id[0] == '0');
+	return (is_ret || call_stack[trace].id[0] == FUNCTION_START_CHAR);
 }
 
 void print_call_stack() {
-	printf("CALL STACK\n");
+	printf("\nDump: Stack Trace\n");
 	for (int i = 0; i < stack_pointer; i++) {
-		if (frame_pointer == i) {
-			printf("[%s -> %d]  <- FP\n", call_stack[i].id, call_stack[i].val);
-		}
-		else {
-			printf("[%s -> %d]\n", call_stack[i].id, call_stack[i].val);
-		}
+//		if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
+			if (frame_pointer == i) {
+				printf("FP -> [%s: ", call_stack[i].id);
+				print_token_inline(&memory[call_stack[i].val]);
+				printf("]\n");
+			}
+			else {
+
+				printf("      [%s: ", call_stack[i].id);
+				print_token_inline(&memory[call_stack[i].val]);
+				printf("]\n");
+			}
+//		}
 	}
 	printf("===============\n");
 }
@@ -92,34 +108,39 @@ void push_stack_entry(char* id, address val) {
 		// currently in main function
 		main_end_pointer = stack_pointer;
 	}
+	if (stack_pointer >= STACK_SIZE) {
+		error(0, STACK_OVERFLOW); 
+	} 
 }
 
 address get_fn_frame_ptr() {
 	address trace = frame_pointer;
-	while (call_stack[trace].id[0] != '0') {
+	while (call_stack[trace].id[0] != FUNCTION_START_CHAR) {
 		trace = call_stack[trace].val;
 	}
 	return trace;
 }
 
-bool id_exist(char* id) {
+bool id_exist(char* id, bool search_main) {
 	// avoid the location at frame_pointer because that's the start and stores
 	for (int i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
 		if (strcmp(id, call_stack[i].id) == 0) {
 			return true;
 		}
 	}
-	for (int i = 0; i < main_end_pointer; i++) {
-		if (strcmp(id, call_stack[i].id) == 0) {
-			return true;
+	if (search_main) {
+		for (int i = 0; i < main_end_pointer; i++) {
+			if (strcmp(id, call_stack[i].id) == 0) {
+				return true;
+			}
 		}
 	}
 	return false;
 }
 
 address get_address_of_id(char* id, int line) {
-	if (!id_exist(id)) {
-		error(line, ID_NOT_FOUND);
+	if (!id_exist(id, true)) {
+		error(line, ID_NOT_FOUND, id);
 		return 0;
 	}
 	for (int i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
@@ -132,6 +153,26 @@ address get_address_of_id(char* id, int line) {
 			return call_stack[i].val;	
 		}
 	}
+	return 0;
+}
+
+address get_stack_pos_of_id(char* id, int line) {
+	if (!id_exist(id, true)) {
+		
+		error(line, ID_NOT_FOUND, id);
+		return 0;
+	}
+	for (int i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
+		if (strcmp(id, call_stack[i].id) == 0) {
+			return i;
+		}
+	}
+	for (int i = 0; i < main_end_pointer; i++) {
+		if (strcmp(id, call_stack[i].id) == 0) {
+			return i;
+		}
+	}
+	return 0;
 }
 
 token* get_value_of_id(char* id, int line) {

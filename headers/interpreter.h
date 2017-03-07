@@ -52,6 +52,6 @@ address eval_identifier(address start, size_t size);
 
 // eval_one_expr(i, expr_stack, search_end) calls when you have found a right
 //   bracket or parentheses,
-token eval_one_expr(address i, token_stack** expr_stack, token_type search_end, 
+void eval_one_expr(address i, token_stack** expr_stack, token_type search_end, 
 		bool entire_line);
 #endif

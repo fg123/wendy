@@ -31,10 +31,43 @@
 #define REQ_FILE_READ_ERR "req: File read error."
 #define MEMSET_NOT_NUM "Memset requires an integer address!"
 #define INPUT_ERROR "Input scanning error!"
+#define STACK_OVERFLOW "Stack overflow!"
 
 #define UNKNOWN_TOKEN "Unknown Token!"
 
-// error(line, message) prints an error message to the screen
-void error(int line, char* message);
+// Colors
+#ifdef _WIN32
 
+#define RED   ""
+#define GRN   ""
+#define YEL   ""
+#define BLU   ""
+#define MAG   ""
+#define CYN   ""
+#define WHT   ""
+#define RESET ""
+
+#else
+
+#define RED   "\x1B[31m"
+#define GRN   "\x1B[32m"
+#define YEL   "\x1B[33m"
+#define BLU   "\x1B[34m"
+#define MAG   "\x1B[35m"
+#define CYN   "\x1B[36m"
+#define WHT   "\x1B[37m"
+#define RESET "\x1B[0m"
+
+#endif
+
+// init_error(src) gives the source pointer to the error module so we can
+//   print the problematic line, this is called in main()
+void init_error(char* src);
+
+// error(line, message, ...) prints an error message to the screen with an
+//   optional string parameter which can be appended to the front.
+void error(int line, char* message, ...);
+
+// free_error() frees the allocated space for the source
+void free_error();
 #endif
