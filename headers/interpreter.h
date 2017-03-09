@@ -32,7 +32,7 @@ void run(char* input_string);
 //
 //   NOTE: this function has no responsibility for stack frame push/pop 
 address eval_fn(address start, size_t argc, 
-		char* arg_ids[], address arg_vals[], bool* has_ret);
+		char* arg_ids[], address arg_vals[], bool* has_ret, bool is_auto);
 
 // eval(start, size) evaluates the tokens into one expression (within a line)
 token eval(address start,  size_t size);

@@ -22,7 +22,7 @@ void run(char* input_string) {
 //	copy_tokens(&tokens);
 //	print_token_list(tokens, tokens_count);
 	bool b;
-	eval_fn(0, 0, 0, 0, &b);
+	eval_fn(0, 0, 0, 0, &b, false);
 //	print_token(eval(tokens, size));
 	free_error();
 	free(tokens);
@@ -78,7 +78,7 @@ address eval_identifier(address start, size_t size) {
 }
 
 address eval_fn(address start, size_t argc,
-		char* arg_ids[], address arg_vals[], bool* has_ret) {
+		char* arg_ids[], address arg_vals[], bool* has_ret, bool is_auto) {
 	// push arguments into stacks
 	*has_ret = false;
 	for (size_t i = 0; i < argc; i++) {
@@ -91,19 +91,27 @@ address eval_fn(address start, size_t argc,
 	for (size_t i = start; i < tokens_count; i++) {
 		token curr_t = tokens[i];
 		
-
 		if (curr_t.t_type == SEMICOLON && brace_count == 0) {
 			// end of a line
 			address a = 0;
 			if (parse_line(line_start, (i - line_start), &a)) {
 				// a return value, we pop all local automatic ones too
-			//	printf("POP CUZ OF SEMI %d\n", i);
-			//	print_token(&tokens[i - 1]);
-				pop_frame(true); 
-				*has_ret = true;
-				return a;
+//			printf("POP CUZ OF SEMI %d\n", i);
+//			print_token(&tokens[i - 1]);
+				if (is_auto) {
+					pop_frame(false);
+					*has_ret = true;
+					return a;
+				}
+				else {
+					pop_frame(true);
+					*has_ret = false;
+					return a;
+				}
 			}
 			else if (a != 0) {
+//				pop_frame(false);
+				*has_ret = false;
 				return a;
 			}
 			line_start = i + 1;
@@ -117,9 +125,9 @@ address eval_fn(address start, size_t argc,
 			brace_count++;
 		}
 		else if (curr_t.t_type == RIGHT_BRACE && brace_count == 0) {
-			//printf("POP CUZ OF NTSEMI %d\n", i);
+//			printf("POP CUZ OF NTSEMI %d\n", i);
 			if (pop_frame(false)) {
-				*has_ret = true;
+				*has_ret = false;
 				return 0; // address to NONE
 			}
 			else {
@@ -138,6 +146,7 @@ address eval_fn(address start, size_t argc,
 bool parse_line(address start, size_t size, address* return_val) {
 	// process the first character
 	//printf("Parse Line: First Char:\n");
+	*return_val = 0;
 	token f_token = tokens[start];
 	if (f_token.t_type == LET) {
 		if (size < 2) { 
@@ -259,51 +268,45 @@ bool parse_line(address start, size_t size, address* return_val) {
 		// SET Syntax
 		//   1. SET identifier = evaluable-value;
 		//   2. SET identifier => (arg1, arg2, ...) { function block; };
-		if (tokens[start + 1].t_type != IDENTIFIER) {
-			// not an identifier
-			error(f_token.t_line, SYNTAX_ERROR, "set");
-			return false;
-		}
-		else {
-		
-			// Read until = or =>
-			size_t id_size = 0;
-			while (tokens[start + 1 + id_size].t_type != EQUAL &&
-					tokens[start + 1 + id_size].t_type != DEFFN) {
-				id_size++;
-				if (start + 1 + id_size == size) {
-					// Can't find equal or deffn
-					error(f_token.t_line, SYNTAX_ERROR, "set");
-					return false;
-				}
-			}
-			address mem_to_mod = eval_identifier(start + 1, id_size);
-	
-			// check if declaration or definition
-			if (tokens[start + 1 + id_size].t_type == EQUAL) {
-				// replace the memory with the new value
-				replace_memory(eval(start + 2 + id_size, size - 2 - id_size), 
-						mem_to_mod);
-			}
-			else if (tokens[start + 1 + id_size].t_type == DEFFN) {
-				// Same as defined above for the LET statement  
-				if (tokens[start + 2 + id_size].t_type != LEFT_PAREN || 
-					tokens[start + size - 1].t_type != RIGHT_BRACE) {
-					error(f_token.t_line, SYNTAX_ERROR, "set");
-				}
-				else {
-					// Push the address of the next instruction
-					//   (left parentheses)
-					replace_memory(make_token(NUMBER, 
-						make_data_num(start + 2 + id_size)), mem_to_mod);
-				}
-
-			}
-			else {
+				
+		// Read until = or =>
+		size_t id_size = 0;
+		while (tokens[start + 1 + id_size].t_type != EQUAL &&
+				tokens[start + 1 + id_size].t_type != DEFFN) {
+			id_size++;
+			if (start + 1 + id_size == size) {
+				// Can't find equal or deffn
 				error(f_token.t_line, SYNTAX_ERROR, "set");
 				return false;
 			}
 		}
+		address mem_to_mod = eval_identifier(start + 1, id_size);
+
+		// check if declaration or definition
+		if (tokens[start + 1 + id_size].t_type == EQUAL) {
+			// replace the memory with the new value
+			replace_memory(eval(start + 2 + id_size, size - 2 - id_size), 
+					mem_to_mod);
+		}
+		else if (tokens[start + 1 + id_size].t_type == DEFFN) {
+			// Same as defined above for the LET statement  
+			if (tokens[start + 2 + id_size].t_type != LEFT_PAREN || 
+				tokens[start + size - 1].t_type != RIGHT_BRACE) {
+				error(f_token.t_line, SYNTAX_ERROR, "set");
+			}
+			else {
+				// Push the address of the next instruction
+				//   (left parentheses)
+				replace_memory(make_token(NUMBER, 
+					make_data_num(start + 2 + id_size)), mem_to_mod);
+			}
+
+		}
+		else {
+			error(f_token.t_line, SYNTAX_ERROR, "set");
+			return false;
+		}
+	
 	}
 	else if (f_token.t_type == EXPLODE) {
 		if (size != 2 || tokens[start + 1].t_type != IDENTIFIER) {
@@ -391,7 +394,9 @@ bool parse_line(address start, size_t size, address* return_val) {
 			// null terminator or newline character
 			if (errno != 0 || (*end_ptr != 0 && *end_ptr != 10)) {
 				t->t_type = STRING;
-
+				size_t len = strlen(buffer);
+				// remove last newline
+				buffer[len - 1] = 0;
 				strcpy(t->t_data.string, buffer);
 			}
 			else {
@@ -448,14 +453,14 @@ bool parse_line(address start, size_t size, address* return_val) {
 			if (result.t_type == TRUE) {
 				// this is the condition we want to eval
 				push_auto_frame(); 
-				bool has_ret;
-				address res = eval_fn(i + 1, 0, 0, 0, &has_ret);
+				bool has_ret = false;
+				address res = eval_fn(i + 1, 0, 0, 0, &has_ret, true);
 //				printf("IF RETURN %d\n", memory[res].t_data.number);
 
 				if (has_ret) {
 					// res stores the address of the function return value
 					*return_val = res;
-					return false;
+					return true;
 				}
 				else {
 					// done with the line!
@@ -492,13 +497,13 @@ bool parse_line(address start, size_t size, address* return_val) {
 				else if (tokens[i].t_type == ELSE) {
 					// MIGHT AS WELL EVAL THIS ONE LOL
 					push_auto_frame(); 
-					bool has_ret;
-					address res = eval_fn(i + 2, 0, 0, 0, &has_ret);
+					bool has_ret = false;
+					address res = eval_fn(i + 2, 0, 0, 0, &has_ret, true);
 					if (has_ret) {
 						// res stores the address of the function return value
 //						printf("ELSE RETURN %d\n", memory[res].t_data.number);
 						*return_val = res;
-						return false;
+						return true;
 					}
 					else {
 						// done with the line!
@@ -510,6 +515,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 	}
 	else if (f_token.t_type == PRINTSTACK) {
 		print_call_stack();
+		return false;
 	}
 	else if (f_token.t_type == LOOP) {
 		if (size < 5) {
@@ -537,6 +543,8 @@ bool parse_line(address start, size_t size, address* return_val) {
 //			printf("OUTOFBRACE\n");
 			// evaluate the result from condition_start (LEFT PAREN) to
 			//   the left_bracket
+//			printf("LOOP: \n");
+//			print_call_stack();
 			token result = eval(condition_start, i - condition_start);
 //			print_token(&result);
 			if (result.t_type != TRUE && result.t_type != FALSE) {
@@ -546,13 +554,13 @@ bool parse_line(address start, size_t size, address* return_val) {
 			if (result.t_type == TRUE) {
 				// we run then parseline again!
 				push_auto_frame(); 
-				bool has_ret;
-				address res = eval_fn(i + 1, 0, 0, 0, &has_ret);
+				bool has_ret = false;
+				address res = eval_fn(i + 1, 0, 0, 0, &has_ret, true);
 //				printf("IS TRUE\n");
 				if (has_ret) {
 					// res stores the address of the function return value
 					*return_val = res;
-					return false;
+					return true;
 				}
 				else {
 					// done with the line! we go back to the front and check
@@ -981,7 +989,7 @@ token eval(address start, size_t size) {
 						fn_pointer_in_mem);
 
 				bool b;
-				address a = eval_fn(fn_start, argc, arg_ids, arg_vals, &b);
+				address a = eval_fn(fn_start, argc, arg_ids, arg_vals, &b, false);
 				
 				expr_stack = push(get_value_of_address(a, tokens[i].t_line), 
 						expr_stack);
@@ -1145,7 +1153,7 @@ token eval(address start, size_t size) {
 					fn_pointer_in_mem);
 
 			bool b;
-			address a = eval_fn(fn_start, argc, arg_ids, arg_vals, &b); 
+			address a = eval_fn(fn_start, argc, arg_ids, arg_vals, &b, false); 
 			expr_stack = push(get_value_of_address(a, tokens[i].t_line), 
 					expr_stack);
 		}

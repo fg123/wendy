@@ -31,16 +31,20 @@ typedef struct {
 // Lets choose an arbitrary closest prime because why not: 129061
 //
 // FIRST SLOT OF MEMORY IS RESERVED FOR NONE TOKEN
-#define MEMORY_SIZE 129061
-token memory[MEMORY_SIZE];
+token* memory;
 
 // 128bytes per entry, 8mb of stack size
 // 8 * 1024 * 1024 = 8388608 bytes = 65536 entries in 8mb
-#define STACK_SIZE 65536
-stack_entry call_stack[STACK_SIZE];
+stack_entry* call_stack;
 
 extern address frame_pointer;
 extern address stack_pointer;
+
+// init_memory() allocates the memory
+void init_memory();
+
+// free_memory() deallocates the memory
+void free_memory();
 
 // memory_pointer stores the address of the next available memory space
 extern address memory_pointer;

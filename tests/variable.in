@@ -11,7 +11,7 @@ f;
 let ptr_a = &a;
 let ptr_b = &b;
 
-memset ptr_a = *ptr_b;
+set *ptr_a = *ptr_b;
 // a is now 20
 set c = c + a;
 c;

@@ -31,6 +31,7 @@ char* readline(char* prompt) {
 // main.c: used to handle REPL and calling the interpreter on a file.
 
 int main(int argc, char** argv) {
+	init_memory();
 	// ADDRESS 0 REFERS TO NONE_TOKEN
 	push_memory(none_token());
 	// ADDRESS 1 REFERS TO EMPTY RETURNS TOKEN
@@ -87,4 +88,5 @@ int main(int argc, char** argv) {
 			printf("Error reading file!\n");
 		}
 	}
+	free_memory();
 }

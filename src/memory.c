@@ -6,6 +6,9 @@
 
 // Memory.c, provides functions for the interpreter to manipulate the local 
 //   WendyScript memory
+#define MEMORY_SIZE 129061
+#define STACK_SIZE 100000
+
 
 address frame_pointer = 0;
 address stack_pointer = 0;
@@ -14,6 +17,16 @@ address memory_pointer = 0;
 static const char FUNCTION_START_CHAR = '>';
 // pointer to the end of the main frame
 address main_end_pointer = 0; 
+
+void init_memory() {
+	memory = calloc(MEMORY_SIZE, sizeof(token));
+	call_stack = calloc(STACK_SIZE, sizeof(stack_entry));
+}
+
+void free_memory() {
+	free(memory);
+	free(call_stack);
+}
 
 void push_frame(char* name) {
 	// store current frame pointer
@@ -41,6 +54,8 @@ void push_auto_frame() {
 }
 
 bool pop_frame(bool is_ret) {
+//	printf("POPPED RET:%d\n", is_ret);
+//	print_call_stack();
 	// trace back until we hit a FUNC 
 	address trace = frame_pointer;
 	if (is_ret)
@@ -56,7 +71,7 @@ bool pop_frame(bool is_ret) {
 	// frame pointer is going back 1 frame to the value trace holds
 	stack_pointer = trace;
 	frame_pointer = call_stack[trace].val;
-
+//	printf("NEW FP IS %d\n", frame_pointer);
 	// function ret or popped a function
 	return (is_ret || call_stack[trace].id[0] == FUNCTION_START_CHAR);
 }
@@ -66,13 +81,14 @@ void print_call_stack() {
 	for (int i = 0; i < stack_pointer; i++) {
 //		if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
 			if (frame_pointer == i) {
-				printf("FP -> [%s: ", call_stack[i].id);
+				printf("%d FP -> [%s -> %d: ", i, call_stack[i].id, 
+						call_stack[i].val);
 				print_token_inline(&memory[call_stack[i].val]);
 				printf("]\n");
 			}
 			else {
 
-				printf("      [%s: ", call_stack[i].id);
+				printf("%d       [%s -> %d: ",i, call_stack[i].id, call_stack[i].val);
 				print_token_inline(&memory[call_stack[i].val]);
 				printf("]\n");
 			}
