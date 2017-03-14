@@ -24,7 +24,7 @@ void error(int line, char* message, ...) {
 	char* additional = va_arg(a_list, char*);
 	if (additional) {
 		printf(RED "Runtime Error" RESET " at line " YEL "%d" RESET
-				": %s : %s\n", line, additional, message);
+				": %s: %s\n", line, additional, message);
 	}
 	else {
 		printf(RED "Runtime Error" RESET " at line " YEL "%d" RESET

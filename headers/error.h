@@ -31,7 +31,8 @@
 #define REQ_FILE_READ_ERR "req: File read error."
 #define MEMSET_NOT_NUM "Memset requires an integer address!"
 #define INPUT_ERROR "Input scanning error!"
-#define STACK_OVERFLOW "Stack overflow!"
+#define STACK_OVERFLOW "Call Stack Overflow!"
+#define MEMORY_OVERFLOW "Out of memory!" 
 
 #define UNKNOWN_TOKEN "Unknown Token!"
 

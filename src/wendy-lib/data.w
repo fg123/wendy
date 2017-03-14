@@ -94,4 +94,3 @@ let is_digit => (str) {
 		ret false;
 	};
 };
-

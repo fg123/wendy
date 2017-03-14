@@ -12,6 +12,7 @@ let irand => (seed) {
 
 // returns a random number from 0 to max
 let rand => (max) {
+	"called";
 	set r_seed = (((r_seed * 1103515245) + 12345)) % 2147483647;
 	ret r_seed % max; 
 };

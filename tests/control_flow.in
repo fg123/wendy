@@ -1,11 +1,15 @@
 let a = 10;
 
-if (a < 10) {
-	"a is less than 10";
-}
-else if (a > 10) {
-	"a is greater than 10";
-}
-else {
-	"a is 10";
+let f => (a) {
+	if (a < 10) {
+		ret "a is less than 10";
+	}
+	else if (a > 10) {
+		ret "a is greater than 10";
+	}
+	else {
+		ret "a is 10";
+	};
 };
+
+f(a);

@@ -46,25 +46,31 @@ void init_memory();
 // free_memory() deallocates the memory
 void free_memory();
 
+// check_memory() ensures all the pointers are within the memory space
+void check_memory();
+
 // memory_pointer stores the address of the next available memory space
 extern address memory_pointer;
 
 // push_frame(name) creates a new stack frame (when starting a function call)
-void push_frame(char* name);
+void push_frame(char* name, address ret);
 
 // push_auto_frame() creates an automatical local variable frame
-void push_auto_frame();
+void push_auto_frame(address ret);
 
 // pop_frame(is_ret) ends a function call, pops the latest stack frame 
 //   (including automatically created local frames IF is_ret!
 //   is_ret is true if we RET instead of ending bracket
 //
 //   pop_frame also returns true if the popped frame is a function frame
-bool pop_frame(bool is_ret);
+bool pop_frame(bool is_ret, address* ret);
 
 // push_memory(t) adds the token t into memory and returns the address of the
 //   pushed token
 address push_memory(token t);
+
+// pop_memory() removes a token from the memory after a push operation
+token pop_memory();
 
 // replace_memory(t, a) places the token t in the address a
 void replace_memory(token t, address a);
@@ -93,4 +99,9 @@ void print_call_stack();
 // get_address_pos_of_id(id, line) gets the stack address of the id
 address get_stack_pos_of_id(char* id, int line);
 
+// push_arg(t) pushes a token t into the other end of memory
+void push_arg(token t);
+
+// pop_arg() returns the top token t at the other end of memory
+token pop_arg();
 #endif

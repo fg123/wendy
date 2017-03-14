@@ -4,6 +4,7 @@
 #define MAX_STRING_LEN 1024
 
 #include <stdbool.h>
+#include <stdio.h>
 
 bool last_printed_newline;
 
@@ -12,6 +13,9 @@ typedef enum {
 	LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACK, RIGHT_BRACK,
 	COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR, COLON, AT, HASH, PERCENT,
 	INTSLASH, AMPERSAND,
+
+	// Special Expression Token (Unary)
+	U_STAR, U_MINUS,
 
 	// Comparison Tokens
 	NOT, NOT_EQUAL,
@@ -25,6 +29,9 @@ typedef enum {
 	// Literals.
 	IDENTIFIER, STRING, NUMBER,
 
+	// Object Types
+	OBJ_TYPE, TYPEOF, 
+
 	// Conditionals
 	AND, OR, IF, ELSE, ELSEIF, TRUE, FALSE,
 
@@ -32,11 +39,15 @@ typedef enum {
 	LET, SET, LOOP, DEFFN,
 	
 	// Special Commands
-	RET, INPUT, INC, DEC, STRUCT, MEMSET, PRINTSTACK, REQ, EXPLODE,
+	RET, INPUT, INC, DEC, STRUCT, PRINTSTACK, REQ, EXPLODE,
 	TIME,
 
 	// Special Forms
-	NONE, NONERET
+	NONE, NONERET,
+	
+	// Preprocessor Calls
+	CALL, PUSH, POP 
+
 } token_type;
 
 typedef union {
@@ -71,9 +82,15 @@ token true_token();
 // time_token() returns the current time in a number token
 token time_token();
 
+// noneret_token() returns a new noneret_token
+token noneret_token();
+
 // print_token(t) prints the value of the token to the string
 void print_token(const token* t);
 
 // print_token_inline(T) prints the value of the token inline
-void print_token_inline(const token* t);
+void print_token_inline(const token* t, FILE* buf);
+
+// token_equal(a, b) returns true if both tokens are equal and false otherwise
+bool token_equal(token* a, token* b);
 #endif

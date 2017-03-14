@@ -13,6 +13,7 @@
 address frame_pointer = 0;
 address stack_pointer = 0;
 address memory_pointer = 0;
+address arg_pointer = 0;
 
 static const char FUNCTION_START_CHAR = '>';
 // pointer to the end of the main frame
@@ -21,6 +22,7 @@ address main_end_pointer = 0;
 void init_memory() {
 	memory = calloc(MEMORY_SIZE, sizeof(token));
 	call_stack = calloc(STACK_SIZE, sizeof(stack_entry));
+	arg_pointer = MEMORY_SIZE - 1;
 }
 
 void free_memory() {
@@ -28,7 +30,22 @@ void free_memory() {
 	free(call_stack);
 }
 
-void push_frame(char* name) {
+void check_memory() {
+	// Check stack
+	if (stack_pointer >= STACK_SIZE) {
+		printf("Stack at %d with limit %d!", stack_pointer, STACK_SIZE);
+		error(0, STACK_OVERFLOW); 
+	} 
+	// Check memory, if the two ends overlap
+	if (memory_pointer >= arg_pointer) {
+		printf("Memory at %d with arg_ptr at %d with limit %d!", 
+				memory_pointer, arg_pointer, MEMORY_SIZE);
+		error(0, MEMORY_OVERFLOW);
+	}
+
+}
+
+void push_frame(char* name, address ret) {
 	// store current frame pointer
 	stack_entry new_entry = { "> ", frame_pointer };
 	strcat(new_entry.id, name);
@@ -38,24 +55,30 @@ void push_frame(char* name) {
 	frame_pointer = stack_pointer;
 	// add and increment stack_pointer
 	call_stack[stack_pointer++] = new_entry;
-	if (stack_pointer >= STACK_SIZE) {
-		error(0, STACK_OVERFLOW); 
-	} 
+	check_memory();
+	stack_entry ne2 = { "RET", ret }; 
+	call_stack[stack_pointer++] = ne2;
+	check_memory();
+	// pointer to self
+	
 }
 
-void push_auto_frame() {
+void push_auto_frame(address ret) {
 	// store current frame pointer
 	stack_entry new_entry = { "<auto_frame>", frame_pointer };
 	frame_pointer = stack_pointer;
 	call_stack[stack_pointer++] = new_entry;
-	if (stack_pointer >= STACK_SIZE) {
-		error(0, STACK_OVERFLOW); 
-	} 
+	
+	check_memory();
+
+	stack_entry ne2 = { "RET", ret }; 
+	call_stack[stack_pointer++] = ne2;
+	check_memory();
 }
 
-bool pop_frame(bool is_ret) {
-//	printf("POPPED RET:%d\n", is_ret);
-//	print_call_stack();
+bool pop_frame(bool is_ret, address* ret) {
+	//printf("POPPED RET:%d\n", is_ret);
+	//print_call_stack();
 	// trace back until we hit a FUNC 
 	address trace = frame_pointer;
 	if (is_ret)
@@ -69,6 +92,10 @@ bool pop_frame(bool is_ret) {
 	// trace is now the address in the call stack of the start of the function
 	// stack_pointer is now that address
 	// frame pointer is going back 1 frame to the value trace holds
+	
+	// return value is 1 slot under the function header
+	*ret = call_stack[trace + 1].val;
+//	printf("Ret:%d\n", *ret);
 	stack_pointer = trace;
 	frame_pointer = call_stack[trace].val;
 //	printf("NEW FP IS %d\n", frame_pointer);
@@ -79,30 +106,61 @@ bool pop_frame(bool is_ret) {
 void print_call_stack() {
 	printf("\nDump: Stack Trace\n");
 	for (int i = 0; i < stack_pointer; i++) {
-//		if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
-			if (frame_pointer == i) {
-				printf("%d FP -> [%s -> %d: ", i, call_stack[i].id, 
+		if (frame_pointer == i) {
+			if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
+				printf("%5d FP-> [" RED "%s" RESET " -> %d: ", i, call_stack[i].id, 
 						call_stack[i].val);
-				print_token_inline(&memory[call_stack[i].val]);
-				printf("]\n");
 			}
 			else {
-
-				printf("%d       [%s -> %d: ",i, call_stack[i].id, call_stack[i].val);
-				print_token_inline(&memory[call_stack[i].val]);
-				printf("]\n");
+				printf("%5d FP-> [%s -> %d: ", i, call_stack[i].id, 
+						call_stack[i].val);
 			}
-//		}
+			print_token_inline(&memory[call_stack[i].val], stdout);
+			printf("]\n");
+		}
+		else {
+			if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
+				printf("%5d      [" RED "%s" RESET " -> %d: ", i, call_stack[i].id, 
+						call_stack[i].val);
+			}
+			else {
+				printf("%5d      [%s -> %d: ",i, call_stack[i].id, call_stack[i].val);
+			}
+			print_token_inline(&memory[call_stack[i].val], stdout);
+			printf("]\n");
+			
+		}
 	}
 	printf("===============\n");
 }
 
-address push_memory(token t) {
-	if(memory_pointer >= MEMORY_SIZE) {
-		printf("OUT OF MEMORY!\nMemory size: %d\n", memory_pointer);
-		exit(1);
+void push_arg(token t) {
+//	printf("pushed ");
+//	print_token(&t);
+	memory[arg_pointer--] = t;
+	check_memory();
+}
+
+token pop_memory() {
+	if (memory_pointer != MEMORY_SIZE - 1) {
+		return memory[--memory_pointer];
 	}
+	printf("MEMORY IS EMPTY\n");
+	return none_token();
+}
+
+token pop_arg() {
+	if (arg_pointer != MEMORY_SIZE - 1) {
+		return memory[++arg_pointer];
+	}
+	printf("ARGSTACK is EMPTY!\n");
+	return none_token();
+}
+
+address push_memory(token t) {
+//	printf("Memory: %d\n", memory_pointer);
 	memory[memory_pointer++] = t;
+	check_memory();
 	return memory_pointer - 1;
 }
 
@@ -124,9 +182,7 @@ void push_stack_entry(char* id, address val) {
 		// currently in main function
 		main_end_pointer = stack_pointer;
 	}
-	if (stack_pointer >= STACK_SIZE) {
-		error(0, STACK_OVERFLOW); 
-	} 
+	check_memory();
 }
 
 address get_fn_frame_ptr() {

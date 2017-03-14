@@ -7,17 +7,17 @@
 // scanner.h provides tools to convert a code string into a list of tokens.
 
 // scan_tokens(source) creates a list of tokens from the source
-int scan_tokens(char* source_, token** destination);
+int scan_tokens(char* source_, token** destination, size_t* alloc_size);
 
 // scan_token() processes the next token
-void scan_token();
+static void scan_token();
 
 // add_token(type) just adds the given token 
-void add_token(token_type type);
+//static void add_token(token_type type);
 
 // add_token_V(type, val) adds the given token to the list with the given 
 //   val
-void add_token_V(token_type type, data val);
+//static void add_token_V(token_type type, data val);
 
 // print_token_list() prints the list of tokens
 void print_token_list(token* tokens, size_t size);

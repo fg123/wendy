@@ -5,6 +5,7 @@
 #include "memory.h"
 #include "error.h"
 #include "execpath.h"
+#include "preprocessor.h"
 
 const char* WENDY_VERSION = "Wendy 1.1";
 const unsigned int INPUT_BUFFER_SIZE = 2048;
@@ -37,8 +38,8 @@ int main(int argc, char** argv) {
 	// ADDRESS 1 REFERS TO EMPTY RETURNS TOKEN
 	push_memory(make_token(NONERET, make_data_str("<noneret>")));
 
-	if (argc > 2) {
-		printf("Usage: wendy or wendy [file]\n");
+	if (argc > 4) {
+		printf("usage: wendy [file] [-p-dump file] \n");
 		return 1;
 	}
 	else if (argc == 1) {
@@ -49,7 +50,7 @@ int main(int argc, char** argv) {
 		printf("T(%zd=%zd+%zd+D(%zd))-SE%zd\n", sizeof(token), sizeof(token_type), sizeof(int), sizeof(data), sizeof(stack_entry));
 		char *input_buffer;
 		// ENTER REPL MODE
-		push_frame("main");
+		push_frame("main", 0);
 		while (1) {
 			input_buffer = readline("> ");
 			if(!input_buffer) return 0;
@@ -59,8 +60,15 @@ int main(int argc, char** argv) {
 		}
 		// don't really have to pop
 		// pop_frame(true);
+		return 0;
 	}
-	else {
+	if (argc == 4) {
+		// possible pdump
+		if (strcmp("-p-dump", argv[2]) == 0) {
+			p_dump_path = argv[3];
+		}
+	}
+	if (argc >= 2) {
 		// FILE READ MODE
 		long length = 0;
 		char* buffer;
@@ -74,7 +82,7 @@ int main(int argc, char** argv) {
 				fread (buffer, 1, length, f);
 				buffer[length] = '\0'; // fread doesn't add a null terminator!
 
-				push_frame("main");
+				push_frame("main", 0);
 		//		init_error(buffer);
 				run(buffer);
 			}

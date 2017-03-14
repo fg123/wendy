@@ -9,21 +9,54 @@
 #include <math.h>
 #include <stdbool.h>
 #include <errno.h>
+#include "preprocessor.h"
+
 
 // tokens is a pointer to the first instruction
 static token* tokens;
 static size_t tokens_count;
 
 void run(char* input_string) {
-	tokens_count = scan_tokens(input_string, &tokens);
+	size_t alloc_size = 0;
+	tokens_count = scan_tokens(input_string, &tokens, &alloc_size);
 
-//	printf("SIZE OF TOKENS: %d\n", tokens_count);
-//	tokens = malloc(tokens_count * sizeof(token));
-//	copy_tokens(&tokens);
-//	print_token_list(tokens, tokens_count);
-	bool b;
-	eval_fn(0, 0, 0, 0, &b, false);
-//	print_token(eval(tokens, size));
+	tokens_count = preprocess(&tokens, tokens_count, alloc_size);
+
+	int brace_count = 0;
+	int line_start = 0;
+	for (int i = 0; i < tokens_count; i++) {
+		token curr_t = tokens[i];
+		
+		if (curr_t.t_type == SEMICOLON && brace_count == 0) {
+			// end of a line
+			address a = 0;
+			int oldI = i;
+			parse_line(line_start, (i - line_start), &i);
+			if (oldI == i) { line_start = i + 1; }
+			else { i--; line_start = i + 1; } 
+		}
+		else if (i == tokens_count - 1 && curr_t.t_type != SEMICOLON) {
+			// invalid end of line
+			error(curr_t.t_line, EXPECTED_END_OF_LINE);
+		}
+		else if (curr_t.t_type == LEFT_BRACE) {
+			brace_count++;
+		}
+		else if (curr_t.t_type == RIGHT_BRACE && brace_count == 0) {
+			if (pop_frame(false, &i)) {
+				//printf("we h ere nigga\n");
+				// was a function, we push a noneret
+				push_arg(none_token());
+			}
+//			printf("i: %d\n", i);
+			i--;
+			line_start = i + 1;
+		}
+		else if (curr_t.t_type == RIGHT_BRACE) {
+			brace_count--;
+		}
+
+	}
 	free_error();
 	free(tokens);
 }
@@ -77,76 +110,10 @@ address eval_identifier(address start, size_t size) {
 	}
 }
 
-address eval_fn(address start, size_t argc,
-		char* arg_ids[], address arg_vals[], bool* has_ret, bool is_auto) {
-	// push arguments into stacks
-	*has_ret = false;
-	for (size_t i = 0; i < argc; i++) {
-		push_stack_entry(arg_ids[i], arg_vals[i]);	
-	}
-
-	int brace_count = 0;
-	int line_start = start;
-
-	for (size_t i = start; i < tokens_count; i++) {
-		token curr_t = tokens[i];
-		
-		if (curr_t.t_type == SEMICOLON && brace_count == 0) {
-			// end of a line
-			address a = 0;
-			if (parse_line(line_start, (i - line_start), &a)) {
-				// a return value, we pop all local automatic ones too
-//			printf("POP CUZ OF SEMI %d\n", i);
-//			print_token(&tokens[i - 1]);
-				if (is_auto) {
-					pop_frame(false);
-					*has_ret = true;
-					return a;
-				}
-				else {
-					pop_frame(true);
-					*has_ret = false;
-					return a;
-				}
-			}
-			else if (a != 0) {
-//				pop_frame(false);
-				*has_ret = false;
-				return a;
-			}
-			line_start = i + 1;
-		}
-		else if (i == tokens_count - 1 && curr_t.t_type != SEMICOLON) {
-			// invalid end of line
-			error(curr_t.t_line, EXPECTED_END_OF_LINE);
-			return 0;
-		}
-		else if (curr_t.t_type == LEFT_BRACE) {
-			brace_count++;
-		}
-		else if (curr_t.t_type == RIGHT_BRACE && brace_count == 0) {
-//			printf("POP CUZ OF NTSEMI %d\n", i);
-			if (pop_frame(false)) {
-				*has_ret = false;
-				return 0; // address to NONE
-			}
-			else {
-				*has_ret = false;
-				return 0;
-			}
-			
-		}
-		else if (curr_t.t_type == RIGHT_BRACE) {
-			brace_count--;
-		}
-	}
-	return 0;
-}
-
-bool parse_line(address start, size_t size, address* return_val) {
+bool parse_line(address start, size_t size, int* i_ptr) {
 	// process the first character
-	//printf("Parse Line: First Char:\n");
-	*return_val = 0;
+	//printf("Parse Line: Size: %d\n", size);
+	//print_token(&tokens[start]);
 	token f_token = tokens[start];
 	if (f_token.t_type == LET) {
 		if (size < 2) { 
@@ -156,7 +123,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 		// LET Syntax
 		//   1. LET identifier = evaluable-value;
 		//   2. LET identifier; 
-		//   3. LET identifier => (arg1, arg2, ...) { function block; };
+		//   3. LET identifier => { function block; };
 		//   4. LET identifier[size];
 		//   5. LET identifier[size] = evaluable-value;
 		if (tokens[start + 1].t_type != IDENTIFIER) {
@@ -166,24 +133,37 @@ bool parse_line(address start, size_t size, address* return_val) {
 			return false;
 		}
 		else {
-			if (id_exist(tokens[start + 1].t_data.string, false)) {
-				// ALREADY DECLARED
-				error(f_token.t_line, TOKEN_DECLARED, 
-						tokens[start + 1].t_data.string); 
-				return false;
-			}
-			// check if declaration or definition
-			if (size == 2) {
-				push_stack_entry(tokens[start + 1].t_data.string, 
-						push_memory(none_token()));	
-			}
-			else if (size >= 4 && tokens[start + 2].t_type == EQUAL) {
-				// variable definition
-				// store in memory and point
-				address a = push_memory(eval(start + 3, size - 3));
+			// Check function first
+			if (size >= 5 && tokens[start + 2].t_type == DEFFN) {
+				if (id_exist(tokens[start + 1].t_data.string, false)) {
+					// ALREADY DECLARED
+					error(f_token.t_line, TOKEN_DECLARED, 
+							tokens[start + 1].t_data.string); 
+					return false;
+				}
+				// the bare minimum of a function definition is at least
+				// let id => {};, so it should have at least 6 tokens
+				// function definition, we store the address of the next
+				//   instruction: Eg:
+				//   let x => (arg1, arg2, ...) { function.block; };
+				//            ^-address here stored, eval fn then reads the
+				//              args and assigns the variables
+				// We should run through do a preliminary check that it's the 
+				//   right syntax.
+				
+				// Push the address of the next instruction
+				//   (left parentheses)
+				address a = push_memory(
+						make_token(NUMBER, make_data_num(start + 4))); 
 				push_stack_entry(tokens[start + 1].t_data.string, a);
 			}
 			else if (size >= 5 && tokens[start + 2].t_type == LEFT_BRACK) {
+				if (id_exist(tokens[start + 1].t_data.string, false)) {
+					// ALREADY DECLARED
+					error(f_token.t_line, TOKEN_DECLARED, 
+							tokens[start + 1].t_data.string); 
+					return false;
+				}
 				// is an array declaration
 				// we read until the matching right bracket, then set memory
 				//   spaces.
@@ -230,33 +210,47 @@ bool parse_line(address start, size_t size, address* return_val) {
 				push_stack_entry(tokens[start + 1].t_data.string, a);
 				
 			}
-			else if (size >= 7 && tokens[start + 2].t_type == DEFFN) {
-		
-				// the bare minimum of a function definition is at least
-				// let id => () {};, so it should have at least 7 tokens
-				// function definition, we store the address of the next
-				//   instruction: Eg:
-				//   let x => (arg1, arg2, ...) { function.block; };
-				//            ^-address here stored, eval fn then reads the
-				//              args and assigns the variables
-				// We should run through do a preliminary check that it's the 
-				//   right syntax.
-				if (tokens[start + 3].t_type != LEFT_PAREN || 
-					tokens[start + size - 1].t_type != RIGHT_BRACE) {
-					error(f_token.t_line, SYNTAX_ERROR, "let");
-				}
-				else {
-					// Push the address of the next instruction
-					//   (left parentheses)
-					address a = push_memory(
-							make_token(NUMBER, make_data_num(start + 3))); 
-					push_stack_entry(tokens[start + 1].t_data.string, a);
-					
-				}
-			}
 			else {
-				error(f_token.t_line, SYNTAX_ERROR, "let");
-				return false;
+				// check if declaration or definition	
+				bool already_declared = 
+					id_exist(tokens[start + 1].t_data.string, false);
+				if (size == 2) {	
+					if (already_declared) {
+						return false;
+					}
+					else {
+						push_stack_entry(tokens[start + 1].t_data.string, 
+								push_memory(none_token()));	
+					}
+				}
+				else if (size >= 4 && tokens[start + 2].t_type == EQUAL) {
+					// variable definition
+					// store in memory and point
+					token evaled = eval(start + 3, size - 3);
+					
+					if (already_declared) {
+						token* stored =	get_value_of_id(
+								tokens[start + 1].t_data.string, 
+								tokens[start].t_line);
+						if (token_equal(&evaled, stored)) {
+							return false;
+						}
+						else {
+							error(f_token.t_line, TOKEN_DECLARED, 
+								tokens[start + 1].t_data.string); 
+							return false;
+						}
+					} 
+					else {
+						address a = push_memory(evaled);
+						push_stack_entry(tokens[start + 1].t_data.string, a);
+					}
+				}
+				
+				else {
+					error(f_token.t_line, SYNTAX_ERROR, "let");
+					return false;
+				}
 			}
 		}
 	}
@@ -290,17 +284,8 @@ bool parse_line(address start, size_t size, address* return_val) {
 		}
 		else if (tokens[start + 1 + id_size].t_type == DEFFN) {
 			// Same as defined above for the LET statement  
-			if (tokens[start + 2 + id_size].t_type != LEFT_PAREN || 
-				tokens[start + size - 1].t_type != RIGHT_BRACE) {
-				error(f_token.t_line, SYNTAX_ERROR, "set");
-			}
-			else {
-				// Push the address of the next instruction
-				//   (left parentheses)
-				replace_memory(make_token(NUMBER, 
-					make_data_num(start + 2 + id_size)), mem_to_mod);
-			}
-
+			replace_memory(make_token(NUMBER, 
+				make_data_num(start + 3 + id_size)), mem_to_mod);
 		}
 		else {
 			error(f_token.t_line, SYNTAX_ERROR, "set");
@@ -452,20 +437,11 @@ bool parse_line(address start, size_t size, address* return_val) {
 			}
 			if (result.t_type == TRUE) {
 				// this is the condition we want to eval
-				push_auto_frame(); 
-				bool has_ret = false;
-				address res = eval_fn(i + 1, 0, 0, 0, &has_ret, true);
-//				printf("IF RETURN %d\n", memory[res].t_data.number);
+			//	printf("EVALED TURE ret pointer = %d\n", start + size + 1);
 
-				if (has_ret) {
-					// res stores the address of the function return value
-					*return_val = res;
-					return true;
-				}
-				else {
-					// done with the line!
-					return false;
-				}
+				push_auto_frame(start + size + 1); 
+				*i_ptr = i + 1;
+				return false;
 			}
 			else {
 				// it's false, lets see what's next
@@ -496,19 +472,10 @@ bool parse_line(address start, size_t size, address* return_val) {
 				}
 				else if (tokens[i].t_type == ELSE) {
 					// MIGHT AS WELL EVAL THIS ONE LOL
-					push_auto_frame(); 
-					bool has_ret = false;
-					address res = eval_fn(i + 2, 0, 0, 0, &has_ret, true);
-					if (has_ret) {
-						// res stores the address of the function return value
-//						printf("ELSE RETURN %d\n", memory[res].t_data.number);
-						*return_val = res;
-						return true;
-					}
-					else {
-						// done with the line!
-						return false;
-					}
+					push_auto_frame(start + size + 1); 
+
+					*i_ptr = i + 2;
+					return false;
 				}
 			}
 		}
@@ -540,33 +507,20 @@ bool parse_line(address start, size_t size, address* return_val) {
 					return false;
 				}
 			}
-//			printf("OUTOFBRACE\n");
-			// evaluate the result from condition_start (LEFT PAREN) to
-			//   the left_bracket
-//			printf("LOOP: \n");
-//			print_call_stack();
 			token result = eval(condition_start, i - condition_start);
 //			print_token(&result);
 			if (result.t_type != TRUE && result.t_type != FALSE) {
 				error(tokens[i].t_line, COND_EVAL_NOT_BOOL);
 				return false;
 			}
+			// i points to left bracket, our return value is the start so we
+			//	 can reevaluate
 			if (result.t_type == TRUE) {
 				// we run then parseline again!
-				push_auto_frame(); 
-				bool has_ret = false;
-				address res = eval_fn(i + 1, 0, 0, 0, &has_ret, true);
-//				printf("IS TRUE\n");
-				if (has_ret) {
-					// res stores the address of the function return value
-					*return_val = res;
-					return true;
-				}
-				else {
-					// done with the line! we go back to the front and check
-					//   cond again!
-					i = condition_start;
-				}
+				push_auto_frame(start); 
+				*i_ptr = i + 1;
+//				printf("Shifted to *iptr: %d\n", *i_ptr);
+				return false;
 			}
 			else {
 				// condition is false
@@ -575,19 +529,49 @@ bool parse_line(address start, size_t size, address* return_val) {
 		}
 	}
 	else if (f_token.t_type == RET) {
-	//	printf("Size: %d\n", size);
+		//printf("Size: %d\n", size);
 		if (size != 1) { 
-			// has a return value, we set the return_val flag
-			*return_val = push_memory(eval(start + 1, size - 1));
+			
+			token t = eval(start + 1, size - 1);
+		//	print_token(&t);
+			push_arg(t);
 		}
 		else {
-			*return_val = 1;
+			push_arg(noneret_token());
 		}
+	//	printf("Not doing\n");
+		pop_frame(true, i_ptr);
+//		printf("New iptr = %d\n", *i_ptr);
 		return true;
+	}
+	else if (f_token.t_type == PUSH) {
+		push_arg(eval(start + 1, size - 1));
+		return false;
+	}
+	else if (f_token.t_type == POP) {
+
+		address mem = eval_identifier(start + 1, size - 1);
+		
+		memory[mem] = pop_arg();
+		//print_token(&memory[mem]);
+		return false;
+	}
+	else if (f_token.t_type == CALL) {
+		address a = eval_identifier(start + 1, size - 1);
+		token t = memory[a];
+		if (t.t_type != NUMBER) {
+			error(t.t_line, SYNTAX_ERROR);
+		}
+		int ret_val = start + size + 1; // next instruction
+		push_frame(tokens[start + 1].t_data.string, ret_val);
+		 
+		push_stack_entry(tokens[start + 1].t_data.string, a);
+		*i_ptr = t.t_data.number;
+		return false;
 	}
 	else if (f_token.t_type == AT) {
 		token print_res = eval(start + 1, size - 1);
-		print_token_inline(&print_res);
+		print_token_inline(&print_res, stdout);
 		return false;
 	}
 	else {
@@ -601,7 +585,7 @@ bool parse_line(address start, size_t size, address* return_val) {
 }
 
 token eval_uniop(token op, token a) {
-	if (op.t_type == STAR) {
+	if (op.t_type == U_STAR) {
 		// pointer operator
 		if (a.t_type != NUMBER) {
 			error(a.t_line, SYNTAX_ERROR, "*");
@@ -620,7 +604,7 @@ token eval_uniop(token op, token a) {
 					get_address_of_id(a.t_data.string, a.t_line)));
 		return res;
 	}
-	else if (op.t_type == MINUS) {
+	else if (op.t_type == U_MINUS) {
 		if (a.t_type != NUMBER) {
 			error(a.t_line, SYNTAX_ERROR, "-");
 			return none_token();
@@ -645,6 +629,29 @@ token eval_binop(token op, token a, token b) {
 	//print_token(&op);
 	//print_token(&a);
 	//print_token(&b);
+	if (op.t_type == TYPEOF) {
+		if (b.t_type != OBJ_TYPE && b.t_type != NONE) {
+			error(op.t_line, TYPE_ERROR); 
+		}
+		if (a.t_type == NUMBER) {
+			return (strcmp("number", b.t_data.string) == 0) ?
+				true_token() : false_token();
+		}
+		else if (a.t_type == STRING) {
+			return (strcmp("string", b.t_data.string) == 0) ?
+				true_token() : false_token();
+		}
+		else if (a.t_type == TRUE || a.t_type == FALSE) {
+			return (strcmp("bool", b.t_data.string) == 0) ?
+				true_token() : false_token();
+		}
+		else if (a.t_type == NONE) {
+			return b.t_type == NONE ? true_token() : false_token();
+		}
+		else {
+			return false_token();
+		}
+	}
 	if (a.t_type == NUMBER && b.t_type == NUMBER) {
 		switch (op.t_type) {
 			case EQUAL_EQUAL: 	
@@ -774,108 +781,144 @@ token eval_binop(token op, token a, token b) {
 	return none_token();
 }
 
+// precedence(op) returns precedence of the operator
+int precedence(token op) {
+	switch (op.t_type) {
+		case PLUS:
+		case MINUS:
+			return 140;
+		case STAR:
+		case SLASH:
+		case INTSLASH:
+		case PERCENT:
+			return 150;
+		case AND:
+			return 120;
+		case OR:
+			return 110;
+		case TYPEOF:
+			return 132;
+		case NOT_EQUAL:
+		case EQUAL_EQUAL:
+			return 130;
+		case GREATER:
+		case GREATER_EQUAL:
+		case LESS:
+		case LESS_EQUAL:
+			return 130;
+		case NOT:
+		case U_MINUS:
+		case U_STAR:
+			return 160; // Most precedence
+		default: 
+			return 0;
+	}
+}
+
 void eval_one_expr(address i, token_stack** expr_stack, token_type search_end,
 		bool entire_line) {
-// track back to left parentheses (or front of the tokenlist)
+	// This implements Shunting Yard Algorithm
+
 //	printf("EVAL ONE EXPR: \n");
 //	print_token_stack(*expr_stack);
 	token_stack* eval_stack = 0;
+	token_stack* operator_stack = 0;
+
 	while (!is_empty(*expr_stack) && 
 			((*expr_stack)->val)->t_type != search_end) {
 		token* t = (*expr_stack)->val;
-		
-		eval_stack = push(t, eval_stack);
+
+		if (precedence(*t)) {
+//			printf("Hit an operator: %d\n", t->t_type);
+			// is an operator
+			while (operator_stack != 0 && 
+				precedence(*(operator_stack->val)) > precedence(*t)) {
+//				printf("IN LOOP");
+				token op = *(operator_stack->val);
+				operator_stack = pop(operator_stack);
+				// remove operator
+				
+				bool is_unary = false;
+				if (op.t_type == NOT || op.t_type == U_STAR || 
+						op.t_type == U_MINUS) {
+					is_unary = true;
+				}
+	
+				if (is_unary) {
+					token b = *(eval_stack->val);
+					token answer = eval_uniop(op, b);
+					address adr = push_memory(answer);
+					eval_stack = pop(eval_stack);
+					eval_stack = push(&memory[adr], eval_stack);
+				}
+				else {
+					token a = *(eval_stack->val);
+					eval_stack = pop(eval_stack);
+					token b = *(eval_stack->val); 
+					eval_stack = pop(eval_stack);
+					token answer = eval_binop(op, a, b);
+					address adr = push_memory(answer);
+					eval_stack = push(&memory[adr], eval_stack);
+				}
+			}
+			operator_stack = push(t, operator_stack);
+		}
+		else {
+			eval_stack = push(t, eval_stack);
+		}
 		*expr_stack = pop(*expr_stack);
 	}
+//	printf("Stacks; \n");
+//	print_token_stack(eval_stack);
+//	print_token_stack(operator_stack);
 	// Check if Left Parentheses is actually there (if not tracing from 
-	// the end.
+	//	 the end.
 	if (is_empty(*expr_stack) && !entire_line) { 
 		error(tokens[i].t_line, PAREN_MISMATCH);
 	} 
 	else if (!entire_line) {
 		*expr_stack = pop(*expr_stack); // pop left paren
 	}
-	while (!is_empty(eval_stack)) {
-//			printf("expr_stack is: \n");
-//			print_token_stack(*expr_stack);
-//			printf("\neval_stack is: \n");
-//			print_token_stack(eval_stack);
-//			printf("\n\n");
+	while (!is_empty(operator_stack)) {
+		token op = *(operator_stack->val);
+		operator_stack = pop(operator_stack);
+		// remove operator
+		bool is_unary = false;
+		if (op.t_type == NOT || op.t_type == U_STAR || 
+				op.t_type == U_MINUS) {
+			is_unary = true;
+		}
 
-		token* t = eval_stack->val;
-		if (t->t_type == NUMBER || t->t_type == STRING || 
-			t->t_type == TRUE || t->t_type == FALSE || 
-			t->t_type == NONE || t->t_type == NONERET) {
-			*expr_stack = push(t, *expr_stack);
+		if (is_unary) {
+			token b = *(eval_stack->val);
+			token answer = eval_uniop(op, b);
+			address adr = push_memory(answer);
 			eval_stack = pop(eval_stack);
-		} 
+			eval_stack = push(&memory[adr], eval_stack);
+		}
 		else {
-			token op = *(eval_stack->val);
-			// unary operator is either: 
-			//   & > for reference (has to be unary)
-			//      THIS CASE IS NOT HANDLED HERE, THIS IS HANDLED IN
-			//      IDENTIFIER BEFORE WE EVEN GET INTO THIS EVAL LOOP
-			//   * > for dereference
-			//   - > for negation
-			//   ! > for negation (has to be unary)
-			bool is_unary = false;
-			if (op.t_type == NOT) {
-				is_unary = true;
-			}
-			else if (op.t_type == STAR || op.t_type == MINUS) {
-				if (is_empty(*expr_stack) ||
-				   ((*expr_stack)->val)->t_type != NUMBER) {
-					is_unary = true;
-				}
-			}
-			
-			if (is_unary) {
-				// is unary
-				eval_stack = pop(eval_stack);
-				token b = *(eval_stack->val);
-
-				// result into expr
-				token answer = eval_uniop(op, b);
-				address adr = push_memory(answer);
-
-				*expr_stack = push(&memory[adr], *expr_stack);
-				eval_stack = pop(eval_stack);
-			}
-			else {
-				// its an operator, we handle unary here too, for now just bin
-				token a = *((*expr_stack)->val);
-								// next evalstack is the other number
-				eval_stack = pop(eval_stack); // remove operator
-				token b = *(eval_stack->val);
-				
-			
-
-				// push result into expr
-				token answer = eval_binop(op, a, b);
-				address adr = push_memory(answer);
-
-		
-				// remove prev number from expr_stack
-				*expr_stack = pop(*expr_stack);
-
-				*expr_stack = push(&memory[adr], *expr_stack);
-				// remove next number
-				eval_stack = pop(eval_stack);
-			}
+			token a = *(eval_stack->val);
+			eval_stack = pop(eval_stack);
+			token b = *(eval_stack->val); 
+			eval_stack = pop(eval_stack);
+			token answer = eval_binop(op, a, b);
+			address adr = push_memory(answer);
+			eval_stack = push(&memory[adr], eval_stack);
 		}
 	}
+	if (!is_empty(eval_stack)) {
+		*expr_stack = push(eval_stack->val, *expr_stack);
+	}
 	free_stack(eval_stack);
-
+	free_stack(operator_stack);
 }
 
 token eval(address start, size_t size) {
 //	print_token(&tokens[start]);
 //	printf("SIZE: %zd\n", size);
-	// This function assumes the tokens are simplest forms, ie, no identifiers
-	token_stack* expr_stack = 0; // declare a stack
-	// we actually loop until size, because we have to handle the entire string
-	// if there are no parentheses
-	
+	token_stack* expr_stack = 0;
+	address old_mem = memory_pointer;
+
 	for (address i = start; i <= start + size; i++) {
 //		printf("evalling + %d\n", i);
 		if (i == start + size) {
@@ -886,115 +929,6 @@ token eval(address start, size_t size) {
 		}
 		else if (tokens[i].t_type == IDENTIFIER) {
 			if (i < start + size - 1 && 
-				tokens[i + 1].t_type == LEFT_PAREN) {
-				// A function call on the identifier.
-				
-				// We retrieve that identifier's stored, should be within the
-				//   tokens block, eg identifier's stored function start 
-				//   address < tokens_count
-				address fn_name = i;
-				token* tk = get_value_of_id(tokens[i].t_data.string,
-						tokens[i].t_line);
-				address fn_pointer_in_mem = 
-					get_address_of_id(tokens[i].t_data.string, tokens[i].t_line);
-				address fn_start = tk->t_data.number;
-				if (fn_start >= tokens_count) {
-					error(tokens[i].t_line, FUNCTION_CALL_MEM_ERROR);
-					return none_token();
-				}
-			
-				int req_arg_count = 0;
-				// max args?
-				char* arg_ids[100];
-				// first we get parameter names
-				// fn_start is address to \/
-				//                let x => (arg1, arg2) {};
-				// Go through and pull args
-				fn_start++;
-				while (1) {
-					if (tokens[fn_start].t_type == RIGHT_PAREN) {
-						break;
-					}
-					else if (tokens[fn_start].t_type == IDENTIFIER) {
-						arg_ids[req_arg_count++] = 
-							tokens[fn_start].t_data.string;
-						fn_start++;
-					}
-					else if (tokens[fn_start].t_type == COMMA) {
-						fn_start++; // skip the comma
-					}
-					else {
-						error(tokens[fn_start].t_line, SYNTAX_ERROR);
-						return none_token();
-					}
-				}
-
-				// fn_start is now at the right_paren, so we add 2 to push it 
-				//   to the first code instruction (skip the {)
-				fn_start += 2;
-
-				// first we pull the arguments by reading until the matching )
-				//   in the function call
-				address arg_vals[100];
-				i += 2;
-				address arg_start = i;
-				address arg_eval_size = 0;
-				int argc = 0;
-				int brace_count = 0;
-				while (1) {
-					if (tokens[i].t_type == RIGHT_PAREN && arg_eval_size == 0) {
-						// no arguments
-						break;
-					}
-					else if ((tokens[i].t_type == RIGHT_PAREN || 
-							 tokens[i].t_type == COMMA) && brace_count == 0) {
-						// has an argument
-						token arg_res = eval(arg_start, arg_eval_size);
-						arg_vals[argc++] = push_memory(arg_res);
-						arg_start = i + 1;
-						arg_eval_size = 0;
-						if (tokens[i].t_type == RIGHT_PAREN) { break; }
-						i++;
-					}
-					else if (tokens[i].t_type == RIGHT_PAREN) {
-						brace_count--;
-						arg_eval_size++;
-						i++;
-					}
-					else if (tokens[i].t_type == LEFT_PAREN) {
-						brace_count++;
-						arg_eval_size++;
-						i++;
-					}
-					else {
-						arg_eval_size++;
-						i++;
-					}
-					if (i >= start + size) {
-						error(tokens[i].t_line, SYNTAX_ERROR);
-						return none_token();
-					}
-				}
-				if (argc != req_arg_count) {
-					printf("Requires %d but got %d!\n", req_arg_count, argc);
-					error(tokens[i].t_line, FUNCTION_ARG_MISMATCH);
-					return none_token();
-				}
-				// Now ready to run the function
-			
-				// push a frame for the function
-				push_frame(tokens[fn_name].t_data.string);
-				// add a pointer to itself so it can call itself
-				push_stack_entry(tokens[fn_name].t_data.string, 
-						fn_pointer_in_mem);
-
-				bool b;
-				address a = eval_fn(fn_start, argc, arg_ids, arg_vals, &b, false);
-				
-				expr_stack = push(get_value_of_address(a, tokens[i].t_line), 
-						expr_stack);
-			}
-			else if (i < start + size - 1 && 
 				tokens[i + 1].t_type == LEFT_BRACK) {
 				// An array reference
 				address id_address = get_address_of_id(tokens[i].t_data.string,
@@ -1053,173 +987,20 @@ token eval(address start, size_t size) {
 				}
 			}
 		}
-		else if (tokens[i].t_type == LEFT_PAREN && !is_empty(expr_stack) && 
-				(expr_stack->val)->t_type == NUMBER) {
-			// A function call on the number ptr;
-						
-			address fn_start = (expr_stack->val)->t_data.number;
-			address fn_pointer_in_mem = (expr_stack->val)->t_data.number;
-			
-			expr_stack = pop(expr_stack);
-			if (fn_start >= tokens_count) {
-				error(tokens[i].t_line, FUNCTION_CALL_MEM_ERROR);
-				return none_token();
-			}
-			address fn_name = fn_start - 2;
-			int req_arg_count = 0;
-			// max args?
-			char* arg_ids[100];
-			// first we get parameter names
-			// fn_start is address to \/
-			//                let x => (arg1, arg2) {};
-			// Go through and pull args
-			fn_start++;
-			while (1) {
-				if (tokens[fn_start].t_type == RIGHT_PAREN) {
-					break;
-				}
-				else if (tokens[fn_start].t_type == IDENTIFIER) {
-					arg_ids[req_arg_count++] = 
-						tokens[fn_start].t_data.string;
-					fn_start++;
-				}
-				else if (tokens[fn_start].t_type == COMMA) {
-					fn_start++; // skip the comma
-				}
-				else {
-					error(tokens[fn_start].t_line, SYNTAX_ERROR);
-					return none_token();
-				}
-			}
-
-			// fn_start is now at the right_paren, so we add 2 to push it 
-			//   to the first code instruction (skip the {)
-			fn_start += 2;
-
-			// first we pull the arguments by reading until the matching )
-			//   in the function call
-			address arg_vals[100];
-			i += 1;
-			address arg_start = i;
-			address arg_eval_size = 0;
-			int argc = 0;
-			int brace_count = 0;
-			while (1) {
-				if (tokens[i].t_type == RIGHT_PAREN && arg_eval_size == 0) {
-					// no arguments
-					break;
-				}
-				else if ((tokens[i].t_type == RIGHT_PAREN || 
-						 tokens[i].t_type == COMMA) && brace_count == 0) {
-					// has an argument
-					token arg_res = eval(arg_start, arg_eval_size);
-					arg_vals[argc++] = push_memory(arg_res);
-					arg_start = i + 1;
-					arg_eval_size = 0;
-					if (tokens[i].t_type == RIGHT_PAREN) { break; }
-					i++;
-				}
-				else if (tokens[i].t_type == RIGHT_PAREN) {
-					brace_count--;
-					arg_eval_size++;
-					i++;
-				}
-				else if (tokens[i].t_type == LEFT_PAREN) {
-					brace_count++;
-					arg_eval_size++;
-					i++;
-				}
-				else {
-					arg_eval_size++;
-					i++;
-				}
-				if (i >= start + size) {
-					error(tokens[i].t_line, SYNTAX_ERROR);
-					return none_token();
-				}
-			}
-			if (argc != req_arg_count) {
-				printf("Requires %d but got %d!\n", req_arg_count, argc);
-
-				error(tokens[i].t_line, FUNCTION_ARG_MISMATCH);
-				return none_token();
-			}
-			// Now ready to run the function
-		
-			// push a frame for the function
-			push_frame(tokens[fn_name].t_data.string);
-			// add a pointer to itself so it can call itself
-			push_stack_entry(tokens[fn_name].t_data.string, 
-					fn_pointer_in_mem);
-
-			bool b;
-			address a = eval_fn(fn_start, argc, arg_ids, arg_vals, &b, false); 
-			expr_stack = push(get_value_of_address(a, tokens[i].t_line), 
-					expr_stack);
-		}
-		else if (tokens[i].t_type == LAMBDA) {
-			// start of a lambda function definition
-			// Lambda Syntax:
-			//   #:(arg1, arg2...) { fn block }
-			//   This whole thing resolves to a fn pointer to the first
-			//     left PAREN, as if it was defined as a function
-			//   Minimum length is at least #:(){}, so 6.
-			//   start + size is the end pointer.
-			if (i + 5 >= start + size) {
-				// Too short!
-				error(tokens[i].t_line, SYNTAX_ERROR, "lambda");
-				return none_token();
-			}
-			// Syntax checking can be performed when the function is called,
-			// We'll do a lambda function syntax check for the colon and the
-			//   braces.
-			if (tokens[++i].t_type != LEFT_PAREN) {
-				error(tokens[i].t_line, SYNTAX_ERROR, "lambda");
-				return none_token();
-			}
-			address fn_start = i;
-			// read until left brace
-			while (1) {
-				i++;
-				if (i >= start + size) {
-					error(tokens[i].t_line, SYNTAX_ERROR, "lambda");
-					return none_token();
-				}
-				if (tokens[i].t_type == LEFT_BRACE) {
-					break;
-				}
-			}
-			// Now we are at left brace
-			int brace_count = 0;
-			// standard finding matching brace
-			while (1) {
-				i++;
-				if (i >= start + size) {
-					error(tokens[i].t_line, SYNTAX_ERROR, "lambda");
-					return none_token();
-				}
-				if (tokens[i].t_type == RIGHT_BRACE && brace_count == 0) {
-					break;
-				}
-				if (tokens[i].t_type == LEFT_BRACE) {
-					brace_count++;
-				}
-				else if (tokens[i].t_type == RIGHT_BRACE) {
-					brace_count--;
-				}
-			}
-			// Now we are at end of lambda, we'll just push the number into expr
-			// stack
-			token t = make_token(NUMBER, make_data_num(fn_start));
-			address t_a = push_memory(t);
-			expr_stack = push(&memory[t_a], expr_stack);
-//			print_token_stack(expr_stack);
-		}
 		else if (tokens[i].t_type == TIME) {
 			address time_tok = push_memory(time_token());
 			expr_stack = push(&memory[time_tok], expr_stack);
 		}
 		else {
+			    // is an operator
+			if (precedence(tokens[i]) && 
+				// and at the front, or preceded by another operator
+				(is_empty(expr_stack) || precedence(*(expr_stack->val))) &&
+				(tokens[i].t_type == MINUS || tokens[i].t_type == STAR)) {
+				// it's an unary operator!
+				tokens[i].t_type = tokens[i].t_type == MINUS ? U_MINUS : U_STAR;
+			}
+			
 			expr_stack = push(&tokens[i], expr_stack);
 			//printf("pushing onto expr_stack is: ");
 			//print_token(tokens[i]);
@@ -1234,7 +1015,14 @@ token eval(address start, size_t size) {
 		result = *(expr_stack->val);
 	}
 //	print_token(&result);
-	free_stack(expr_stack); // frees the malloc
+
+	// frees the allocated stack
+	free_stack(expr_stack);
+
+	// frees the intermediate values in the memory
+	while (memory_pointer > old_mem) {
+		pop_memory();
+	}
 	return result;
 }
 

@@ -15,6 +15,9 @@ static size_t tokens_alloc_size;
 static size_t t_curr; // t_curr is used to keep track of addToken
 static size_t line;
 
+static void add_token(token_type type);
+static void add_token_V(token_type type, data val);
+
 // is_at_end() returns true if scanning index reached the end
 bool is_at_end() {
 	return current >= source_len;
@@ -298,6 +301,13 @@ void identifier() {
 //	else if (strcmp(text, "memset") == 0){ add_token(MEMSET); }
 	else if (strcmp(text, "loop") == 0)	{ add_token(LOOP); }
 	else if (strcmp(text, "none") == 0)	{ add_token(NONE); }
+	
+	else if (strcmp(text, "bool") == 0)	{ add_token(OBJ_TYPE); }
+	else if (strcmp(text, "string") == 0)	{ add_token(OBJ_TYPE); }
+	else if (strcmp(text, "number") == 0)	{ add_token(OBJ_TYPE); }
+	else if (strcmp(text, "typeof") == 0)	{ add_token(TYPEOF); }
+
+
 	else if (strcmp(text, "ret") == 0)	{ add_token(RET); }
 	else if (strcmp(text, "explode") == 0) { add_token(EXPLODE); }
 	else if (strcmp(text, "req") == 0)	{ 
@@ -414,7 +424,7 @@ void scan_token() {
 		// END SWITCH HERE
 	}
 }
-int scan_tokens(char* source_, token** destination) {
+int scan_tokens(char* source_, token** destination, size_t* alloc_size) {
 	// allocate enough space for the max length of the source, probably not
 	//   needed but it's a good setup.
 
@@ -435,6 +445,7 @@ int scan_tokens(char* source_, token** destination) {
 	// append end of file
 	//add_token_V(EOFILE, make_data_str("EOFILE"));
 	*destination = tokens;
+	*alloc_size = tokens_alloc_size;
 	//free(source);
 	init_error(source);
 	return t_curr;
@@ -461,6 +472,9 @@ void add_token_V(token_type type, data val) {
 		token new_t = { ELSEIF, line,make_data_str("else if") };
 		tokens[t_curr - 1] = new_t;
 	}
+	else if (type == NONE) { tokens[t_curr++] = none_token(); }
+	else if (type == TRUE) { tokens[t_curr++] = true_token(); }
+	else if (type == FALSE) { tokens[t_curr++] = false_token(); }
 	else {
 		token new_t = { type, line, val };
 		tokens[t_curr++] = new_t;
@@ -482,10 +496,10 @@ void print_token_list(token* tokens, size_t size) {
 	for(int i = 0; i < size; i++) {
 
 		if(tokens[i].t_type == NUMBER) {
-			printf("{ %d -> %f }\n", tokens[i].t_type, tokens[i].t_data.number);
+			printf("{ %d - %d -> %f }\n", i, tokens[i].t_type, tokens[i].t_data.number);
 		}
 		else {
-			printf("{ %d -> %s }\n", tokens[i].t_type, tokens[i].t_data.string);
+			printf("{ %d - %d -> %s }\n", i, tokens[i].t_type, tokens[i].t_data.string);
 		}
 //		printf("%d\n", i);
 

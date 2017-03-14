@@ -13,10 +13,14 @@ struct cons => (value, next);
 
 // Getting Components
 let first => (list) {
-	ret cons_value(list);
+	if (list != none) {
+		ret cons_value(list);
+	};
 };
 let rest => (list) {
-	ret cons_next(list);
+	if (list != none) {
+		ret cons_next(list);
+	};
 };
 
 let is_empty => (list) {

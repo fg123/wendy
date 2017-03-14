@@ -1,0 +1,65 @@
+WendyScript Pre-Processor Dump
+let f => { 
+  In Function ; 
+  } ; 
+call f ; 
+let ~tmp1 ; 
+pop ~tmp1 ; 
+~tmp1 ; 
+let add1 => { 
+  let x ; 
+  pop x ; 
+  ret x + 1 ; 
+  } ; 
+push 10 ; 
+call add1 ; 
+let ~tmp2 ; 
+pop ~tmp2 ; 
+~tmp2 ; 
+set add1 = 10 ; 
+add1 ; 
+set add1 => { 
+  let x ; 
+  pop x ; 
+  ret x + x ; 
+  } ; 
+push 10 ; 
+call add1 ; 
+let ~tmp3 ; 
+pop ~tmp3 ; 
+~tmp3 ; 
+let nat_range => { 
+  let step ; 
+  pop step ; 
+  let end ; 
+  pop end ; 
+  let start ; 
+  pop start ; 
+  if ( start >= end ) { 
+    ret  ; 
+    } else { 
+    push start + step ; 
+    push end ; 
+    push step ; 
+    call nat_range ; 
+    let ~tmp4 ; 
+    pop ~tmp4 ; 
+    ret start +   + ~tmp4 ; 
+    } ; 
+  } ; 
+push 5 ; 
+push 10 ; 
+push 2 ; 
+call nat_range ; 
+let ~tmp5 ; 
+pop ~tmp5 ; 
+~tmp5 ; 
+push 10 ; 
+call add1 ; 
+let ~tmp6 ; 
+pop ~tmp6 ; 
+push ~tmp6 ; 
+call add1 ; 
+let ~tmp7 ; 
+pop ~tmp7 ; 
+~tmp7 ; 

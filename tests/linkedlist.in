@@ -28,5 +28,5 @@ let sort => (lst) {
 
 
 let sortinglist = cons(84, cons(2, cons(9, cons(36, cons(17, none)))));
-set sortinglist = sort(sortinglist);
-print_list(sortinglist);
+let sorted = sort(sortinglist);
+print_list(sorted);
