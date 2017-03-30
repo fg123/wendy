@@ -639,9 +639,9 @@ token eval_uniop(token op, token a) {
 	}
 	else if (op.t_type == AMPERSAND) {
 		
-		token res = make_token(ADDRESS, make_data_num(
-					get_address_of_id(a.t_data.string, a.t_line)));
-		return res;
+//		token res = make_token(ADDRESS, make_data_num(
+//					get_address_of_id(a.t_data.string, a.t_line)));
+		return a;
 	}
 	else if (op.t_type == U_MINUS) {
 		if (a.t_type != NUMBER) {
@@ -1120,7 +1120,13 @@ token eval(address start, size_t size) {
 //	printf("SIZE: %zd\n", size);
 	token_stack* expr_stack = 0;
 	//address old_mem = arg_pointer;
-
+	
+	if (tokens[start].t_type == AMPERSAND) {
+		address mem_to_mod = eval_identifier(start + 1, size - 1);
+		token res = make_token(ADDRESS, make_data_num(
+				mem_to_mod));
+		return res;
+	}
 	for (address i = start; i <= start + size; i++) {
 //		printf("evalling + %d\n", i);
 		if (i == start + size) {
