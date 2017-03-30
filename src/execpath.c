@@ -4,7 +4,6 @@
 #include <limits.h>
 
 #define W_MAX_PATH 500
-ssize_t readlink(const char *path, char *buf, size_t bufsiz);
 #ifdef _WIN32
 
 #include <Windows.h>
@@ -24,6 +23,9 @@ char* get_path() {
 #undef __POSIX_VISIBLE
 #define __POSIX_VISIBLE 200112
 #include <unistd.h>
+#include <sys/types.h>
+
+ssize_t readlink(const char *path, char *buf, size_t bufsiz);
 
 char* get_path() {
 	char* path = malloc(W_MAX_PATH);
