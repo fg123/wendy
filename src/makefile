@@ -7,10 +7,10 @@ SRCDIR = ./
 INCDIR = ../headers
 CFLAGS=-I $(INCDIR) -lreadline -g 
 
-_DEPS = interpreter.h scanner.h token.h error.h stack.h memory.h execpath.h preprocessor.h
+_DEPS = interpreter.h scanner.h token.h error.h stack.h memory.h execpath.h preprocessor.h tests.h macros.h
 DEPS = $(patsubst %,$(INCDIR)/%,$(_DEPS))
 
-_OBJ = main.o interpreter.o scanner.o stack.o token.o memory.o error.o execpath.o preprocessor.o
+_OBJ = main.o interpreter.o scanner.o stack.o token.o memory.o error.o execpath.o preprocessor.o tests.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 

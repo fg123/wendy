@@ -33,6 +33,8 @@
 #define INPUT_ERROR "Input scanning error!"
 #define STACK_OVERFLOW "Call Stack Overflow!"
 #define MEMORY_OVERFLOW "Out of memory!" 
+#define NOT_A_LIST "Referenced identifier is not a list!"
+#define UNRECOGNIZED_ACCESSOR "Unrecognized accessor call."
 
 #define UNKNOWN_TOKEN "Unknown Token!"
 

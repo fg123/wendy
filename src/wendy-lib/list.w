@@ -1,72 +1,26 @@
 // list.w: WendyScript 1.0
-// Linked-list implementation in WendyScript,
+// List functions in WendyScript,
 // Based on Racket-style lists
 // By: Felix Guo
-// Provides: cons, first, rest, length, build_list, print_list, empty
-// Also provides abstract list functions: foldr, foldl
+// Provides: map, filter, fold, first and rest
 
-
-// Each cons contains a value and a pointer to the next node.
-// empty is used to refer to a pointer to the none object
-
-struct cons => (value, next);
-
-// Getting Components
 let first => (list) {
-	if (list != none) {
-		ret cons_value(list);
-	};
+	@"First: ";
+	list;
+	ret list[0];
 };
+
 let rest => (list) {
-	if (list != none) {
-		ret cons_next(list);
+	let new[list.size - 1];
+	let x = 1;
+	loop (x < list.size) {
+		set new[x - 1] = list[x];
+		inc x;
 	};
-};
-
-let is_empty => (list) {
-	ret list == none;
-};
-// Length of List
-let length => (list) {
-	let size = 0;
-	loop (list != none) {
-		inc size;
-		set list = rest(list);
-	};
-	ret size;
-};
-
-// Builds a list from 1 to len
-let build_list => (len) {
-	let res = none;
-	loop (len > 0) {
-		set res = cons(len, res);
-		dec len;
-	};
-	ret res;
-};
-
-// Prints the List
-let print_list => (list) {
-	@"List: ";
-	loop (list != none) {
-		@first(list) + " ";
-		set list = rest(list);
-	};
-	"";
-	ret;
-};
-
-let foldr => (fn, list, initial) {
-	if (is_empty(list)) {
-		ret initial;
-	}
-	else {
-		ret fn(first(list), foldr(fn, rest(list), initial));
-	};
+	ret new;
 };
 // fn must be a 2 argument function
-let foldl => (fn, list, initial) {
+let fold => (fn, list, initial) {
 	let result = initial;
 	loop (!is_empty(list)) {
 		set result = fn(first(list), result);
@@ -76,20 +30,24 @@ let foldl => (fn, list, initial) {
 };
 
 let map => (fn, list) {
-	if (is_empty(list)) {
-		ret none;
+	if (list.size == 0) {
+		ret [];
 	}
 	else {
-		ret cons(fn(first(list)), map(fn, rest(list)));
+		ret [fn(first(list))] + map(fn, rest(list));
 	};
 };
 
 let filter => (fn, list) {
-	if (is_empty(list)) {
-		ret none;
+	list;
+	first(list);
+	list.size;
+	if ((list.size) == 0) {
+		"WHY DONT I COME IN HERE";
+		ret [];
 	}
 	else if (fn(first(list))) {
-		ret cons(first(list), filter(fn, rest(list)));
+		ret [first(list)] + filter(fn, rest(list));
 	}
 	else {
 		ret filter(fn, rest(list));

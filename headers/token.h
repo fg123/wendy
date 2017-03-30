@@ -1,10 +1,9 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#define MAX_STRING_LEN 1024
-
 #include <stdbool.h>
 #include <stdio.h>
+#include "macros.h"
 
 bool last_printed_newline;
 
@@ -12,7 +11,7 @@ typedef enum {
 	// Single-character Tokens
 	LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACK, RIGHT_BRACK,
 	COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR, COLON, AT, HASH, PERCENT,
-	INTSLASH, AMPERSAND,
+	INTSLASH, AMPERSAND, TILDE, RANGE_OP,
 
 	// Special Expression Token (Unary)
 	U_STAR, U_MINUS,
@@ -26,8 +25,14 @@ typedef enum {
 	// #: token
 	LAMBDA,
 
+	// Block Comments (/* and */)
+	B_COMMENT_START, B_COMMENT_END,
+
 	// Literals.
-	IDENTIFIER, STRING, NUMBER,
+	IDENTIFIER, STRING, NUMBER, ADDRESS, 
+
+	// Lists and Ranges 
+	LIST, LIST_HEADER, ACCESS_SIZE, RANGE,
 
 	// Object Types
 	OBJ_TYPE, TYPEOF, 
@@ -45,8 +50,8 @@ typedef enum {
 	// Special Forms
 	NONE, NONERET,
 	
-	// Preprocessor Calls
-	CALL, PUSH, POP 
+	// Preprocessor Specific Symbols
+	CALL, PUSH, POP, EVAL
 
 } token_type;
 
@@ -84,6 +89,17 @@ token time_token();
 
 // noneret_token() returns a new noneret_token
 token noneret_token();
+
+// list_header_token(size) returns a new list_header token
+token list_header_token(int size);
+
+// range_token(start, end) returns a new range token
+token range_token(int start, int end);
+int range_start(token r);
+int range_end(token r);
+
+// get_array_size(t) returns the size of the array given t is an array header.
+//int get_array_size(token t);
 
 // print_token(t) prints the value of the token to the string
 void print_token(const token* t);

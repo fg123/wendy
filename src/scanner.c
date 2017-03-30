@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <execpath.h>
+#include "macros.h"
 
 static size_t source_len;
 static size_t current; // is used to keep track of source current
@@ -198,22 +199,18 @@ void handle_struct() {
 	add_token_V(LEFT_BRACE, make_data_str("{"));
 	add_token_V(LET, make_data_str("let"));
 	add_token_V(IDENTIFIER, make_data_str("newobj"));
+	add_token_V(EQUAL, make_data_str("="));
 	add_token_V(LEFT_BRACK, make_data_str("["));
-	add_token_V(NUMBER, make_data_num(param_c));
+//	add_token_V(NUMBER, make_data_num(param_c));
+	for (int i = 0; i < param_c; i++) {
+		if (i != 0) {
+			add_token_V(COMMA, make_data_str(","));
+		}
+		tokens[t_curr++] = param[i];
+	}
 	add_token_V(RIGHT_BRACK, make_data_str("]"));
 	add_token_V(SEMICOLON, make_data_str(";"));
-	for (int i = 0; i < param_c; i++) {
-		add_token_V(SET, make_data_str("set"));
-		add_token_V(IDENTIFIER, make_data_str("newobj"));
-		add_token_V(LEFT_BRACK, make_data_str("["));
-		add_token_V(NUMBER, make_data_num(i));
-		add_token_V(RIGHT_BRACK, make_data_str("]"));
-		add_token_V(EQUAL, make_data_str("="));
-		tokens[t_curr++] = param[i];
-		add_token_V(SEMICOLON, make_data_str(";"));
-	}
 	add_token_V(RET, make_data_str("ret"));
-	add_token_V(AMPERSAND, make_data_str("&"));
 	add_token_V(IDENTIFIER, make_data_str("newobj"));
 	add_token_V(SEMICOLON, make_data_str(";"));
 	add_token_V(RIGHT_BRACE, make_data_str("}"));
@@ -234,16 +231,14 @@ void handle_struct() {
 		tokens[t_curr++] = orig;
 		add_token_V(DEFFN, make_data_str("=>"));
 		add_token_V(LEFT_PAREN, make_data_str("("));
-		add_token_V(IDENTIFIER, make_data_str("objptr"));
+		add_token_V(IDENTIFIER, make_data_str("obj"));
 		add_token_V(RIGHT_PAREN, make_data_str(")"));
 		add_token_V(LEFT_BRACE, make_data_str("{"));
 		add_token_V(RET, make_data_str("ret"));
-		add_token_V(STAR, make_data_str("*"));
-		add_token_V(LEFT_PAREN, make_data_str("("));
-		add_token_V(IDENTIFIER, make_data_str("objptr"));
-		add_token_V(PLUS, make_data_str("+"));
+		add_token_V(IDENTIFIER, make_data_str("obj"));
+		add_token_V(LEFT_BRACK, make_data_str("["));
 		add_token_V(NUMBER, make_data_num(i));
-		add_token_V(RIGHT_PAREN, make_data_str(")"));
+		add_token_V(RIGHT_BRACK, make_data_str("]"));
 		add_token_V(SEMICOLON, make_data_str(";"));
 		add_token_V(RIGHT_BRACE, make_data_str("}"));
 		add_token_V(SEMICOLON, make_data_str(";"));
@@ -302,9 +297,12 @@ void identifier() {
 	else if (strcmp(text, "loop") == 0)	{ add_token(LOOP); }
 	else if (strcmp(text, "none") == 0)	{ add_token(NONE); }
 	
-	else if (strcmp(text, "bool") == 0)	{ add_token(OBJ_TYPE); }
-	else if (strcmp(text, "string") == 0)	{ add_token(OBJ_TYPE); }
-	else if (strcmp(text, "number") == 0)	{ add_token(OBJ_TYPE); }
+	else if (strcmp(text, "Bool") == 0)	{ add_token(OBJ_TYPE); }
+	else if (strcmp(text, "String") == 0)	{ add_token(OBJ_TYPE); }
+	else if (strcmp(text, "Number") == 0)	{ add_token(OBJ_TYPE); }
+	else if (strcmp(text, "List") == 0)	{ add_token(OBJ_TYPE); }
+	else if (strcmp(text, "Address") == 0)	{ add_token(OBJ_TYPE); }
+
 	else if (strcmp(text, "typeof") == 0)	{ add_token(TYPEOF); }
 
 
@@ -344,6 +342,18 @@ void handle_number() {
 	add_token_V(NUMBER, make_data_num(num));
 }
 
+// handle_accessor() processes a accessor after a ., eg list.size
+void handle_accessor() {
+	while (is_alpha(peek())) advance();
+
+	char text[current - start + 1];
+	memcpy(text, &source[start], current - start);
+	text[current - start] = '\0';
+//	printf("%s", text);
+	if (strcmp(text, ".size") == 0) { add_token(ACCESS_SIZE); }
+	else { error(line, UNRECOGNIZED_ACCESSOR); }
+}
+
 // scan_token() processes the next token 
 void scan_token() {
 	char c = advance();	
@@ -355,8 +365,20 @@ void scan_token() {
 		case '{': add_token(LEFT_BRACE); break;
 		case '}': add_token(RIGHT_BRACE); break;
 		case '&': add_token(AMPERSAND); break;
+		case '~': add_token(TILDE); break;
 		case ',': add_token(COMMA); break;
-		case '.': add_token(DOT); break;
+		case '.': 
+			if (match('.')) {
+				add_token(RANGE_OP);
+			}
+			else if (is_alpha(peek())) {
+				advance();
+				handle_accessor();
+			}
+			else {
+				add_token(DOT); 
+			}
+			break;
 		case '-': 
 			if (is_digit(peek())) {
 				advance();
@@ -373,7 +395,7 @@ void scan_token() {
 		case ';': add_token(SEMICOLON); break;
 		case ':': add_token(COLON); break;
 		case '#': add_token(match(':') ? LAMBDA : HASH); break;
-		case '*': add_token(STAR); break;
+		case '*': add_token(match('/') ? B_COMMENT_END : STAR); break;
 		case '!': add_token(match('=') ? NOT_EQUAL : NOT); break;
 		case '=': 
 			if (match('='))
@@ -395,6 +417,9 @@ void scan_token() {
 			if (match('/')) {
 				// A comment goes until the end of the line.
 				while (peek() != '\n' && !is_at_end()) advance();
+			}
+			else if (match('*')) {
+				add_token(B_COMMENT_START);
 			}
 			else {
 				add_token(SLASH);

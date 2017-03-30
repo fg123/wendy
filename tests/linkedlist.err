@@ -1,0 +1,17 @@
+[31mRuntime Error[0m at line [33m57[0m: build_list: Identifier not found. Did you declare it?
+==========================
+ Line Source
+   56 
+   57 [31mlet mylist = build_list(10);
+[0m   58 print_list(mylist);
+==========================
+
+Dump: Stack Trace
+    0 FP-> [[34m> main()[0m -> 0: <none>]
+    1      [R/A -> 0: <none>]
+    2      [first -> 2: 4]
+    3      [rest -> 3: 27]
+    4      [fold -> 4: 82]
+    5      [map -> 5: 183]
+    6      [filter -> 6: 276]
+===============

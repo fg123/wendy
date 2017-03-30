@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include "preprocessor.h"
-
+#include "macros.h"
 
 // tokens is a pointer to the first instruction
 static token* tokens;
@@ -63,6 +63,7 @@ void run(char* input_string) {
 
 address eval_identifier(address start, size_t size) {
 	// Either we have a *(MEMORY ADDR) or we have identifier[] or identifier
+	// I guess we can also have a identifier[][] or any sublists.
 	// We scan until we find right brackets or right parentheses and then
 	//   we track back like usual.
 //	printf("EVALIDENTIFIER at");
@@ -74,7 +75,7 @@ address eval_identifier(address start, size_t size) {
 	if (tokens[start].t_type == STAR) {
 		// Evaluate the Rest and That's the Address
 		token t = eval(start + 1, size - 1);
-		if (t.t_type != NUMBER) {
+		if (t.t_type != NUMBER && t.t_type != ADDRESS) {
 			error(tokens[start].t_line, SYNTAX_ERROR, "*");
 			return 0;
 		}
@@ -83,30 +84,51 @@ address eval_identifier(address start, size_t size) {
 		}
 	}
 	// Not Star, so it must be an identifier
-	if (tokens[start].t_type != IDENTIFIER) {
-		error(tokens[start].t_line, SYNTAX_ERROR);
-		return 0;
-	}
-	else {
-		if (size == 1) {
-			return get_address_of_id(tokens[start].t_data.string, 
-					tokens[start].t_line);
-		}
-		else if (tokens[start + 1].t_type == LEFT_BRACK && 
-				tokens[start + size - 1].t_type == RIGHT_BRACK) {
-			// Array
-			token offset = eval(start + 2, size - 3);
-			if (offset.t_type != NUMBER) {
-				error(tokens[start].t_line, SYNTAX_ERROR);
-				return 0;
-			}
-			return get_address_of_id(tokens[start].t_data.string, 
-				tokens[start].t_line) + offset.t_data.number;
-		}
-		else {
+	if (size == 1) {
+		if (tokens[start].t_type != IDENTIFIER) {
 			error(tokens[start].t_line, SYNTAX_ERROR);
 			return 0;
 		}
+		else {
+			return get_address_of_id(tokens[start].t_data.string, 
+				tokens[start].t_line);
+		}
+	}
+	else if (tokens[start + size - 1].t_type == RIGHT_BRACK) {
+		// Array sort of reference, we'll find the corresponding 
+		// left bracket.
+		int i = start + size - 1;
+		int arr_s_size = 0;
+		while (tokens[i].t_type != LEFT_BRACK) { i--; arr_s_size++; }
+		// i is now the LEFT_BRACK and size is 1 more than we want
+		int arr_s_start = i + 1;
+		arr_s_size--;
+		// Now i and arr_s_size points to the subscript. We'll collect
+		//   the subscript.
+		token arr_s = eval(arr_s_start, arr_s_size);
+		// Now we evaluate the rest of it.
+		token arr = eval(start, i - start);
+
+//			print_token(&arr);
+//			print_token(&arr_s);
+		if (arr.t_type != LIST) {
+			error(tokens[start].t_line, NOT_A_LIST, 
+				tokens[start].t_data.string);
+		}
+		if (arr_s.t_type != NUMBER) {
+			error(tokens[start].t_line, SYNTAX_ERROR);
+			return 0;
+		}
+
+		address list_start = arr.t_data.number;
+		// add1 because of header
+		int offseti = floor(arr_s.t_data.number) + 1;
+		
+		return list_start + offseti;
+	}
+	else {
+		error(tokens[start].t_line, SYNTAX_ERROR);
+		return 0;
 	}
 }
 
@@ -199,16 +221,12 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 				if (i < start + size - 1 && tokens[i + 1].t_type == EQUAL) {
 					value = eval(i + 2, start + size - i - 2);
 				}
-				address a = push_memory(value);
 				int a_size = floor(at_size.t_data.number);
-//				printf("ARR DEC SIZE %d\n", a_size);
-				a_size--;
-				while (a_size > 0) {
-					push_memory(value);
-					a_size--;
-				}
-				push_stack_entry(tokens[start + 1].t_data.string, a);
-				
+				address a = push_memory_s(value, a_size);
+
+				address b = push_memory(make_token(LIST, make_data_num(a)));
+//				printf("TEST: %s\n", memory[a].t_data.string);	
+				push_stack_entry(tokens[start + 1].t_data.string, b);
 			}
 			else {
 				// check if declaration or definition	
@@ -310,17 +328,21 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 			return false;
 		}
 		size_t length = strlen(t->t_data.string);
-		address new_mem = memory_pointer;
+		token final[length + 1];
+//		address new_mem = memory_pointer;
 		for (int i = 0; i < length; i++) {
 			token c = { STRING, f_token.t_line, make_data_str("") };
 			c.t_data.string[0] = t->t_data.string[i];
 			c.t_data.string[1] = 0;
-			push_memory(c);
+			final[i] = c;
+//			push_memory(c);
 		}
-		push_memory(none_token());
+//		push_memory(none_token());
+		address new_mem = push_memory_a(final, length);
+		address new_new = push_memory(make_token(LIST, make_data_num(new_mem)));
 		address stack_p = get_stack_pos_of_id(tokens[start + 1].t_data.string, 
 				f_token.t_line);
-		call_stack[stack_p].val = new_mem;
+		call_stack[stack_p].val = new_new;
 	}
 	else if (f_token.t_type == INC) {
 		if (size < 2) {
@@ -439,7 +461,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 				// this is the condition we want to eval
 			//	printf("EVALED TURE ret pointer = %d\n", start + size + 1);
 
-				push_auto_frame(start + size + 1); 
+				push_auto_frame(start + size + 1, "if"); 
 				*i_ptr = i + 1;
 				return false;
 			}
@@ -472,7 +494,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 				}
 				else if (tokens[i].t_type == ELSE) {
 					// MIGHT AS WELL EVAL THIS ONE LOL
-					push_auto_frame(start + size + 1); 
+					push_auto_frame(start + size + 1, "else"); 
 
 					*i_ptr = i + 2;
 					return false;
@@ -517,7 +539,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 			//	 can reevaluate
 			if (result.t_type == TRUE) {
 				// we run then parseline again!
-				push_auto_frame(start); 
+				push_auto_frame(start, "loop"); 
 				*i_ptr = i + 1;
 //				printf("Shifted to *iptr: %d\n", *i_ptr);
 				return false;
@@ -545,14 +567,34 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 		return true;
 	}
 	else if (f_token.t_type == PUSH) {
-		push_arg(eval(start + 1, size - 1));
+		token t = eval(start + 1, size - 1);
+//		address mem = eval_identifier(start + 1, size - 1);
+/*		if (t.t_type == ARRAY_HEADER) {
+			t.t_data.number = mem;
+		}*/
+		push_arg(t);
 		return false;
 	}
 	else if (f_token.t_type == POP) {
-
 		address mem = eval_identifier(start + 1, size - 1);
-		
-		memory[mem] = pop_arg();
+		token t = pop_arg();
+		memory[mem] = t;
+		/*if (t.t_type == ARRAY_HEADER) {
+			// Previously only reserved enough for one token!
+			int size = get_array_size(t);
+			address new_mem = pls_give_memory(size + 1);
+			// Return old memory
+			here_u_go(mem, 1);
+			memory[new_mem] = t;
+			for (int i = 0; i < size; i++) {
+				// Pop each of the array elements one by one.
+				memory[new_mem + i + 1] = pop_arg();
+			}
+			address stack_adr = get_stack_pos_of_id(
+					tokens[start + 1].t_data.string, f_token.t_line);
+			call_stack[stack_adr].val = new_mem;
+		}*/
+		//memory[mem] = pop_arg();
 		//print_token(&memory[mem]);
 		return false;
 	}
@@ -587,7 +629,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 token eval_uniop(token op, token a) {
 	if (op.t_type == U_STAR) {
 		// pointer operator
-		if (a.t_type != NUMBER) {
+		if (a.t_type != NUMBER && a.t_type != ADDRESS) {
 			error(a.t_line, SYNTAX_ERROR, "*");
 			return none_token();
 		}
@@ -596,11 +638,8 @@ token eval_uniop(token op, token a) {
 		return res;
 	}
 	else if (op.t_type == AMPERSAND) {
-		if (a.t_type != IDENTIFIER) {
-			error(a.t_line, SYNTAX_ERROR, "&");
-			return none_token();
-		}
-		token res = make_token(NUMBER, make_data_num(
+		
+		token res = make_token(ADDRESS, make_data_num(
 					get_address_of_id(a.t_data.string, a.t_line)));
 		return res;
 	}
@@ -610,6 +649,19 @@ token eval_uniop(token op, token a) {
 			return none_token();
 		}
 		token res = make_token(NUMBER, make_data_num(-1 * a.t_data.number));
+		return res;
+	}
+	else if (op.t_type == ACCESS_SIZE) {
+		int size = 1;
+		if (a.t_type == STRING) {
+			size = strlen(a.t_data.string);
+		}
+		else if (a.t_type == LIST) {
+			// Find list header
+			address h = a.t_data.number;
+			size = memory[h].t_data.number;
+		}
+		token res = make_token(NUMBER, make_data_num(size));
 		return res;
 	}
 	else if (op.t_type == NOT) {
@@ -629,20 +681,46 @@ token eval_binop(token op, token a, token b) {
 	//print_token(&op);
 	//print_token(&a);
 	//print_token(&b);
+	if (op.t_type == LEFT_BRACK) {
+		// Array Reference
+		// A must be a list, b must be a number.
+		if (a.t_type != LIST) {
+			error(a.t_line, NOT_A_LIST);
+		}
+		// Pull list header reference from list object.
+		address id_address = a.t_data.number;
+		if (b.t_type != NUMBER) {
+			error(b.t_line, ARRAY_REF_NOT_NUM);
+			return none_token();
+		}
+		// Add 1 to offset because of the header.
+		int offset = floor(b.t_data.number) + 1;
+		token* c = get_value_of_address(id_address + offset, 
+				a.t_line);
+		return *c;
+	}
 	if (op.t_type == TYPEOF) {
 		if (b.t_type != OBJ_TYPE && b.t_type != NONE) {
 			error(op.t_line, TYPE_ERROR); 
 		}
 		if (a.t_type == NUMBER) {
-			return (strcmp("number", b.t_data.string) == 0) ?
+			return (strcmp("Number", b.t_data.string) == 0) ?
 				true_token() : false_token();
 		}
 		else if (a.t_type == STRING) {
-			return (strcmp("string", b.t_data.string) == 0) ?
+			return (strcmp("String", b.t_data.string) == 0) ?
+				true_token() : false_token();
+		}
+		else if (a.t_type == ADDRESS) {
+			return (strcmp("Address", b.t_data.string) == 0) ?
 				true_token() : false_token();
 		}
 		else if (a.t_type == TRUE || a.t_type == FALSE) {
-			return (strcmp("bool", b.t_data.string) == 0) ?
+			return (strcmp("Bool", b.t_data.string) == 0) ?
+				true_token() : false_token();
+		}
+		else if (a.t_type == LIST) {
+			return (strcmp("List", b.t_data.string) == 0) ?
 				true_token() : false_token();
 		}
 		else if (a.t_type == NONE) {
@@ -652,7 +730,9 @@ token eval_binop(token op, token a, token b) {
 			return false_token();
 		}
 	}
-	if (a.t_type == NUMBER && b.t_type == NUMBER) {
+	bool has_address = (a.t_type == ADDRESS || b.t_type == ADDRESS);
+	if ((a.t_type == NUMBER || a.t_type == ADDRESS) && 
+		(b.t_type == NUMBER || b.t_type == ADDRESS)) {
 		switch (op.t_type) {
 			case EQUAL_EQUAL: 	
 				return (a.t_data.number == b.t_data.number) ? 
@@ -672,15 +752,22 @@ token eval_binop(token op, token a, token b) {
 			case LESS:
 				return (a.t_data.number < b.t_data.number) ? 
 					true_token() : false_token();
-			case PLUS: 	return make_token(NUMBER, make_data_num(
-									a.t_data.number + b.t_data.number));
-			case MINUS:	return make_token(NUMBER, make_data_num(
-									a.t_data.number - b.t_data.number));
-			case STAR: 	return make_token(NUMBER, make_data_num(
+			case RANGE_OP:
+				return range_token(a.t_data.number, b.t_data.number);
+			case PLUS: 	
+				return make_token(has_address ? ADDRESS : NUMBER, 
+						make_data_num(a.t_data.number + b.t_data.number));
+			case MINUS:	
+				return make_token(has_address ? ADDRESS : NUMBER, 
+						make_data_num(a.t_data.number - b.t_data.number));
+			case STAR: 	
+				if (has_address) error(a.t_line, TYPE_ERROR);
+				return make_token(NUMBER, make_data_num(
 									a.t_data.number * b.t_data.number));
 			case SLASH:
 			case INTSLASH:
 			case PERCENT: 
+				if (has_address) error(a.t_line, TYPE_ERROR);
 				// check for division by zero error
 				if (b.t_data.number == 0) {
 					error(b.t_line, MATH_DISASTER); 
@@ -729,6 +816,112 @@ token eval_binop(token op, token a, token b) {
 		return (op.t_type == EQUAL_EQUAL) ^ 
 			(a.t_type == NONE && b.t_type == NONE) ? 
 			false_token() : true_token();
+	}
+	// Done number operations: past here, addresses are numbers too.
+	if (a.t_type == ADDRESS) a.t_type = NUMBER;
+	if (b.t_type == ADDRESS) b.t_type = NUMBER;
+	if (a.t_type == LIST || b.t_type == LIST) {
+		if (a.t_type == LIST && b.t_type == LIST) {
+			address start_a = a.t_data.number;
+			address start_b = b.t_data.number;
+			int size_a = memory[start_a].t_data.number;
+			int size_b = memory[start_b].t_data.number;
+	
+			switch (op.t_type) {
+				case EQUAL_EQUAL: {
+					if (size_a != size_b) {
+						return false_token();
+					}
+					for (int i = 0; i < size_a; i++) {
+						if (!token_equal(&memory[start_a + i + 1],
+										&memory[start_b + i + 1])) {
+							return false_token();
+						}
+					}
+					return true_token();
+
+				}
+				break;
+				case NOT_EQUAL: {
+					if (size_a != size_b) {
+						return true_token();
+					}
+					for (int i = 0; i < size_a; i++) {
+						if (token_equal(&memory[start_a + i + 1],
+										&memory[start_b + i + 1])) {
+							return false_token();
+						}
+					}
+					return true_token();
+				}
+				break;
+				case PLUS: {
+					int new_size = size_a + size_b;
+					token* new_list = malloc(new_size * sizeof(token));
+					int n = 0;
+					for (int i = 0; i < size_a; i++) {
+						new_list[n++] = memory[start_a + i + 1];
+					}
+					for (int i = 0; i < size_b; i++) {
+						new_list[n++] = memory[start_b + i + 1];
+					}
+					address new_adr = push_memory_a(new_list, new_size);
+					free(new_list);
+					return make_token(LIST, make_data_num(new_adr));
+				}	
+				break;
+				default: error(a.t_line, SYNTAX_ERROR); break;
+			}
+		} // End A==List && B==List
+		else if (a.t_type == LIST) {
+			if (op.t_type == PLUS) {
+				// list + element
+				address start_a = a.t_data.number;
+				int size_a = memory[start_a].t_data.number;
+
+				token* new_list = malloc((size_a + 1) * sizeof(token));
+				int n = 0;
+				for (int i = 0; i < size_a; i++) {
+					new_list[n++] = memory[start_a + i + 1];
+				}
+				new_list[n++] = b;
+				address new_adr = push_memory_a(new_list, size_a + 1);
+				free(new_list);
+				return make_token(LIST, make_data_num(new_adr));
+			}
+			else { error(a.t_line, SYNTAX_ERROR); }
+		}
+		else if (b.t_type == LIST) {
+			address start_b = b.t_data.number;
+			int size_b = memory[start_b].t_data.number;
+
+			if (op.t_type == PLUS) {
+				// element + list
+
+				token* new_list = malloc((size_b + 1) * sizeof(token));
+				int n = 0;
+				new_list[n++] = a;
+				for (int i = 0; i < size_b; i++) {
+					new_list[n++] = memory[start_b + i + 1];
+				}
+				address new_adr = push_memory_a(new_list, size_b + 1);
+				free(new_list);
+				return make_token(LIST, make_data_num(new_adr));
+			}
+			else if (op.t_type == TILDE) {
+				// element ~ list
+				for (int i = 0; i < size_b; i++) {
+//					print_token(&a);
+					//print_token(&memory[start_b + i + 1]);
+					if (token_equal(&a, &memory[start_b + i + 1])) {
+						return true_token();
+					}
+				}
+				return false_token();
+			}
+			else { error(a.t_line, SYNTAX_ERROR); }
+		}
+
 	}
 	else if((a.t_type == STRING && b.t_type == STRING) ||
 			(a.t_type == STRING && b.t_type == NUMBER) ||
@@ -796,10 +989,12 @@ int precedence(token op) {
 			return 120;
 		case OR:
 			return 110;
+		case RANGE_OP:
 		case TYPEOF:
 			return 132;
 		case NOT_EQUAL:
 		case EQUAL_EQUAL:
+		case TILDE:
 			return 130;
 		case GREATER:
 		case GREATER_EQUAL:
@@ -809,7 +1004,14 @@ int precedence(token op) {
 		case NOT:
 		case U_MINUS:
 		case U_STAR:
-			return 160; // Most precedence
+		case ACCESS_SIZE:
+			return 160;
+		case LEFT_BRACK:
+			// Array bracket
+			return 170;
+		case AMPERSAND:
+			// Actually precedes the left bracket!?
+			return 180;
 		default: 
 			return 0;
 	}
@@ -840,7 +1042,7 @@ void eval_one_expr(address i, token_stack** expr_stack, token_type search_end,
 				
 				bool is_unary = false;
 				if (op.t_type == NOT || op.t_type == U_STAR || 
-						op.t_type == U_MINUS) {
+						op.t_type == U_MINUS || op.t_type == ACCESS_SIZE) {
 					is_unary = true;
 				}
 	
@@ -885,7 +1087,7 @@ void eval_one_expr(address i, token_stack** expr_stack, token_type search_end,
 		// remove operator
 		bool is_unary = false;
 		if (op.t_type == NOT || op.t_type == U_STAR || 
-				op.t_type == U_MINUS) {
+				op.t_type == U_MINUS || op.t_type == ACCESS_SIZE) {
 			is_unary = true;
 		}
 
@@ -917,7 +1119,7 @@ token eval(address start, size_t size) {
 //	print_token(&tokens[start]);
 //	printf("SIZE: %zd\n", size);
 	token_stack* expr_stack = 0;
-	address old_mem = memory_pointer;
+	//address old_mem = arg_pointer;
 
 	for (address i = start; i <= start + size; i++) {
 //		printf("evalling + %d\n", i);
@@ -927,13 +1129,107 @@ token eval(address start, size_t size) {
 		else if (tokens[i].t_type == RIGHT_PAREN) {
 			eval_one_expr(i, &expr_stack, LEFT_PAREN, false);
 		}
+		else if (tokens[i].t_type == RIGHT_BRACK) {
+			eval_one_expr(i, &expr_stack, LEFT_BRACK, true);
+		}
+		else if (tokens[i].t_type == LEFT_BRACK) {
+			// There are two possibilities here. Encountering a left bracket 
+			//   could mean either an array reference [], or the start of an 
+			//   inline list. If the previous token is empty or an operator,
+			//   then it must be an inline list. If it's not an inline list,
+			//   we leave the left_brack in the expr because it acts as an 
+			//   operator.
+			if (is_empty(expr_stack) || precedence(*expr_stack->val)) {
+				// It's empty or an operator.
+			
+				// List! All function calls are lifted out by the preprocessor,
+				//   so we only have to scan for square brackets and commas.
+				int item_start = i + 1;	
+				int item_size = 0;
+				int b_count = 0;
+				int list_size = 0;
+				token* list_elements = malloc(MAX_LIST_INIT_LEN * sizeof(token));
+				// i now points to one after the LEFT_BRACKET
+				while (true) {
+					i++;
+					if (i >= start + size) {
+						error(tokens[i].t_line, SYNTAX_ERROR, "list");
+					}
+					if (tokens[i].t_type == RIGHT_BRACK && b_count == 0) {
+						if (item_size != 0) {
+							token e = eval(item_start, item_size);
+							if (e.t_type == RANGE) {
+								int start = range_start(e);
+								int end = range_end(e);
+								for (int i = start; i != end; 
+										start < end ? i++ : i--) {
+									list_elements[list_size++] = 
+										make_token(NUMBER, make_data_num(i));
+								}
+								list_elements[list_size++] = 
+									make_token(NUMBER, make_data_num(end));
+							}
+							else {
+								list_elements[list_size++] = e;
+							}
+						}
+						break;
+					}
+					else if (tokens[i].t_type == COMMA && b_count == 0) {
+						token e = eval(item_start, item_size);
+						if (e.t_type == RANGE) {
+							int start = range_start(e);
+							int end = range_end(e);
+							for (int i = start; i != end; 
+								start < end ? i++ : i--) {
+								list_elements[list_size++] = 
+									make_token(NUMBER, make_data_num(i));
+							}
+							list_elements[list_size++] = 
+								make_token(NUMBER, make_data_num(end));
+						}
+						else {
+							list_elements[list_size++] = e;
+						}
+
+						item_size = 0;
+						item_start = i + 1;
+						continue;
+					}
+					else if (tokens[i].t_type == RIGHT_BRACK) {
+						b_count--;
+					}
+					else if (tokens[i].t_type == LEFT_BRACK) {
+						b_count++;
+					}
+					item_size++;
+				}
+				// List has now been built.
+				address list_h = push_memory_a(list_elements, list_size);
+				
+				// Create the actual list token.
+				token l = make_token(LIST, make_data_num(list_h));
+				address a = push_memory(l);
+
+				// Push to stack
+				expr_stack = push(&memory[a], expr_stack);
+				free(list_elements);
+			} // End of inline list 
+			else {
+				expr_stack = push(&tokens[i], expr_stack);
+			}
+		}
 		else if (tokens[i].t_type == IDENTIFIER) {
-			if (i < start + size - 1 && 
+			/*if (i < start + size - 1 && 
 				tokens[i + 1].t_type == LEFT_BRACK) {
-				// An array reference
+				// An List Reference!
 				address id_address = get_address_of_id(tokens[i].t_data.string,
 						tokens[i].t_line);
-				
+				if (memory[id_address].t_type != LIST) {
+					error(tokens[i].t_line, NOT_A_LIST);
+				}
+				// Pull list header reference from list object.
+				id_address = memory[id_address].t_data.number;
 				// Now we get Offset
 				int brack_count = 0;
 				i += 2;
@@ -960,12 +1256,13 @@ token eval(address start, size_t size) {
 					error(tokens[eval_start].t_line, ARRAY_REF_NOT_NUM);
 					return none_token();
 				}
-				int offset = floor(res.t_data.number);
+				// Add 1 to offset because of the header.
+				int offset = floor(res.t_data.number) + 1;
 				token* a = get_value_of_address(id_address + offset, 
 						tokens[eval_start].t_line);
 				expr_stack = push(a, expr_stack);
 			}
-			else {
+			else {*/
 				// Variable call.
 				if (!is_empty(expr_stack) && 
 						(expr_stack->val)->t_type == AMPERSAND) {
@@ -985,7 +1282,7 @@ token eval(address start, size_t size) {
 							tokens[i].t_line); 
 					expr_stack = push(a, expr_stack);
 				}
-			}
+			//}
 		}
 		else if (tokens[i].t_type == TIME) {
 			address time_tok = push_memory(time_token());
@@ -995,7 +1292,9 @@ token eval(address start, size_t size) {
 			    // is an operator
 			if (precedence(tokens[i]) && 
 				// and at the front, or preceded by another operator
-				(is_empty(expr_stack) || precedence(*(expr_stack->val))) &&
+				(is_empty(expr_stack) || 
+				 (precedence(*(expr_stack->val))) && 
+				   expr_stack->val->t_type != ACCESS_SIZE) &&
 				(tokens[i].t_type == MINUS || tokens[i].t_type == STAR)) {
 				// it's an unary operator!
 				tokens[i].t_type = tokens[i].t_type == MINUS ? U_MINUS : U_STAR;
@@ -1020,9 +1319,9 @@ token eval(address start, size_t size) {
 	free_stack(expr_stack);
 
 	// frees the intermediate values in the memory
-	while (memory_pointer > old_mem) {
-		pop_memory();
-	}
+/*	while (arg_pointer > old_mem) {
+		pop_arg();
+	}*/
 	return result;
 }
 

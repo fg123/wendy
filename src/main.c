@@ -6,9 +6,8 @@
 #include "error.h"
 #include "execpath.h"
 #include "preprocessor.h"
-
-const char* WENDY_VERSION = "Wendy 1.1";
-const unsigned int INPUT_BUFFER_SIZE = 2048;
+#include "tests.h"
+#include "macros.h"
 
 #ifdef _WIN32
 #include <string.h>
@@ -31,19 +30,40 @@ char* readline(char* prompt) {
 // 
 // main.c: used to handle REPL and calling the interpreter on a file.
 
+void invalid_usage() {
+	printf("usage: wendy [file] [-p-dump file] [-nogc] \n");
+	exit(1);
+}
+
+void process_options(char** options, int len) {
+	for (int i = 0; i < len; i++) {
+		if (strcmp("-p-dump", options[i]) == 0) {
+			if (i == len - 1) {
+				invalid_usage();	
+			}
+			p_dump_path = options[i + 1];
+			i++;
+		}
+		else if (strcmp("-nogc", options[i]) == 0) {
+//			printf("NOGC");
+			enable_gc = false;	
+		}
+		else {
+			invalid_usage();
+		}
+	}
+}
+
 int main(int argc, char** argv) {
 	init_memory();
-	// ADDRESS 0 REFERS TO NONE_TOKEN
-	push_memory(none_token());
-	// ADDRESS 1 REFERS TO EMPTY RETURNS TOKEN
-	push_memory(make_token(NONERET, make_data_str("<noneret>")));
 
 	if (argc > 4) {
-		printf("usage: wendy [file] [-p-dump file] \n");
+		invalid_usage();
 		return 1;
 	}
 	else if (argc == 1) {
 		printf("Welcome to %s\nCreated by: Felix Guo\n", WENDY_VERSION);
+		run_tests();
 		char* path = get_path();
 		printf("Path: %s\n", path);
 		free(path);
@@ -62,11 +82,8 @@ int main(int argc, char** argv) {
 		// pop_frame(true);
 		return 0;
 	}
-	if (argc == 4) {
-		// possible pdump
-		if (strcmp("-p-dump", argv[2]) == 0) {
-			p_dump_path = argv[3];
-		}
+	if (argc != 2) {
+		process_options(&argv[2], argc - 2);
 	}
 	if (argc >= 2) {
 		// FILE READ MODE
@@ -96,5 +113,5 @@ int main(int argc, char** argv) {
 			printf("Error reading file!\n");
 		}
 	}
-	free_memory();
+	c_free_memory();
 }

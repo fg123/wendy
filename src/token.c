@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
+#include "macros.h"
+#include "memory.h"
 
 bool last_printed_newline = false;
 
@@ -28,6 +30,52 @@ token noneret_token() {
 	return make_token(NONERET, make_data_str("<noneret>"));
 }
 
+token range_token(int start, int end) {
+	token res = make_token(RANGE, make_data_str(""));
+	sprintf(res.t_data.string, "%d|%d", start, end);
+	return res;
+}
+
+int range_start(token r) {
+	int start = 0;
+	int end = 0;
+	sscanf(r.t_data.string, "%d|%d", &start, &end);
+	return start;
+}
+
+int range_end(token r) {
+	int start = 0;
+	int end = 0;
+	sscanf(r.t_data.string, "%d|%d", &start, &end);
+	return end;
+}
+
+token list_header_token(int size) {
+	//char* str = calloc(MAX_STRING_LEN, sizeof(char));
+	//sprintf(str, "<list size %d>", size);
+
+/*	int index = MAX_STRING_LEN - 1;
+	while (size > 0) {
+		str[index--] = size % 128;
+		size /= 128;
+	}*/
+	token res = make_token(LIST_HEADER, make_data_num(size));
+	//free(str);
+	return res;
+}
+
+/*int get_list_size(token t) {
+	if (t.t_type == LIST) {
+		int size = 0;
+		int index = MAX_STRING_LEN - 1;
+		while (t.t_data.string[index] != 0) {
+			size += t.t_data.string[index--];
+		}
+		return size;
+	}
+	return 0;
+}*/
+
 token make_token(token_type t, data d) {
 	token token_ = { t, 0, d };
 	return token_;
@@ -41,7 +89,7 @@ data make_data_num(double i) {
 
 data make_data_str(char* s) {
 	data d;
-	strcpy(d.string, s);
+	memcpy(d.string, s, MAX_STRING_LEN);
 	return d;
 }
 
@@ -50,7 +98,7 @@ bool token_equal(token* a, token* b) {
 		return false;
 	}
 	else {
-		if (a->t_type == NUMBER) {
+		if (a->t_type == NUMBER || a->t_type == ADDRESS) {
 			return a->t_data.number == b->t_data.number;
 		}
 		else {
@@ -60,7 +108,21 @@ bool token_equal(token* a, token* b) {
 }
 
 void print_token(const token* t) {
-	if (t->t_type == NUMBER) {
+	if (t->t_type == RANGE) {
+		printf("<range from %d to %d>\n", range_start(*t), range_end(*t));
+	}
+	else if (t->t_type == LIST) {
+		// Traverse to list header
+		address start = t->t_data.number;
+		token l_header = memory[start];
+		printf("[");
+		for (int i = 0; i < l_header.t_data.number; i++) {
+			if (i != 0) printf(", ");
+			print_token_inline(&memory[start + i + 1], stdout);
+		}
+		printf("]\n");
+	}
+	else if (t->t_type == NUMBER || t->t_type == ADDRESS) {
 		// First we see how many bytes
 		size_t len = snprintf(0, 0, "%f", t->t_data.number);
 //		printf("length %d\n", len);
@@ -80,6 +142,9 @@ void print_token(const token* t) {
 		printf("%s\n", buffer);
 		free(buffer);
 	}
+	/*else if (t->t_type == ARRAY_HEADER) {
+		printf("<array size %d>\n", t->t_data.number);
+	}*/
 	else {
 		printf("%s\n", t->t_data.string);
 	}
@@ -87,7 +152,23 @@ void print_token(const token* t) {
 }
 
 void print_token_inline(const token* t, FILE* buf) {
-	if (t->t_type == NUMBER) {
+	if (t->t_type == RANGE) {
+		fprintf(buf, "<range from %d to %d>", range_start(*t), range_end(*t));
+		fflush(buf);
+	}
+	else if (t->t_type == LIST) {
+		// Traverse to list header
+		address start = t->t_data.number;
+		token l_header = memory[start];
+		fprintf(buf, "[");
+		for (int i = 0; i < l_header.t_data.number; i++) {
+			if (i != 0) fprintf(buf, ", ");
+			print_token_inline(&memory[start + i + 1], buf);
+		}
+		fprintf(buf, "]");
+		fflush(buf);
+	}
+	else if (t->t_type == NUMBER || t->t_type == ADDRESS) {
 		size_t len = snprintf(0, 0, "%f", t->t_data.number);
 //		printf("length %d\n", len);
 		char* buffer = malloc(len + 1);
@@ -106,6 +187,10 @@ void print_token_inline(const token* t, FILE* buf) {
 		fprintf(buf, "%s", buffer);
 		fflush(buf);
 	}
+	/*else if (t->t_type == ARRAY_HEADER) {
+		fprintf(buf, "<array size %d>", t->t_data.number);
+		fflush(buf);
+	}*/
 	else {
 		fprintf(buf, "%s", t->t_data.string);
 		fflush(buf);

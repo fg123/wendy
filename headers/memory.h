@@ -3,6 +3,7 @@
 
 #include "token.h"
 #include <stdbool.h>
+#include "macros.h"
 
 // memory is a list of tokens holding values.
 // call_stack/array includes all the frames and each frame has entries.
@@ -15,23 +16,27 @@
 // stack_pointer is the address to the front of the stack, last empty
 
 // an address is an unsigned int
-// stack_entry holds char[128] -> address
+// stack_entry holds char[60] -> address
 // frame_pointer is an address
 
 typedef unsigned int address;
 
-// sizeof(stack_entry) = 128
+// sizeof(stack_entry) = 64
 typedef struct {
-	char id[124];
+	char id[MAX_IDENTIFIER_LEN + 1];
 	address val;
 } stack_entry;
 
-// A TOKEN IS 1032 BYTES, we allow 128mb of Memory
-// 128mb * 1024kb/mb * 1024b/kb = 134217728 bytes = 129055.5 Tokens in 128 MB
-// Lets choose an arbitrary closest prime because why not: 129061
-//
+typedef struct mem_block mem_block;
+struct mem_block {
+	unsigned int size;
+	address start;
+	mem_block* next;
+};
+
 // FIRST SLOT OF MEMORY IS RESERVED FOR NONE TOKEN
 token* memory;
+mem_block* free_memory;
 
 // 128bytes per entry, 8mb of stack size
 // 8 * 1024 * 1024 = 8388608 bytes = 65536 entries in 8mb
@@ -39,15 +44,35 @@ stack_entry* call_stack;
 
 extern address frame_pointer;
 extern address stack_pointer;
+extern bool enable_gc;
 
 // init_memory() allocates the memory
 void init_memory();
 
-// free_memory() deallocates the memory
-void free_memory();
+// c_free_memory() deallocates the memory
+void c_free_memory();
 
 // check_memory() ensures all the pointers are within the memory space
 void check_memory();
+
+// garbage_collect() collects unused memory and stores it in the linked list
+//   free_memory. Returns true if some memory was collected and false otherwise.
+bool garbage_collect(int size);
+
+// print_free_memory() prints out a list of the free memory blocks available
+//   in Wendy
+void print_free_memory();
+
+// has_memory(size) returns true if a memory block of that size can be found
+//   and false otherwise.
+bool has_memory(int size);
+
+// pls_give_memory(size) requests memory from Wendy and returns the address
+//   of the requested block.
+address pls_give_memory(int size);
+
+// here_u_go(a, size) returns memory to Wendy
+void here_u_go(address a, int size);
 
 // memory_pointer stores the address of the next available memory space
 extern address memory_pointer;
@@ -56,7 +81,7 @@ extern address memory_pointer;
 void push_frame(char* name, address ret);
 
 // push_auto_frame() creates an automatical local variable frame
-void push_auto_frame(address ret);
+void push_auto_frame(address ret, char* type);
 
 // pop_frame(is_ret) ends a function call, pops the latest stack frame 
 //   (including automatically created local frames IF is_ret!
@@ -65,9 +90,17 @@ void push_auto_frame(address ret);
 //   pop_frame also returns true if the popped frame is a function frame
 bool pop_frame(bool is_ret, address* ret);
 
-// push_memory(t) adds the token t into memory and returns the address of the
-//   pushed token
+// push_memory(t) adds the given number of token t into the memory in order
+//   and returns the address of the first one
 address push_memory(token t);
+
+// push_memory_s(t, size) finds a continuous block of size in memory and sets
+//   it to t
+address push_memory_s(token t, int size);
+
+// push_memory_a(t, size) finds a continuous block of size in memory and sets
+//   it to the array a.
+address push_memory_a(token* a, int size);
 
 // pop_memory() removes a token from the memory after a push operation
 token pop_memory();

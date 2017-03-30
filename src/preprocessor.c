@@ -416,6 +416,10 @@ size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size) {
 			while (i < length && tokens[i].t_type != SEMICOLON) i++;
 			
 		}
+		else if (tokens[i].t_type == B_COMMENT_START) {
+			// Scan until end of block comment
+			while (i < length && tokens[i].t_type != B_COMMENT_END) i++;
+		}
 		else if (tokens[i].t_type == DEFFN) {
 			// Found a function header
 			int fn_start = i + 1;

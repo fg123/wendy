@@ -50,7 +50,7 @@ let sqrt => (n) {
 	ret root(n, 2);
 };
 let abs => (n) {
-	if(n < 0) {
+	if (n < 0) {
 		ret -n;
 	}
 	else {
@@ -58,18 +58,8 @@ let abs => (n) {
 	};
 };
 let is_even => (x) {
-	if (x % 2 == 0) {
-		ret true;
-	}
-	else {
-		ret false;
-	};
+	ret (x % 2 == 0);
 };
 let is_odd => (x) {
-	if (x % 2 == 1) {
-		ret true;
-	}
-	else {
-		ret false;
-	};
+	ret (x % 2 == 1);
 };

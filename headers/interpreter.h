@@ -6,6 +6,7 @@
 #include "stack.h"
 #include <stdbool.h>
 #include "memory.h"
+#include "macros.h"
 
 
 // interpreter.h provides the standard functions for running the interpreter

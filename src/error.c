@@ -22,13 +22,17 @@ void error(int line, char* message, ...) {
 	va_list a_list;
 	va_start(a_list, message);
 	char* additional = va_arg(a_list, char*);
-	if (additional) {
-		printf(RED "Runtime Error" RESET " at line " YEL "%d" RESET
-				": %s: %s\n", line, additional, message);
+	if (line != 0) {
+		printf(RED "Runtime Error" RESET " at line " YEL "%d" RESET, line);
 	}
 	else {
-		printf(RED "Runtime Error" RESET " at line " YEL "%d" RESET
-				": %s\n", line, message);
+		printf(RED "Runtime Error" RESET);
+	}
+	if (additional && line != 0) {
+		printf(": %s: %s\n", additional, message);
+	}
+	else {
+		printf(": %s\n", message);
 	}
 	printf("==========================\n%5s %s\n", "Line", "Source");
 	// find the line from the file
@@ -59,5 +63,6 @@ void error(int line, char* message, ...) {
 	}
 	printf("==========================\n");
 	print_call_stack();
+	fflush(stdout);
 	exit(1);
 }
