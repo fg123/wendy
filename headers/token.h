@@ -51,7 +51,7 @@ typedef enum {
 	NONE, NONERET,
 	
 	// Preprocessor Specific Symbols
-	CALL, PUSH, POP, EVAL
+	CALL, PUSH, POP, COND
 
 } token_type;
 
