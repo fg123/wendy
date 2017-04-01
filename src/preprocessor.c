@@ -516,6 +516,7 @@ void fc_process_line(int start, int end) {
 			copy_token(tokens[i]);
 			l_handle_function(i + 1, ends[c], fc_process_line);
 			i = ends[c++];
+			copy_token(tokens[i]);
 		}
 		else if (tokens[i].t_type == IDENTIFIER && 
 					tokens[i].t_data.string[0] == '~') {

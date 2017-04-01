@@ -442,7 +442,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 			return false;
 		}
 		else if (t.t_type == FALSE) {
-			// Run next statement list.
+			// Run next statement list, if it exists.
 			int b = 0;
 			int i = start + 2;
 			while (true) {
@@ -462,7 +462,9 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 			}
 			// i is now right brace of first
 			i++; // now left brace of second
+			if (i >= start + size) return false;
 			int fn_start = i + 1;
+			i++;
 			while (true) {
 				if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
 					break;
