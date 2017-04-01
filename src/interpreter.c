@@ -393,7 +393,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 	
 		// Scan one line from the input.
 		char buffer[MAX_STRING_LEN];
-		while(fgets(buffer, MAX_STRING_LEN, stdin)) {};
+		while(!fgets(buffer, MAX_STRING_LEN, stdin)) {};
 					
 			token* t = get_value_of_address(mem_to_mod, f_token.t_line);
 			char* end_ptr = buffer;
