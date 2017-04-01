@@ -18,6 +18,15 @@ static int lambda_count = 0;
 static token* new_tokens;
 static int length;
 
+// Forward declarations for mutual recursion
+void l_process_line(int start, int end);
+void l_handle_function(int start, int end, void (*line_fn)(int, int));
+int fc_process_fn_call(int start);
+void fc_process_line(int start, int end);
+
+void if_process_line(int start, int end);
+
+
 static void copy_token(token t) {
 	new_tokens[t_curr++] = t;
 	if (t_curr == tokens_alloc_size) {
@@ -96,12 +105,6 @@ void printf_tokens(char* appended, char* extension) {
 
 }
 
-// forward declaration for mutual recursion
-void process_line(int start, int end);
-void l_handle_function(int start, int end, void (*line_fn)(int, int));
-int fc_process_fn_call(int start);
-void fc_process_line(int start, int end);
-
 // make_lambda(start, end) actually lifts out the lambda function into a new
 //   function
 // requires: start points to (, end points to }
@@ -125,14 +128,190 @@ void make_lambda(int start, int end) {
 		}
 	}
 	add_token(LEFT_BRACE, make_data_str("{"));
-	l_handle_function(i + 1, end - 1, process_line);
+	l_handle_function(i + 1, end, l_process_line);
 	add_token(RIGHT_BRACE, make_data_str("}"));
 	add_token(SEMICOLON, make_data_str(";"));
 }
 
-// process_line(start, end) takes a line of code (like parse_line)
+// if_process_line(start, end) takes a line of code and checks for if statements
+//   and appropriately converts them to bytecode
+//
+//   Given:
+//   if (condition1) { statement1; } 
+//   else if (condition2) { statement2; } 
+//   else { statement3; }; 
+//
+//   Outputs:
+//   push condition1;
+//   cond { statement1; } { push condition2; } 
+//   cond { statement2; } { statement3 };
+//
+//   Cond chain is one line, this allows short circuit evaluation with the
+//     function call bytecode.
+void if_process_line(int start, int end) {
+	if (tokens[start].t_type == IF) {
+		// The first condition get's pushed on the stack.
+		int i = start + 1;
+		if (tokens[i].t_type != LEFT_PAREN) {
+			error(tokens[i].t_line, SYNTAX_ERROR);
+		}
+		i++; // i now points to the beginning of the first condition
+		add_token(PUSH, make_data_str("push"));
+		int b = 0;
+		while (true) {
+			if (tokens[i].t_type == RIGHT_PAREN && b == 0) {
+				break;
+			}
+			else if (tokens[i].t_type == RIGHT_PAREN) {
+				b--;
+			}
+			else if (tokens[i].t_type == LEFT_PAREN) {
+				b++;
+			}
+			copy_token(tokens[i]);
+			i++;
+			if (i >= end) {
+				error(tokens[i].t_line, SYNTAX_ERROR);
+			}
+		}
+		// i now points to the right paren, now we begin the cond chain
+		add_token(SEMICOLON, make_data_str(";"));
+		bool continue_chain = true;
+		// First condition is pushed on the stack.
+		do {
+			// This loop requires that i + 1 is the left brace of the statement.
+			add_token(COND, make_data_str("cond"));
+			if (tokens[i + 1].t_type != LEFT_BRACE) {
+				error(tokens[i].t_line, SYNTAX_ERROR);
+			}
+			i++; // i now is at the left brace
+			copy_token(tokens[i]); // copy left brace
+			int s_start = i + 1;
+			int b = 0;
+			while (1) {
+				i++;
+				if (i >= end) {
+					//printf("FUCK %d\n", i);
+					error(tokens[i].t_line, SYNTAX_ERROR);
+				}
+				else if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
+				//	printf("Found End\n");
+					break;
+				}
+				else if (tokens[i].t_type == LEFT_BRACE) {
+					b++;
+				}
+				else if (tokens[i].t_type == RIGHT_BRACE) {
+					b--;
+				}
+			}
+			// Do the inner substatementlist.
+			l_handle_function(s_start, i, if_process_line);
+			// i now at right brace
+			if (tokens[i].t_type != RIGHT_BRACE) {
+				error(tokens[i].t_line, SYNTAX_ERROR);
+			}
+			copy_token(tokens[i]); // copy right brace
+
+			// Check next token, should either be end, ELSEIF or ELSE
+			i++;
+			if (i >= end) {
+				// end
+				continue_chain = false;
+			}
+			else if (tokens[i].t_type == ELSEIF) {
+				i++;
+				if (tokens[i].t_type != LEFT_PAREN) {
+					error(tokens[i].t_line, SYNTAX_ERROR);
+				}
+				i++; // i now points to the beginning of the first condition
+				add_token(LEFT_BRACE, make_data_str("{"));
+				add_token(PUSH, make_data_str("push"));
+				int b = 0;
+				while (true) {
+					if (tokens[i].t_type == RIGHT_PAREN && b == 0) {
+						break;
+					}
+					else if (tokens[i].t_type == RIGHT_PAREN) {
+						b--;
+					}
+					else if (tokens[i].t_type == LEFT_PAREN) {
+						b++;
+					}
+					copy_token(tokens[i]);
+					i++;
+					if (i >= end) {
+						error(tokens[i].t_line, SYNTAX_ERROR);
+					}
+				}
+				// i now at right paren
+				add_token(SEMICOLON, make_data_str(";"));
+				add_token(RIGHT_BRACE, make_data_str("}"));
+
+				// continue chain
+			}
+			else if (tokens[i].t_type == ELSE) {
+				i++;
+				if (tokens[i].t_type != LEFT_BRACE) {
+					error(tokens[i].t_line, SYNTAX_ERROR);
+				}
+				copy_token(tokens[i]); // copy left brace
+				// Do the inner substatementlist, end of the whole thing is
+				//  the end of the else hopefully.
+				l_handle_function(i + 1, end, if_process_line);
+				if (tokens[end - 1].t_type != RIGHT_BRACE) {
+					error(tokens[end].t_line, SYNTAX_ERROR);
+				}
+				copy_token(tokens[end - 1]); // copy right brace
+				continue_chain = false;
+			}
+			else {
+				error(tokens[i].t_line, SYNTAX_ERROR);
+			}
+		} while (continue_chain);
+		// End of cond chain
+		add_token(SEMICOLON, make_data_str(";"));
+
+	}
+	else {
+		// Not an if statement, copy token line as usual!
+		for (int i = start; i < end; i++) {
+			if (tokens[i].t_type == LEFT_BRACE) {
+				// find end of fn
+				copy_token(tokens[i]);
+				int s_start = i + 1;
+				int b = 0;
+				while (1) {
+					i++;
+					if (i >= end) {
+						//printf("FUCK %d\n", i);
+						error(tokens[i].t_line, SYNTAX_ERROR);
+					}
+					else if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
+					//	printf("Found End\n");
+						break;
+					}
+					else if (tokens[i].t_type == LEFT_BRACE) {
+						b++;
+					}
+					else if (tokens[i].t_type == RIGHT_BRACE) {
+						b--;
+					}
+				}
+				l_handle_function(s_start, i, if_process_line);
+				copy_token(tokens[i]);
+			}
+			else {
+				copy_token(tokens[i]);
+			}
+		}
+		add_token(SEMICOLON, make_data_str(";"));
+	}
+}
+
+// l_process_line(start, end) takes a line of code (like parse_line)
 //   and checks for lambdas
-void process_line(int start, int end) {
+void l_process_line(int start, int end) {
 	// first we scan to see if there are embedded lambda functions
 	int old_count = lambda_count;
 	for (int i = start; i < end; i++) {
@@ -320,7 +499,7 @@ void fc_process_line(int start, int end) {
 					b--;
 				}
 			}	
-			ends[emb_fn_count++] = i - 1;
+			ends[emb_fn_count++] = i;
 		}
 		else if (tokens[i].t_type == IDENTIFIER && 
 			tokens[i + 1].t_type == LEFT_PAREN &&
@@ -355,7 +534,7 @@ void l_handle_function(int start, int end, void (*line_fn)(int, int)) {
 	int brace_count = 0;
 	int line_start = start;
 //	printf("start:  %d, %d\n", start, end);
-	for (int i = start; i <= end; i++) {
+	for (int i = start; i < end; i++) {
 		token curr_t = tokens[i];
 //
 //		if(line_fn == fc_process_line) printf("brace_Count: %d\n", brace_count);		
@@ -397,14 +576,18 @@ size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size) {
 	length = _length;
 	
 	if (p_dump_path) printf_tokens("Scanned Tokens", "scanned");
-//	print_token_list(tokens, length);
+
 	// Lift out lambda functions: 	
-	l_handle_function(0, _length - 1, process_line);
+	l_handle_function(0, _length, l_process_line);
 
 	reset_counters();
 	if (p_dump_path) printf_tokens("Lambdas Lift-out", "lambda");
+	
+	// Process conditionals
+	l_handle_function(0, length, if_process_line);
+	reset_counters();
+	if (p_dump_path) printf_tokens("Conditionals", "cond");
 
-//	print_token_list(tokens, length);
 	// Second pass, we scan for a lambda symbol. 
 	// What are we looking for? We look for function definition headers, eg
 	//   a =>, following which is the argument list, and also 
@@ -474,7 +657,7 @@ size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size) {
 
 
 	// Third Pass: we convert all function calls, very similar to lambdas
-	l_handle_function(0, length - 1, fc_process_line);
+	l_handle_function(0, length, fc_process_line);
 	reset_counters();
 	if (p_dump_path) printf_tokens("Function Calls", "fncall");
 

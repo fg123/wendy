@@ -136,6 +136,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 	// process the first character
 	//printf("Parse Line: Size: %d\n", size);
 	//print_token(&tokens[start]);
+	if (size <= 0) return false;
 	token f_token = tokens[start];
 	if (f_token.t_type == LET) {
 		if (size < 2) { 
@@ -392,8 +393,8 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 	
 		// Scan one line from the input.
 		char buffer[MAX_STRING_LEN];
-		if (fgets(buffer, MAX_STRING_LEN, stdin)) {
-				
+		while(fgets(buffer, MAX_STRING_LEN, stdin)) {};
+					
 			token* t = get_value_of_address(mem_to_mod, f_token.t_line);
 			char* end_ptr = buffer;
 			errno = 0;
@@ -411,17 +412,91 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 				t->t_type = NUMBER;
 				t->t_data.number = d;
 			}
-		}
+	/*	
 		else {
 			error(f_token.t_line, INPUT_ERROR);
 			return false;
-		}
+		}*/
 	}
 	else if (f_token.t_type == STRUCT || f_token.t_type == REQ) {
 		// handled by scanner
 		return false;	
 	}
+	else if (f_token.t_type == COND) {
+		if (size < 5) {
+			error(f_token.t_line, SYNTAX_ERROR, "if");
+		}
+		// COND Syntax
+		//   1. COND { statement_list; } { statement_list; };
+		//   2. COND { s_l; } { s_l; } 1;
+		// Run first statement block if top of stack is true, and return at the 
+		//   end of the cond chain. Run second statement if false and return
+		//   at the next COND chain.
+		
+		// Get Condition
+		token t = pop_arg();
+		if (t.t_type == TRUE) {
+			// Execute first statement list, return pointer at the end.
+			push_auto_frame(start + size + 1, "if"); 
+			*i_ptr = start + 2;
+			return false;
+		}
+		else if (t.t_type == FALSE) {
+			// Run next statement list.
+			int b = 0;
+			int i = start + 2;
+			while (true) {
+				if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
+					break;
+				}
+				else if (tokens[i].t_type == RIGHT_BRACE) {
+					b--;
+				}
+				else if (tokens[i].t_type == LEFT_BRACE) {
+					b++;
+				}
+				i++;
+				if (i >= start + size) {
+					error(tokens[i].t_line, SYNTAX_ERROR);
+				}
+			}
+			// i is now right brace of first
+			i++; // now left brace of second
+			int fn_start = i + 1;
+			while (true) {
+				if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
+					break;
+				}
+				else if (tokens[i].t_type == RIGHT_BRACE) {
+					b--;
+				}
+				else if (tokens[i].t_type == LEFT_BRACE) {
+					b++;
+				}
+				i++;
+				if (i >= start + size) {
+					error(tokens[i].t_line, SYNTAX_ERROR);
+				}
+			}
+			// i now right brace of other
+			int ra = 0;
+			if (tokens[i + 1].t_type == COND) {
+				ra = i + 1;
+			}
+			else {
+				ra = start + size + 1;
+			}
+			push_auto_frame(ra, "evaluating");
+			*i_ptr = fn_start;
+			return false;
+		}
+		else {
+			error(f_token.t_line, COND_EVAL_NOT_BOOL);
+		}
+	}
 	else if (f_token.t_type == IF) {
+		// IF is deprecated, preprocessor will convert to COND
+		return false;
 		if (size < 5) {
 			error(f_token.t_line, SYNTAX_ERROR, "if");
 			return false;
