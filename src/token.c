@@ -149,6 +149,7 @@ void print_token(const token* t) {
 		printf("%s\n", t->t_data.string);
 	}
 	last_printed_newline = true;
+	fflush(stdout);
 }
 
 void print_token_inline(const token* t, FILE* buf) {
