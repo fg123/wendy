@@ -39,11 +39,7 @@ let map => (fn, list) {
 };
 
 let filter => (fn, list) {
-	list;
-	first(list);
-	list.size;
-	if ((list.size) == 0) {
-		"WHY DONT I COME IN HERE";
+	if (list.size == 0) {
 		ret [];
 	}
 	else if (fn(first(list))) {
@@ -52,4 +48,31 @@ let filter => (fn, list) {
 	else {
 		ret filter(fn, rest(list));
 	};
+};
+
+let sort => (list) {
+	let insert => (elem, list) {
+		let result = [];
+		let i = 0;
+		let added = false;
+		loop (i < list.size) {
+			if (elem < list[i] and !added) {
+				set result = result + elem;
+				set added = true;
+			};
+			set result = result + list[i];
+			inc i;
+		};
+		if (!added) {
+			set result = result + elem;
+		};
+		ret result;
+	};
+  	let result = [];
+  	let i = 0;
+  	loop (i < list.size) {
+  		set result = insert(list[i], result);
+    	inc i;
+  	};
+	ret result;
 };

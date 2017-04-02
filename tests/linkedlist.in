@@ -1,32 +1,9 @@
 req "list.w";
 
-let mylist = build_list(10);
-print_list(mylist);
-
-let insert => (element, lst) {
-	if (lst == none) {
-		ret cons(element, none);
-	}
-	else if (element <= first(lst)) {
-		ret cons(element, lst);
-	}
-	else {
-		ret cons(first(lst), insert(element, rest(lst)));
-	};
-};
-
-// lst is a linked list
-let sort => (lst) {
-	if (lst == none) {
-		ret none;
-	}
-	else {
-		ret insert(first(lst), sort(rest(lst)));
-	};
-};
+let mylist = [1..10];
+mylist;
 
 
-
-let sortinglist = cons(84, cons(2, cons(9, cons(36, cons(17, none)))));
+let sortinglist = [84, 2, 9, 36, 17];
 let sorted = sort(sortinglist);
-print_list(sorted);
+sorted;
