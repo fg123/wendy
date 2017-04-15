@@ -108,52 +108,31 @@ bool token_equal(token* a, token* b) {
 }
 
 void print_token(const token* t) {
-	if (t->t_type == RANGE) {
-		printf("<range from %d to %d>\n", range_start(*t), range_end(*t));
-	}
-	else if (t->t_type == LIST) {
-		// Traverse to list header
-		address start = t->t_data.number;
-		token l_header = memory[start];
-		printf("[");
-		for (int i = 0; i < l_header.t_data.number; i++) {
-			if (i != 0) printf(", ");
-			print_token_inline(&memory[start + i + 1], stdout);
-		}
-		printf("]\n");
-	}
-	else if (t->t_type == NUMBER || t->t_type == ADDRESS) {
-		// First we see how many bytes
-		size_t len = snprintf(0, 0, "%f", t->t_data.number);
-//		printf("length %d\n", len);
-		char* buffer = malloc(len + 1);
-//		memset(buffer, 0, len + 1);
-		snprintf(buffer, len + 1, "%f", t->t_data.number);
-		// Start at end, if it's 0 we clip it, otherwise we stop
-		len--;
-		while (buffer[len] == '0') {
-			buffer[len--] = 0;
-		}
-		if (buffer[len] == '.') {
-			// clip that too
-			buffer[len--] = 0;
-		}
-			
-		printf("%s\n", buffer);
-		free(buffer);
-	}
-	/*else if (t->t_type == ARRAY_HEADER) {
-		printf("<array size %d>\n", t->t_data.number);
-	}*/
-	else {
-		printf("%s\n", t->t_data.string);
-	}
+	print_token_inline(t, stdout);
+	printf("\n");
 	last_printed_newline = true;
 	fflush(stdout);
 }
 
 void print_token_inline(const token* t, FILE* buf) {
-	if (t->t_type == RANGE) {
+	if (t->t_type == OBJ_TYPE) {
+		fprintf(buf, "<%s>", t->t_data.string);
+		fflush(buf);
+	}
+	else if (t->t_type == STRUCT) {
+		fprintf(buf, "<struct>");
+		fflush(buf);
+	}
+	else if (t->t_type == FUNCTION) {
+		fprintf(buf, "<function>");
+		fflush(buf);
+	}
+	else if (t->t_type == STRUCT_INSTANCE) {
+		token instance_loc = memory[(int)(t->t_data.number)];
+		fprintf(buf, "<struct:%s>", 
+				memory[(int)instance_loc.t_data.number + 1].t_data.string);
+	}
+	else if (t->t_type == RANGE) {
 		fprintf(buf, "<range from %d to %d>", range_start(*t), range_end(*t));
 		fflush(buf);
 	}

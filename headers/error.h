@@ -3,6 +3,9 @@
 
 // errors.h includes all of the error messages in WendyScript
 
+// Wendy Messages
+#define INVALID_P_FILE "Invalid preprocessed file!"
+
 // Scanner Messages:
 #define UNTERMINATED_STRING "Unterminated string!"
 #define UNEXPECTED_CHARACTER "Unexpected character!"
@@ -26,7 +29,8 @@
 #define MATH_DISASTER "Division by 0!"
 #define EXPR_MULT_VALUE "Expression did not evaluate to single value."
 #define MUTATE_CONST "Identifier is a constant and cannot be modified."
-#define ARRAY_REF_NOT_NUM "Array index must be number!"
+#define ARRAY_REF_NOT_NUM "Array index must be number or a range!"
+#define ARRAY_REF_OUT_RANGE "Array subscript is out of range!"
 #define MEMORY_REF_ERROR "Reference to Memory Out of Range!"
 #define REQ_FILE_READ_ERR "req: File read error."
 #define MEMSET_NOT_NUM "Memset requires an integer address!"
@@ -35,6 +39,8 @@
 #define MEMORY_OVERFLOW "Out of memory!" 
 #define NOT_A_LIST "Referenced identifier is not a list!"
 #define UNRECOGNIZED_ACCESSOR "Unrecognized accessor call."
+#define MEMBER_NOT_EXIST "Requested member does not exist in class."
+#define INIT_NOT_FN "init member not a function!"
 
 #define UNKNOWN_TOKEN "Unknown Token!"
 
@@ -70,6 +76,10 @@ void init_error(char* src);
 // error(line, message, ...) prints an error message to the screen with an
 //   optional string parameter which can be appended to the front.
 void error(int line, char* message, ...);
+
+// w_error(message) prints an error message corresponding to
+//   an internal wendyscript error, not one of the user.
+void w_error(char* message);
 
 // free_error() frees the allocated space for the source
 void free_error();

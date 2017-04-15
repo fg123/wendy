@@ -16,15 +16,11 @@
 static token* tokens;
 static size_t tokens_count;
 
-void run(char* input_string) {
-	size_t alloc_size = 0;
-	tokens_count = scan_tokens(input_string, &tokens, &alloc_size);
-
-	tokens_count = preprocess(&tokens, tokens_count, alloc_size);
-
+void start_program() {
 	int brace_count = 0;
 	int line_start = 0;
 	for (int i = 0; i < tokens_count; i++) {
+//		printf("i i %d\n", i);
 		token curr_t = tokens[i];
 		
 		if (curr_t.t_type == SEMICOLON && brace_count == 0) {
@@ -59,11 +55,28 @@ void run(char* input_string) {
 	}
 	free_error();
 	free(tokens);
+
+}
+
+
+void run_tokens(token* _tokens, size_t _length) {
+	tokens = _tokens;
+	tokens_count = _length;
+	start_program();
+}
+
+void run(char* input_string) {
+	size_t alloc_size = 0;
+	tokens_count = scan_tokens(input_string, &tokens, &alloc_size);
+
+	tokens_count = preprocess(&tokens, tokens_count, alloc_size);
+	start_program();
 }
 
 address eval_identifier(address start, size_t size) {
 	// Either we have a *(MEMORY ADDR) or we have identifier[] or identifier
 	// I guess we can also have a identifier[][] or any sublists.
+	// Also we can have identifier.member
 	// We scan until we find right brackets or right parentheses and then
 	//   we track back like usual.
 //	printf("EVALIDENTIFIER at");
@@ -83,7 +96,6 @@ address eval_identifier(address start, size_t size) {
 			return t.t_data.number;
 		}
 	}
-	// Not Star, so it must be an identifier
 	if (size == 1) {
 		if (tokens[start].t_type != IDENTIFIER) {
 			error(tokens[start].t_line, SYNTAX_ERROR);
@@ -125,6 +137,70 @@ address eval_identifier(address start, size_t size) {
 		int offseti = floor(arr_s.t_data.number) + 1;
 		
 		return list_start + offseti;
+	}
+	else if (tokens[start].t_type == IDENTIFIER) {
+		// Not array reference, but an identifier and also not size 1.
+		// AKA we go from the back to find the first DOT
+		int j = start + size - 1;
+		while (tokens[j].t_type != DOT) {
+			j--;
+			if (j == start) error(tokens[start].t_line, SYNTAX_ERROR);
+		}
+		token t = eval(start, j - start); 
+		if (t.t_type != STRUCT && t.t_type != STRUCT_INSTANCE) {
+			error(tokens[start].t_line, SYNTAX_ERROR);
+		}
+		// Structs can only modify Static members, instances modify instance 
+		//   members.
+		// Either will be allowed to look through static parameters.
+		token e = tokens[start + size - 1];
+		int params_passed = 0;
+		address metadata = (int)(t.t_data.number);
+		if (t.t_type == STRUCT_INSTANCE) {
+			// metadata actually points to the STRUCT_INSTANE_HEADER 
+			//   right now.
+			metadata = (address)(memory[metadata].t_data.number);
+		}
+		token_type struct_type = t.t_type;
+		address struct_header = t.t_data.number;
+		while(1) {
+			int params_passed = 0;
+			address parent_meta = 0;
+			int size = (int)(memory[metadata].t_data.number);
+			for (int i = 0; i < size; i++) {
+				token mdata = memory[metadata + i];
+				if (mdata.t_type == STRUCT_STATIC &&
+					strcmp(mdata.t_data.string, e.t_data.string) == 0) {
+					// Found the static member we were looking for.
+					return metadata + i + 1;
+				}
+				else if (mdata.t_type == STRUCT_PARAM) {
+					if (struct_type == STRUCT_INSTANCE && 
+						strcmp(mdata.t_data.string, e.t_data.string) == 0) {
+						// Found the instance member we were looking for.
+						// Address of the STRUCT_INSTANCE_HEADER offset by
+						//   params_passed + 1;
+						address loc = struct_header + params_passed + 1;
+						return loc;
+					}
+					params_passed++;
+				}
+				else if (mdata.t_type == STRUCT_PARENT) {
+					parent_meta = mdata.t_data.number;
+			//		params_passed++;
+				}
+			}
+			// Check now if there is a parent class
+			if (parent_meta) {
+				metadata = parent_meta;
+				struct_header = memory[struct_header + 1].t_data.number;
+			}
+			else {
+				break;
+			}
+		}
+
+		error(tokens[start].t_line, MEMBER_NOT_EXIST);
 	}
 	else {
 		error(tokens[start].t_line, SYNTAX_ERROR);
@@ -177,7 +253,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 				// Push the address of the next instruction
 				//   (left parentheses)
 				address a = push_memory(
-						make_token(NUMBER, make_data_num(start + 4))); 
+						make_token(FUNCTION, make_data_num(start + 4))); 
 				push_stack_entry(tokens[start + 1].t_data.string, a);
 			}
 			else if (size >= 5 && tokens[start + 2].t_type == LEFT_BRACK) {
@@ -303,7 +379,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 		}
 		else if (tokens[start + 1 + id_size].t_type == DEFFN) {
 			// Same as defined above for the LET statement  
-			replace_memory(make_token(NUMBER, 
+			replace_memory(make_token(FUNCTION, 
 				make_data_num(start + 3 + id_size)), mem_to_mod);
 		}
 		else {
@@ -418,9 +494,116 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 			return false;
 		}*/
 	}
-	else if (f_token.t_type == STRUCT || f_token.t_type == REQ) {
+	else if (f_token.t_type == REQ) {
 		// handled by scanner
 		return false;	
+	}
+	else if (f_token.t_type == STRUCT) {
+		// STRUCT SYNTAX
+		//   1. STRUCT identifier => (param1, param2 ...);
+		//   2. STRUCT identifier => [static1, static2, ...];
+		//   3. STRUCT identifier => (param1, ...) [static1, ...];
+		//   4. STRUCT identifier:parent => 1, 2, or 3
+		if (size < 6) {
+			error(f_token.t_line, SYNTAX_ERROR, "struct");
+		}
+		int sm_size = 0;
+		token* struct_meta = malloc(MAX_STRUCT_META_LEN * sizeof(token));
+		// Save where the struct metadata will be.
+		int i = start + 1;
+		if (tokens[i].t_type != IDENTIFIER) {
+			error(f_token.t_line, SYNTAX_ERROR, "struct");	
+		}
+		char* struct_name = tokens[i].t_data.string;
+		// Next data gets overwritten at the end with the size;
+		struct_meta[sm_size++] = 
+			make_token(STRUCT_METADATA, make_data_num(1));
+		struct_meta[sm_size++] = make_token(STRUCT_NAME, 
+				make_data_str(struct_name));
+		
+		i++;
+		// Check if there is a parent.
+		if (tokens[i].t_type == COLON) {
+			// Got a parent! Next token should be the identifier of the parent.
+			if (tokens[i+1].t_type != IDENTIFIER) {
+				error(f_token.t_line, SYNTAX_ERROR, "struct");
+			}
+			// Check if its a struct.
+			token parent = eval(i + 1, 1); 
+			if (parent.t_type != STRUCT) {
+				error(f_token.t_line, SYNTAX_ERROR, "struct");
+			}
+			// parent's data number is an address to the metadata of the struct.
+			// We'll add that to our metadata.
+			struct_meta[sm_size++] = make_token(STRUCT_PARENT, 
+					parent.t_data);
+			struct_meta[sm_size++] = make_token(STRUCT_PARAM,
+					make_data_str("base"));
+			i += 2; // skip the identifier straight to the deffn
+		}
+		if (tokens[i].t_type != DEFFN) {
+			error(f_token.t_line, SYNTAX_ERROR, "struct");	
+		}
+
+		// Default init method.
+		struct_meta[sm_size++] = make_token(STRUCT_STATIC, 
+						make_data_str("init"));
+		struct_meta[sm_size++] = none_token();
+
+		i++;
+		// i is now either [, ( or ;
+		while (i < start + size) {
+			if (tokens[i].t_type == LEFT_BRACK) {
+				i++;
+				// Handle Static Members
+				for (; tokens[i].t_type != RIGHT_BRACK; i ++) {
+					if (tokens[i].t_type != IDENTIFIER &&
+							tokens[i].t_type != COMMA) {
+						error(f_token.t_line, SYNTAX_ERROR);
+						return false;
+					}
+					else if (tokens[i].t_type == COMMA) {
+						continue;
+					}
+					else {
+						struct_meta[sm_size++] = make_token(STRUCT_STATIC, 
+							tokens[i].t_data);
+						struct_meta[sm_size++] = none_token();
+					}
+				}
+				i++;
+			}
+			else if (tokens[i].t_type == LEFT_PAREN) {
+				// Handle Instance Members
+				i++;
+				for (; tokens[i].t_type != RIGHT_PAREN; i ++) {
+					if (tokens[i].t_type != IDENTIFIER &&
+							tokens[i].t_type != COMMA) {
+						error(f_token.t_line, SYNTAX_ERROR);
+						return false;
+					}
+					else if (tokens[i].t_type == COMMA) {
+						continue;
+					}
+					else {
+						struct_meta[sm_size++] = make_token(STRUCT_PARAM, 
+							tokens[i].t_data);
+					}
+				}
+				i++;
+			}
+			else {
+				error(f_token.t_line, SYNTAX_ERROR, "struct");
+			}
+		}
+		struct_meta[0].t_data = make_data_num(sm_size);
+		address a = push_memory_array(struct_meta, sm_size);
+		// Add Struct to CallStack
+//		printf("IN HERE LEL %s\n", struct_name);
+		push_stack_entry(struct_name, 
+				push_memory(make_token(STRUCT, make_data_num(a))));
+		free(struct_meta);
+		return false;
 	}
 	else if (f_token.t_type == COND) {
 		if (size < 5) {
@@ -428,7 +611,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 		}
 		// COND Syntax
 		//   1. COND { statement_list; } { statement_list; };
-		//   2. COND { s_l; } { s_l; } 1;
+		//   2. COND { s_l; };
 		// Run first statement block if top of stack is true, and return at the 
 		//   end of the cond chain. Run second statement if false and return
 		//   at the next COND chain.
@@ -678,14 +861,127 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 	else if (f_token.t_type == CALL) {
 		address a = eval_identifier(start + 1, size - 1);
 		token t = memory[a];
-		if (t.t_type != NUMBER) {
+		if (t.t_type == FUNCTION) {
+			int ret_val = start + size + 1; // next instruction
+			int j = start + size - 1;
+			address this_adr = 0;
+			while (j > start) {
+				if (tokens[j].t_type == DOT) {
+//					printf("start is %d j is %d\n", start, j);
+//					print_token(&tokens[start]);
+					address e = eval_identifier(start + 1, j - start - 1);
+					this_adr = e;
+					break;					
+				}
+				j--;
+			}
+
+			push_frame(tokens[start + 1].t_data.string, ret_val);
+			 
+			push_stack_entry(tokens[start + size - 1].t_data.string, a);
+			*i_ptr = t.t_data.number;
+			if (this_adr) push_stack_entry("this", this_adr);
+
+		}
+		else if (t.t_type == STRUCT) {
+			// Creating a struct instance! All the arguments are in the stack.
+			// We'll take them out in backwards order and assign them to the
+			//   instance specific values. First check if there's overloaded 
+			//   constructor.
+		
+			// j stores the address of the start of the metadata
+			address j = (int)t.t_data.number; 
+			// grab the size of the metadata chain also check if there's an
+			//   overloaded init.
+			int m_size = memory[j].t_data.number;
+			int params = 0;
+			address overloaded_init = 0;
+			address base_instance_address = 0;	
+			for (int i = 0; i < m_size; i++) {
+				if (memory[j + i].t_type == STRUCT_PARAM) {
+					params++;
+				}
+				else if (memory[j + i].t_type == STRUCT_PARENT) {
+					// Structure has a parent. We'll navigate to the parent
+					//   and build an empty struct instance of the parent.
+					address p_mdata = (int)memory[j + i].t_data.number;
+					int p_size = memory[p_mdata].t_data.number;
+					int p_params = 0;
+					for (int p = 0; p < p_size; p++) {
+						if (memory[p_mdata + p].t_type == STRUCT_PARAM) {
+							p_params++;
+						}
+					}
+					int p_total_size = p_params + 1;
+					token *parent_instance = malloc(p_total_size * sizeof(token));
+					parent_instance[0] = make_token(STRUCT_INSTANCE_HEAD,
+							make_data_num(p_mdata));
+					for (int p = 1; p < p_total_size; p++) {
+						parent_instance[p] = none_token();
+					}
+					address parent_base_addr = 
+						push_memory_array(parent_instance, p_total_size);
+					base_instance_address = parent_base_addr;
+					free(parent_instance);
+				}
+				else if (memory[j + i].t_type == STRUCT_STATIC &&
+						strcmp("init", memory[j + i].t_data.string) == 0) {
+					if (memory[j + i + 1].t_type == NONE) {
+						overloaded_init = 0;
+					}
+					else if (memory[j + i + 1].t_type != FUNCTION) {
+						error(t.t_line, INIT_NOT_FN);
+					}
+					else {
+						// Save fn pointer.
+						overloaded_init = 
+							(address)memory[j + i + 1].t_data.number;	
+					}
+				}
+			}		
+
+			int si_size = 0;
+			token* struct_instance = 
+				malloc(MAX_STRUCT_META_LEN * sizeof(token));
+		
+			si_size = params + 1; // + 1 for the header
+			struct_instance[0] = make_token(STRUCT_INSTANCE_HEAD, 
+					make_data_num(j));
+			int offset = params;
+			if (base_instance_address) {
+				// First param is actually a hidden BASE param
+				struct_instance[1] = make_token(STRUCT_INSTANCE,
+						make_data_num(base_instance_address));
+				offset++;
+				si_size++;
+			}
+			for (int i = 0; i < params; i++) {
+				if (overloaded_init) {
+					struct_instance[offset - i] = none_token();
+				}
+				else {
+					struct_instance[offset - i] = pop_arg();	
+				}
+			}
+			// Struct instance is done.
+			address a = push_memory_array(struct_instance, si_size);
+			free(struct_instance);
+			if (overloaded_init) {
+				int ret_val = start + size + 1; // next instruction
+//				printf("ret val: %d\n", ret_val);
+				address b = push_memory(make_token(STRUCT_INSTANCE, 
+							make_data_num(a)));
+				push_frame("STRUCT INIT", ret_val); 
+				push_stack_entry("this", b);
+				*i_ptr = overloaded_init;
+			}
+			else {
+				push_arg(make_token(STRUCT_INSTANCE, make_data_num(a)));
+			}
+		}
+		else {
 			error(t.t_line, SYNTAX_ERROR);
 		}
-		int ret_val = start + size + 1; // next instruction
-		push_frame(tokens[start + 1].t_data.string, ret_val);
-		 
-		push_stack_entry(tokens[start + 1].t_data.string, a);
-		*i_ptr = t.t_data.number;
 		return false;
 	}
 	else if (f_token.t_type == AT) {
@@ -727,20 +1023,7 @@ token eval_uniop(token op, token a) {
 		}
 		token res = make_token(NUMBER, make_data_num(-1 * a.t_data.number));
 		return res;
-	}
-	else if (op.t_type == ACCESS_SIZE) {
-		int size = 1;
-		if (a.t_type == STRING) {
-			size = strlen(a.t_data.string);
-		}
-		else if (a.t_type == LIST) {
-			// Find list header
-			address h = a.t_data.number;
-			size = memory[h].t_data.number;
-		}
-		token res = make_token(NUMBER, make_data_num(size));
-		return res;
-	}
+	}	
 	else if (op.t_type == NOT) {
 		if (a.t_type != TRUE &&  a.t_type != FALSE) {
 			error(a.t_line, SYNTAX_ERROR, "!");
@@ -764,19 +1047,119 @@ token eval_binop(token op, token a, token b) {
 		if (a.t_type != LIST) {
 			error(a.t_line, NOT_A_LIST);
 		}
+		token list_header = memory[(int)a.t_data.number];
+		int list_size = list_header.t_data.number;
+//		printf("LIST SIZE IS: %d\n", list_size);
 		// Pull list header reference from list object.
 		address id_address = a.t_data.number;
-		if (b.t_type != NUMBER) {
+		if (b.t_type != NUMBER && b.t_type != RANGE) {
 			error(b.t_line, ARRAY_REF_NOT_NUM);
 			return none_token();
 		}
-		// Add 1 to offset because of the header.
-		int offset = floor(b.t_data.number) + 1;
-		token* c = get_value_of_address(id_address + offset, 
+//		printf("TDATA NUM IS %d\n", (int)(b.t_data.number));
+		if ((b.t_type == NUMBER && (int)(b.t_data.number) >= list_size) ||
+			(b.t_type == RANGE && 
+			((range_start(b) >= list_size || range_end(b) >= list_size ||
+			 range_start(b) < 0 || range_end(b) < 0) || 
+			range_start(b) == range_end(b)))) {
+			error(b.t_line, ARRAY_REF_OUT_RANGE);
+		}
+
+		if (b.t_type == NUMBER) {
+			// Add 1 to offset because of the header.
+			int offset = floor(b.t_data.number) + 1;
+			token* c = get_value_of_address(id_address + offset, 
 				a.t_line);
-		return *c;
+			return *c;
+		}
+		else {
+			int start = range_start(b);
+			int end = range_end(b);
+			int subarray_size = start - end;	
+			if (subarray_size < 0) subarray_size *= -1;
+			subarray_size++;
+			
+			address array_start = (int)(a.t_data.number);
+			token* new_a = malloc(subarray_size * sizeof(token));
+			int n = 0;
+			for (int i = start; i != end; 
+				start < end ? i++ : i--) {
+				new_a[n++] = memory[array_start + i + 1];
+			}
+			new_a[n++] = memory[array_start + end + 1];
+
+			address new_aa = push_memory_a(new_a, subarray_size);
+			free(new_a);
+			return make_token(LIST, make_data_num(new_aa));
+		}
 	}
-	if (op.t_type == TYPEOF) {
+	if (op.t_type == DOT) {
+		// Member Access! Supports two built in, size and type.
+		// Left side should be a token.
+		if (b.t_type != IDENTIFIER) {
+			error(b.t_line, SYNTAX_ERROR);
+			return false_token();
+		}
+		if (strcmp("size", b.t_data.string) == 0) {
+			return size_of(a);	
+		}
+		else if (strcmp("type", b.t_data.string) == 0) {
+			return type_of(a);
+		}
+		else {
+			// Regular Member, Must be either struct or a struct instance.
+			if (a.t_type == STRUCT || a.t_type == STRUCT_INSTANCE) {
+				// Either will be allowed to look through static parameters.
+				address metadata = (int)(a.t_data.number);
+				if (a.t_type == STRUCT_INSTANCE) {
+					// metadata actually points to the STRUCT_INSTANE_HEADER 
+					//   right now.
+					metadata = (address)(memory[metadata].t_data.number);
+				}
+				token_type struct_type = a.t_type;
+				address struct_header = a.t_data.number;
+				while(1) {
+					int params_passed = 0;
+					address parent_meta = 0;
+					int size = (int)(memory[metadata].t_data.number);
+					for (int i = 0; i < size; i++) {
+						token mdata = memory[metadata + i];
+						if (mdata.t_type == STRUCT_STATIC &&
+							strcmp(mdata.t_data.string, b.t_data.string) == 0) {
+							// Found the static member we were looking for.
+							return memory[metadata + i + 1];
+						}
+						else if (mdata.t_type == STRUCT_PARAM) {
+							if (struct_type == STRUCT_INSTANCE && 
+								strcmp(mdata.t_data.string, b.t_data.string) == 0) {
+								// Found the instance member we were looking for.
+								// Address of the STRUCT_INSTANCE_HEADER offset by
+								//   params_passed + 1;
+								address loc = struct_header + params_passed + 1;
+								return memory[loc];
+							}
+							params_passed++;
+						}
+						else if (mdata.t_type == STRUCT_PARENT) {
+							parent_meta = mdata.t_data.number;
+					//		params_passed++;
+						}
+					}
+					// Check now if there is a parent class
+					if (parent_meta) {
+						metadata = parent_meta;
+						struct_header = memory[struct_header + 1].t_data.number;
+					}
+					else {
+						break;
+					}
+				}
+			}
+			error(b.t_line, MEMBER_NOT_EXIST);
+			return false_token();
+		}
+	}
+/*	if (op.t_type == TYPEOF) {
 		if (b.t_type != OBJ_TYPE && b.t_type != NONE) {
 			error(op.t_line, TYPE_ERROR); 
 		}
@@ -806,7 +1189,7 @@ token eval_binop(token op, token a, token b) {
 		else {
 			return false_token();
 		}
-	}
+	}*/
 	bool has_address = (a.t_type == ADDRESS || b.t_type == ADDRESS);
 	if ((a.t_type == NUMBER || a.t_type == ADDRESS) && 
 		(b.t_type == NUMBER || b.t_type == ADDRESS)) {
@@ -894,6 +1277,13 @@ token eval_binop(token op, token a, token b) {
 			(a.t_type == NONE && b.t_type == NONE) ? 
 			false_token() : true_token();
 	}
+	else if((a.t_type == OBJ_TYPE && b.t_type == OBJ_TYPE) && 
+			(op.t_type == EQUAL_EQUAL || op.t_type == NOT_EQUAL)) {
+		return (op.t_type == EQUAL_EQUAL) ^ 
+			(strcmp(a.t_data.string, b.t_data.string) == 0) ? 
+			false_token() : true_token();
+	}
+
 	// Done number operations: past here, addresses are numbers too.
 	if (a.t_type == ADDRESS) a.t_type = NUMBER;
 	if (b.t_type == ADDRESS) b.t_type = NUMBER;
@@ -998,7 +1388,6 @@ token eval_binop(token op, token a, token b) {
 			}
 			else { error(a.t_line, SYNTAX_ERROR); }
 		}
-
 	}
 	else if((a.t_type == STRING && b.t_type == STRING) ||
 			(a.t_type == STRING && b.t_type == NUMBER) ||
@@ -1051,7 +1440,45 @@ token eval_binop(token op, token a, token b) {
 	return none_token();
 }
 
-// precedence(op) returns precedence of the operator
+token size_of(token a) {
+	double size = 0;
+	if (a.t_type == STRING) {
+		size = strlen(a.t_data.string);
+	}	
+	else if (a.t_type == LIST) {
+		address h = a.t_data.number;
+		size = memory[h].t_data.number;
+	}
+
+	return make_token(NUMBER, make_data_num(size));
+}
+
+token type_of(token a) {
+	switch (a.t_type) {
+		case STRING:
+			return make_token(OBJ_TYPE, make_data_str("string"));
+		case NUMBER:
+			return make_token(OBJ_TYPE, make_data_str("number"));
+		case TRUE:
+		case FALSE:
+			return make_token(OBJ_TYPE, make_data_str("bool"));
+		case NONE:
+			return make_token(OBJ_TYPE, make_data_str("none"));
+		case ADDRESS:
+			return make_token(OBJ_TYPE, make_data_str("address"));
+		case LIST:
+			return make_token(OBJ_TYPE, make_data_str("list"));
+		case STRUCT:
+			return make_token(OBJ_TYPE, make_data_str("struct"));
+		case STRUCT_INSTANCE:
+			{
+				token instance_loc = memory[(int)(a.t_data.number)]; 
+				return make_token(OBJ_TYPE, make_data_str(
+					memory[(int)instance_loc.t_data.number + 1].t_data.string));
+			}
+	}
+}
+
 int precedence(token op) {
 	switch (op.t_type) {
 		case PLUS:
@@ -1067,7 +1494,7 @@ int precedence(token op) {
 		case OR:
 			return 110;
 		case RANGE_OP:
-		case TYPEOF:
+		/*case TYPEOF:*/
 			return 132;
 		case NOT_EQUAL:
 		case EQUAL_EQUAL:
@@ -1081,8 +1508,8 @@ int precedence(token op) {
 		case NOT:
 		case U_MINUS:
 		case U_STAR:
-		case ACCESS_SIZE:
 			return 160;
+		case DOT:
 		case LEFT_BRACK:
 			// Array bracket
 			return 170;
@@ -1119,7 +1546,7 @@ void eval_one_expr(address i, token_stack** expr_stack, token_type search_end,
 				
 				bool is_unary = false;
 				if (op.t_type == NOT || op.t_type == U_STAR || 
-						op.t_type == U_MINUS || op.t_type == ACCESS_SIZE) {
+						op.t_type == U_MINUS) {
 					is_unary = true;
 				}
 	
@@ -1164,7 +1591,7 @@ void eval_one_expr(address i, token_stack** expr_stack, token_type search_end,
 		// remove operator
 		bool is_unary = false;
 		if (op.t_type == NOT || op.t_type == U_STAR || 
-				op.t_type == U_MINUS || op.t_type == ACCESS_SIZE) {
+				op.t_type == U_MINUS) {
 			is_unary = true;
 		}
 
@@ -1176,6 +1603,11 @@ void eval_one_expr(address i, token_stack** expr_stack, token_type search_end,
 			eval_stack = push(&memory[adr], eval_stack);
 		}
 		else {
+			if (is_empty(eval_stack)) {
+//				print_token_stack(eval_stack);
+					
+			}
+
 			token a = *(eval_stack->val);
 			eval_stack = pop(eval_stack);
 			token b = *(eval_stack->val); 
@@ -1347,6 +1779,8 @@ token eval(address start, size_t size) {
 			}
 			else {*/
 				// Variable call.
+			if(is_empty(expr_stack) || 
+				(expr_stack->val)->t_type != DOT) {
 				if (!is_empty(expr_stack) && 
 						(expr_stack->val)->t_type == AMPERSAND) {
 					// get address of this identifier
@@ -1365,6 +1799,10 @@ token eval(address start, size_t size) {
 							tokens[i].t_line); 
 					expr_stack = push(a, expr_stack);
 				}
+			}
+			else {
+				expr_stack = push(&tokens[i], expr_stack);
+			}
 			//}
 		}
 		else if (tokens[i].t_type == TIME) {
@@ -1376,8 +1814,7 @@ token eval(address start, size_t size) {
 			if (precedence(tokens[i]) && 
 				// and at the front, or preceded by another operator
 				(is_empty(expr_stack) || 
-				 (precedence(*(expr_stack->val))) && 
-				   expr_stack->val->t_type != ACCESS_SIZE) &&
+				 (precedence(*(expr_stack->val)))) &&
 				(tokens[i].t_type == MINUS || tokens[i].t_type == STAR)) {
 				// it's an unary operator!
 				tokens[i].t_type = tokens[i].t_type == MINUS ? U_MINUS : U_STAR;

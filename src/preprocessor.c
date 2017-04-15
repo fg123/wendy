@@ -5,9 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "scanner.h"
+#include <assert.h>
 
 char* p_dump_path = 0;
 FILE* p_dump_file = 0;
+char* compile_path = 0;
+FILE* compile_file = 0;
 
 // Local
 static size_t t_curr = 0;
@@ -21,7 +24,7 @@ static int length;
 // Forward declarations for mutual recursion
 void l_process_line(int start, int end);
 void l_handle_function(int start, int end, void (*line_fn)(int, int));
-int fc_process_fn_call(int start);
+int fc_process_fn_call(int start, int end);
 void fc_process_line(int start, int end);
 
 void if_process_line(int start, int end);
@@ -369,18 +372,31 @@ void l_process_line(int start, int end) {
 //   more
 void fc_eval_one(int start, int end) {
 	for (int i = start; i < end - 1; i++) {
-		if (tokens[i].t_type == IDENTIFIER && 
-			tokens[i + 1].t_type == LEFT_PAREN &&
-			tokens[i].t_data.string[0] != '~') {
+		if (tokens[i].t_type == IDENTIFIER) {
+			int save = i;
+			while (tokens[i].t_type == IDENTIFIER &&
+					tokens[i + 1].t_type == DOT) {
+				i += 2;
+			}
+			if (tokens[i + 1].t_type == LEFT_PAREN /* &&
+				tokens[start].t_data.string[0] != '~'*/) {
+				// Function Call within the Line
+				i = fc_process_fn_call(save, end);
+			}
 			// Function Call within the Line
-			i = fc_process_fn_call(i);
 		}
 	}
 }
 
 // require start points to the identifier and returns the end of the fn_call
-int fc_process_fn_call(int start) {
-	int i = start + 2; 
+int fc_process_fn_call(int start, int end) {
+//	printf("in here with %d to %d\n", start, end);
+	int i = start;
+	while (tokens[i].t_type != LEFT_PAREN) {
+		i++;
+		if (i >= end) return -1;
+	}
+	int id_end = i++;
 	// first we pull the arguments by reading until the matching )
 	//   in the function call
 	int arg_vals_start[100];
@@ -410,12 +426,12 @@ int fc_process_fn_call(int start) {
 			if (tokens[i].t_type == RIGHT_PAREN) { break; }
 			i++;
 		}
-		else if (tokens[i].t_type == RIGHT_PAREN) {
+		else if (tokens[i].t_type == RIGHT_PAREN || tokens[i].t_type == RIGHT_BRACK) {
 			brace_count--;
 			arg_eval_size++;
 			i++;
 		}
-		else if (tokens[i].t_type == LEFT_PAREN) {
+		else if (tokens[i].t_type == LEFT_PAREN || tokens[i].t_type == LEFT_BRACK) {
 			brace_count++;
 			arg_eval_size++;
 			i++;
@@ -429,6 +445,7 @@ int fc_process_fn_call(int start) {
 		}
 //		printf("%d\n", i);
 	}
+	int endcall = i;
 ///	printf("Building PUSH arg\n");
 	for (int i = 0; i < argc; i++) {
 		// push each argument
@@ -447,7 +464,9 @@ int fc_process_fn_call(int start) {
 		add_token(SEMICOLON, make_data_str(";"));
 	}
 	add_token(CALL, make_data_str("call"));
-	copy_token(tokens[start]);
+	for (int i = start; i < id_end; i++) {
+		copy_token(tokens[i]);
+	}
 	add_token(SEMICOLON, make_data_str(";"));
 
 	add_token(LET, make_data_str("let"));
@@ -459,19 +478,36 @@ int fc_process_fn_call(int start) {
 	add_token(IDENTIFIER, make_data_str(""));
 	snprintf(new_tokens[t_curr - 1].t_data.string, MAX_STRING_LEN, 
 			"~tmp%d", tmp_count);
-	add_token(SEMICOLON, make_data_str(";"));
-	snprintf(tokens[start].t_data.string, MAX_STRING_LEN, 
-			"~tmp%d", tmp_count);
-	tokens[start + 1].t_data.number = i;
+	int newidtoken = t_curr - 1;
+
 	tmp_count++;
 
-	return i;
+	add_token(SEMICOLON, make_data_str(";"));
+	tokens[endcall] = new_tokens[newidtoken];
+	int endend = endcall;
+	for (int i = endcall; i < end; i++) {
+		if (tokens[i].t_type == DOT) {
+			// Member access after the RIGHT PARENTHESES
+			int new = fc_process_fn_call(endcall, end);
+			if (new != -1) {
+				endcall = new;
+			}
+			break;
+		}
+	}
+	snprintf(tokens[start].t_data.string, MAX_STRING_LEN, 
+			"~tmp%d", tmp_count - 1);
+
+	tokens[endend] = make_token(RIGHT_PAREN, make_data_str(")"));
+	tokens[start + 1].t_data.number = endcall;
+
+	return endcall;
 }
 
 // fc_process_line, for functino calls
 void fc_process_line(int start, int end) {
 //	printf("Processing Line %d - %d\n", start, end);
-	if (tokens[start].t_type == STRUCT || tokens[start].t_type == REQ) {
+	if (tokens[start].t_type == REQ) {
 		return;
 	}
 	int ends[100] = {0};
@@ -501,17 +537,25 @@ void fc_process_line(int start, int end) {
 			}	
 			ends[emb_fn_count++] = i;
 		}
-		else if (tokens[i].t_type == IDENTIFIER && 
-			tokens[i + 1].t_type == LEFT_PAREN &&
-			tokens[i].t_data.string[0] != '~') {
-			// Function Call within the Line
-			int end = fc_process_fn_call(i);
-			tokens[i + 1].t_data.number = end;
+		else if (tokens[i].t_type == IDENTIFIER) {
+			// Find until no period
+			int start = i;
+			while (tokens[i].t_type == IDENTIFIER &&
+					tokens[i + 1].t_type == DOT) {
+				i += 2;
+			}
+			if (tokens[i + 1].t_type == LEFT_PAREN /* &&
+				tokens[start].t_data.string[0] != '~'*/) {
+				// Function Call within the Line
+				int tend = fc_process_fn_call(start, end);
+				tokens[i + 1].t_data.number = tend;
+				i = tend;
+			}
 		}
 	}
 	int c = 0;
 	for (int i = start; i < end; i++) {
-//		printf("%d\n", i);
+	//	printf("%d\n", i);
 		if (tokens[i].t_type == LEFT_BRACE) {
 			copy_token(tokens[i]);
 			l_handle_function(i + 1, ends[c], fc_process_line);
@@ -594,11 +638,17 @@ size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size) {
 	//   a =>, following which is the argument list, and also 
 	//   looking for function calls.
 	for (int i = 0; i < length; i++) {
-		if (tokens[i].t_type == STRUCT ||
-				tokens[i].t_type == REQ) {
+		if (tokens[i].t_type == REQ) {
 			// ignore until the end, already processed
 			while (i < length && tokens[i].t_type != SEMICOLON) i++;
 			
+		}
+		else if (tokens[i].t_type == STRUCT) {
+			while (i < length && tokens[i].t_type != SEMICOLON) {
+				copy_token(tokens[i]);
+				i++;
+			}
+			copy_token(tokens[i]);
 		}
 		else if (tokens[i].t_type == B_COMMENT_START) {
 			// Scan until end of block comment
@@ -661,14 +711,71 @@ size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size) {
 	l_handle_function(0, length, fc_process_line);
 	reset_counters();
 	if (p_dump_path) printf_tokens("Function Calls", "fncall");
+	if (compile_path) {
+		FILE* compiled = fopen(compile_path, "w");
+		if (compiled) {
+			tokens_to_file(tokens, length, compiled);
+		}
 
-//	print_token_list(new_tokens, t_curr);
-	
-
-	// Free Old Block
-//	free(tokens);
+		fclose(compiled);
+		return 0;
+	}
 	*_tokens = tokens;
 	return length;
 }
 
+token* file_to_tokens(FILE* file, size_t* size) {
+	assert(file);
+	// We read the bytes from the file and process it into a
+	//   list of tokens.
+	int total_size;
+	char header[40];
+	fscanf(file, "%s", header);
+	if (strcmp("WendyObj", header) != 0) {
+		w_error(INVALID_P_FILE);		
+	}
+	fscanf(file, "%d", &total_size);
+	fgetc(file);
+	token* tokens = malloc(total_size * sizeof(tokens));
+	int i = 0;
+	while (i < total_size) {
+		token next;
+		next.t_line = 0;
+		char type;
+		fscanf(file, "%c", &type);
 
+		next.t_type = (token_type)type;
+		next.t_data.string[0] = 0;
+		if (next.t_type == NUMBER) {
+			// Number Literal, read the double
+			fread(&(next.t_data.number), sizeof(double), 1, file);
+		}
+		else if (next.t_type == STRING || next.t_type == IDENTIFIER) {
+			char item;
+			int n = 0;
+			do {
+				fscanf(file, "%c", &item);
+				next.t_data.string[n++] = item;
+			} while (item);
+		} 
+		tokens[i++] = next;
+
+	}
+	*size = i;
+	return tokens;
+}
+
+void tokens_to_file(token* tokens, size_t length, FILE* file) {
+	fprintf(file, "WendyObj %d\n", length);
+	for(int i = 0; i < length; i++) {
+		fprintf(file, "%c", tokens[i].t_type);
+		if (tokens[i].t_type == NUMBER) {
+			fwrite(&(tokens[i].t_data.number), sizeof(double), 1, file);
+		}
+		else if (tokens[i].t_type == STRING || tokens[i].t_type == IDENTIFIER) {
+			int length = strlen(tokens[i].t_data.string);
+			fprintf(file, "%s", tokens[i].t_data.string);
+			fprintf(file, "%c", 0);
+		}
+	}
+}

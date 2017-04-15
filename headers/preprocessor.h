@@ -54,6 +54,7 @@
 #include <stdlib.h>
 
 extern char* p_dump_path;
+extern char* compile_path;
 
 // preprocess(tokens, length, alloc_size) takes in a pointer to the pointer to 
 //   the malloc'd block of tokens and preprocesses them, returning the new size
@@ -62,5 +63,12 @@ extern char* p_dump_path;
 //          original pointer may change
 size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size);
 
+// file_to_tokens(file) outputs a list of tokens based on a file
+// requires: file is valid and opened
+// effects: allocates memory, caller must free
+token* file_to_tokens(FILE* file, size_t *size);
+
+// tokens_to_file(tokens, length, FILE*) writes a list of tokens to a file
+void tokens_to_file(token* tokens, size_t length, FILE* file);
 
 #endif

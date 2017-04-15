@@ -10,9 +10,11 @@
 // Data/Token Information
 #define MAX_STRING_LEN 1024
 #define MAX_LIST_INIT_LEN 100
+#define MAX_STRUCT_META_LEN 100
 
 // Stack Entry Sizes
 #define MAX_IDENTIFIER_LEN 59
+
 
 // VM Memory Limits
 #define MEMORY_SIZE 129061
@@ -20,7 +22,7 @@
 #define ARGSTACK_SIZE 128 
 #define RESERVED_MEMORY 2
 
-
+typedef unsigned int byte;
 
 
 

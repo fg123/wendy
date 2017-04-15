@@ -102,6 +102,10 @@ address push_memory_s(token t, int size);
 //   it to the array a.
 address push_memory_a(token* a, int size);
 
+// push_memory_array(a, size) finds a continuous block of size in memory and
+//   sets it to the array a.
+address push_memory_array(token* a, int size);
+
 // pop_memory() removes a token from the memory after a push operation
 token pop_memory();
 

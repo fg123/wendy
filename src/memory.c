@@ -38,11 +38,18 @@ bool garbage_collect(int size) {
 			address a = call_stack[i].val;
 			// Check for array header because we need to mark all of the size.
 			int block_size = 1;
-			if (memory[a].t_type == LIST) {
+			if (memory[a].t_type == LIST || memory[a].t_type == STRUCT) {
 				marked[a] = true;
 				// Traverse to list header.
 				a = memory[a].t_data.number;
 				block_size += memory[a].t_data.number;
+			}
+			else if (memory[a].t_type == STRUCT_INSTANCE) {
+				marked[a] = true;
+				// This means that the original struct metadata must also
+				//   persist as well as the corresponding fields.
+				address metadata = memory[a].t_data.number;
+				/* TODO */
 			}
 			// We'll mark the location it points to. If it's an address, we'll
 			//   recursively mark that one too.
@@ -337,6 +344,15 @@ token pop_arg() {
 	}
 	printf("ARGSTACK is EMPTY!\n");
 	return none_token();
+}
+
+address push_memory_array(token* a, int size) {
+	address loc = pls_give_memory(size);
+	for (int i = 0; i < size; i++) {
+		memory[loc + i] = a[i];
+	}
+	check_memory();
+	return loc;
 }
 
 address push_memory_s(token t, int size) {

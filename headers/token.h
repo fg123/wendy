@@ -13,29 +13,29 @@ typedef enum {
 	COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR, COLON, AT, HASH, PERCENT,
 	INTSLASH, AMPERSAND, TILDE, RANGE_OP,
 
-	// Special Expression Token (Unary)
+	// Special Expression Token (Unary) (21)
 	U_STAR, U_MINUS,
 
-	// Comparison Tokens
+	// Comparison Tokens (23)
 	NOT, NOT_EQUAL,
 	EQUAL, EQUAL_EQUAL, 
 	GREATER, GREATER_EQUAL,
 	LESS, LESS_EQUAL, 
 	
-	// #: token
+	// #: token (31)
 	LAMBDA,
 
 	// Block Comments (/* and */)
 	B_COMMENT_START, B_COMMENT_END,
 
 	// Literals.
-	IDENTIFIER, STRING, NUMBER, ADDRESS, 
+	IDENTIFIER, STRING, NUMBER, ADDRESS, FUNCTION, 
 
 	// Lists and Ranges 
-	LIST, LIST_HEADER, ACCESS_SIZE, RANGE,
+	LIST, LIST_HEADER, RANGE,
 
 	// Object Types
-	OBJ_TYPE, TYPEOF, 
+	OBJ_TYPE, 
 
 	// Conditionals
 	AND, OR, IF, ELSE, ELSEIF, TRUE, FALSE,
@@ -46,6 +46,10 @@ typedef enum {
 	// Special Commands
 	RET, INPUT, INC, DEC, STRUCT, PRINTSTACK, REQ, EXPLODE,
 	TIME,
+
+	// Struct Forms:
+	STRUCT_HEADER, STRUCT_NAME, STRUCT_METADATA, STRUCT_STATIC, STRUCT_PARAM,
+	STRUCT_INSTANCE, STRUCT_INSTANCE_HEAD, STRUCT_PARENT, STRUCT_BASE_INSTANCE, 
 
 	// Special Forms
 	NONE, NONERET,

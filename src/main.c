@@ -8,6 +8,7 @@
 #include "preprocessor.h"
 #include "tests.h"
 #include "macros.h"
+#include "scanner.h"
 
 #ifdef _WIN32
 #include <string.h>
@@ -31,7 +32,14 @@ char* readline(char* prompt) {
 // main.c: used to handle REPL and calling the interpreter on a file.
 
 void invalid_usage() {
-	printf("usage: wendy [file] [-p-dump file] [-nogc] \n");
+	printf("usage: wendy [file] [-p-dump file] [-nogc] [-c file] \n");
+	printf("    file         : is the WendyScript file to be preprocessed and run by the interpreter.\n");
+	printf("    -p-dump file : outputs each step of the preprocessing process.\n");
+	printf("    -no-gc       : disables garbage-collection.\n");
+	printf("    -p file      : only compiles and writes a preprocessed copy to the given file.\n");
+
+
+
 	exit(1);
 }
 
@@ -44,8 +52,15 @@ void process_options(char** options, int len) {
 			p_dump_path = options[i + 1];
 			i++;
 		}
+		else if (strcmp("-p", options[i]) == 0) {
+			if (i == len - 1) {
+				invalid_usage();	
+			}
+			compile_path = options[i + 1];
+			i++;
+		}
+
 		else if (strcmp("-nogc", options[i]) == 0) {
-//			printf("NOGC");
 			enable_gc = false;	
 		}
 		else {
@@ -88,29 +103,47 @@ int main(int argc, char** argv) {
 	if (argc >= 2) {
 		// FILE READ MODE
 		long length = 0;
-		char* buffer;
-		FILE * f = fopen(argv[1], "r");
-		if (f) {
-			fseek (f, 0, SEEK_END);
-			length = ftell (f);
-			fseek (f, 0, SEEK_SET);
-			buffer = malloc(length + 1); // + 1 for null terminator
-			if (buffer) {
-				fread (buffer, 1, length, f);
-				buffer[length] = '\0'; // fread doesn't add a null terminator!
-
+		int filelength = strlen(argv[1]);
+		if (argv[1][filelength - 1] == 'o') {
+			FILE *f = fopen(argv[1], "r");
+			char* buffer;
+			if (f) {
+				size_t size = 0;
+				token* tokens = file_to_tokens(f, &size);
 				push_frame("main", 0);
-		//		init_error(buffer);
-				run(buffer);
+				run_tokens(tokens, size);
+//				print_token_list(tokens, size);
 			}
 			if (!last_printed_newline) {
 				printf("\n");
 			}
-			free(buffer);
 			fclose (f);
 		}
 		else {
-			printf("Error reading file!\n");
+			char* buffer;
+			FILE * f = fopen(argv[1], "r");
+			if (f) {
+				fseek (f, 0, SEEK_END);
+				length = ftell (f);
+				fseek (f, 0, SEEK_SET);
+				buffer = malloc(length + 1); // + 1 for null terminator
+				if (buffer) {
+					fread (buffer, 1, length, f);
+					buffer[length] = '\0'; // fread doesn't add a null terminator!
+
+					push_frame("main", 0);
+			//		init_error(buffer);
+					run(buffer);
+				}
+				if (!last_printed_newline) {
+					printf("\n");
+				}
+				free(buffer);
+				fclose (f);
+			}
+			else {
+				printf("Error reading file!\n");
+			}
 		}
 	}
 	c_free_memory();

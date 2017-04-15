@@ -8,7 +8,6 @@
 #include "memory.h"
 #include "macros.h"
 
-
 // interpreter.h provides the standard functions for running the interpreter
 //   such as evaluations. 
 // ID handling is done via memory.h
@@ -18,6 +17,9 @@ bool parse_line(address start, size_t size, int* i_ptr);
 
 // run(input_string) processes the given input string in WendyScript
 void run(char* input_string);
+
+// run(tokens, length) starts the program with the given token list already
+void run_tokens(token* _tokens, size_t _length);
 
 // eval(start, size) evaluates the tokens into one expression (within a line)
 token eval(address start,  size_t size);
@@ -39,4 +41,14 @@ address eval_identifier(address start, size_t size);
 //   bracket or parentheses,
 void eval_one_expr(address i, token_stack** expr_stack, token_type search_end, 
 		bool entire_line);
+
+// precedence(op) returns the precedece of the operator
+int precedence(token op);
+
+// type_of(a) returns the type of the token a in an OBJ_TYPE token.
+token type_of(token a);
+
+// size_of(a) returns the size of the token a in a NUMBER token.
+token size_of(token a);
+
 #endif

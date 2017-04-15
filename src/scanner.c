@@ -247,6 +247,32 @@ void handle_struct() {
 //	printf("NEXT TOKEN TO HANDLE = %d\n", current);
 }
 
+// handle_obj_type() processes the next oBJ_TYPE
+void handle_obj_type() {
+	while (peek() != '>' && !is_at_end()) {
+		if (peek() == '\n') line++;
+		advance();
+	}
+
+	// Unterminated string.
+	if (is_at_end()) {
+		error(line, SYNTAX_ERROR);
+		return;
+	}
+
+	// The closing >.
+	advance();
+
+	// Trim the surrounding quotes.
+	int s_length = current - 2 - start;
+	char value[s_length + 1]; // + 1 for null terminator
+	
+	memcpy(value, &source[start + 1], s_length);
+	value[s_length] = '\0';
+
+	add_token_V(OBJ_TYPE, make_data_str(value));	
+}
+
 // handle_string() processes the next string
 void handle_string() {
 	while (peek() != '"' && !is_at_end()) {
@@ -297,13 +323,13 @@ void identifier() {
 	else if (strcmp(text, "loop") == 0)	{ add_token(LOOP); }
 	else if (strcmp(text, "none") == 0)	{ add_token(NONE); }
 	
-	else if (strcmp(text, "Bool") == 0)	{ add_token(OBJ_TYPE); }
+/*	else if (strcmp(text, "Bool") == 0)	{ add_token(OBJ_TYPE); }
 	else if (strcmp(text, "String") == 0)	{ add_token(OBJ_TYPE); }
 	else if (strcmp(text, "Number") == 0)	{ add_token(OBJ_TYPE); }
 	else if (strcmp(text, "List") == 0)	{ add_token(OBJ_TYPE); }
-	else if (strcmp(text, "Address") == 0)	{ add_token(OBJ_TYPE); }
+	else if (strcmp(text, "Address") == 0)	{ add_token(OBJ_TYPE); }*/
 
-	else if (strcmp(text, "typeof") == 0)	{ add_token(TYPEOF); }
+//	else if (strcmp(text, "typeof") == 0)	{ add_token(TYPEOF); }
 
 
 	else if (strcmp(text, "ret") == 0)	{ add_token(RET); }
@@ -317,7 +343,8 @@ void identifier() {
 	else if (strcmp(text, "input") == 0)	{ add_token(INPUT); }
 	else if (strcmp(text, "struct") == 0){ 
 		// HANDLE STRUCT
-		handle_struct(); 
+		//handle_struct(); 
+		add_token(STRUCT);
 	
 	}
 	else { add_token(IDENTIFIER); }
@@ -343,7 +370,7 @@ void handle_number() {
 }
 
 // handle_accessor() processes a accessor after a ., eg list.size
-void handle_accessor() {
+/*void handle_accessor() {
 	while (is_alpha(peek())) advance();
 
 	char text[current - start + 1];
@@ -352,7 +379,7 @@ void handle_accessor() {
 //	printf("%s", text);
 	if (strcmp(text, ".size") == 0) { add_token(ACCESS_SIZE); }
 	else { error(line, UNRECOGNIZED_ACCESSOR); }
-}
+}*/
 
 // scan_token() processes the next token 
 void scan_token() {
@@ -371,10 +398,10 @@ void scan_token() {
 			if (match('.')) {
 				add_token(RANGE_OP);
 			}
-			else if (is_alpha(peek())) {
+			/*else if (is_alpha(peek())) {
 				advance();
 				handle_accessor();
-			}
+			}*/
 			else {
 				add_token(DOT); 
 			}
@@ -411,7 +438,17 @@ void scan_token() {
 				add_token(EQUAL);
 			}
 			break;
-		case '<': add_token(match('=') ? LESS_EQUAL : LESS); break;
+		case '<': 
+			if (match('=')) {
+				add_token(LESS_EQUAL);
+			}
+			else if (is_alpha(peek())) {
+				handle_obj_type();
+			}
+			else {
+				add_token(LESS);
+			}
+			break;
 		case '>': add_token(match('=') ? GREATER_EQUAL : GREATER); break;
 		case '/':
 			if (match('/')) {
