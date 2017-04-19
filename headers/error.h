@@ -3,44 +3,65 @@
 
 // errors.h includes all of the error messages in WendyScript
 
-// Wendy Messages
+// Wendy Messages:
 #define INVALID_P_FILE "Invalid preprocessed file!"
+#define REALLOC_ERROR "Internal Error: realloc failed."
 
 // Scanner Messages:
 #define UNTERMINATED_STRING "Unterminated string!"
 #define UNEXPECTED_CHARACTER "Unexpected character!"
+#define REQ_FILE_READ_ERR "req: File read error."
 
+// Preprocessor Messages:
+#define INCOMPLETE_LAMBDA "Incomplete lambda definition!"
+#define INCOMPLETE_IF "Incomplete if statement!"
+#define INCOMPLETE_STATEMENT_LIST "Incomplete statement list!"
+#define INCOMPLETE_FN_CALL "Incomplete function call!"
 
-// Running Messages:
+// Interpreter Messages:
+//   GENERAL ERRORS
 #define RESERVED_TOKEN "Reserved Token used for Identifier!"
 #define TOKEN_DECLARED "Identifier was already declared! Use 'set' to mutate!"
-#define FUNCTION_NO_START "Function start { not found."
-#define RIGHT_BRACE_NO_CONSISTENT "Mismatch curly brackets }"
-#define EXPECTED_END_OF_LINE "Expected end of line!"
-#define COND_EVAL_NOT_BOOL "Condition must evaluate to true or false."
-#define ID_NOT_FOUND "Identifier not found. Did you declare it?"
-#define FUNCTION_CALL_MEM_ERROR "Function call pointer is memory out of range."
-#define FUNCTION_ARG_MISMATCH "Function call has mismatching parameters!"
-#define PAREN_MISMATCH "Mismatched Parentheses!"
-#define NOT_NO_VAL "Expected value after ! operator."
-#define NOT_REQ_BOOL "Expected Boolean value after ! operator."
 #define SYNTAX_ERROR "Syntax Error!"
 #define TYPE_ERROR "Type Error!"
-#define MATH_DISASTER "Division by 0!"
-#define EXPR_MULT_VALUE "Expression did not evaluate to single value."
-#define MUTATE_CONST "Identifier is a constant and cannot be modified."
-#define ARRAY_REF_NOT_NUM "Array index must be number or a range!"
+#define INCOMPLETE_STATEMENT "Incomplete statement!"
+#define UNEXPECTED_TOKEN "Unexpected token!"
+#define COND_EVAL_NOT_BOOL "Condition must evaluate to true or false."
+#define EXPECTED_END_OF_LINE "Expected end of line!"
+#define NOT_A_LIST "Referenced identifier is not a list!"
+#define ID_NOT_FOUND "Identifier not found. Did you declare it?"
+
+//   EVAL_IDENTIFIER ERRORS
+#define INVALID_IDENTIFIER "Invalid identifier. Syntax error." 
+#define INVALID_DEREFERENCE "Dereferencee must be Number or Address!"
+
+//   LIST ERRORS
+#define INVALID_LIST_SUBSCRIPT "List index must be a number or a range!"
 #define ARRAY_REF_OUT_RANGE "Array subscript is out of range!"
+
+//   MEMBER ERRORS
+#define NOT_A_STRUCT "Can only access member of a struct or a struct instance!"
+#define MEMBER_NOT_IDEN "Tried to access invalid member!"
+#define MEMBER_NOT_EXIST "Requested member does not exist in class."
+
+//   STRUCT ERRORS
+#define PARENT_NOT_STRUCT "Parent is not a struct!"
+#define INIT_NOT_FN "Overwritten struct init member not a function!"
+
+//   MATH ERRORS
+#define INVALID_NEGATE "Negation operand must be a Number."  
+#define NUM_NUM_INVALID_OPERATOR "Invalid operator between two Numbers."
+#define LIST_LIST_INVALID_OPERATOR "Invalid operator between two Lists."
+#define INVALID_APPEND "Invalid operator between List and Element."
+#define STRING_NUM_INVALID_OPERATOR "Invalid operator between String and Number."
+#define EVAL_STACK_EMPTY "Evaluation error: stack empty!"
+#define MATH_DISASTER "Division by 0!"
+#define PAREN_MISMATCH "Mismatched Parentheses!"
+
+//   MEMORY ERRORS
 #define MEMORY_REF_ERROR "Reference to Memory Out of Range!"
-#define REQ_FILE_READ_ERR "req: File read error."
-#define MEMSET_NOT_NUM "Memset requires an integer address!"
-#define INPUT_ERROR "Input scanning error!"
 #define STACK_OVERFLOW "Call Stack Overflow!"
 #define MEMORY_OVERFLOW "Out of memory!" 
-#define NOT_A_LIST "Referenced identifier is not a list!"
-#define UNRECOGNIZED_ACCESSOR "Unrecognized accessor call."
-#define MEMBER_NOT_EXIST "Requested member does not exist in class."
-#define INIT_NOT_FN "init member not a function!"
 
 #define UNKNOWN_TOKEN "Unknown Token!"
 

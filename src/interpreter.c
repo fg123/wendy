@@ -82,14 +82,14 @@ address eval_identifier(address start, size_t size) {
 //	printf("EVALIDENTIFIER at");
 //	print_token(&tokens[start]);
 	if (size < 1) {
-		error(tokens[start].t_line, SYNTAX_ERROR);
+		error(tokens[start].t_line, INVALID_IDENTIFIER);
 		return 0;
 	}
 	if (tokens[start].t_type == STAR) {
 		// Evaluate the Rest and That's the Address
 		token t = eval(start + 1, size - 1);
 		if (t.t_type != NUMBER && t.t_type != ADDRESS) {
-			error(tokens[start].t_line, SYNTAX_ERROR, "*");
+			error(tokens[start].t_line, INVALID_DEREFERENCE);
 			return 0;
 		}
 		else {
@@ -98,7 +98,7 @@ address eval_identifier(address start, size_t size) {
 	}
 	if (size == 1) {
 		if (tokens[start].t_type != IDENTIFIER) {
-			error(tokens[start].t_line, SYNTAX_ERROR);
+			error(tokens[start].t_line, INVALID_IDENTIFIER);
 			return 0;
 		}
 		else {
@@ -128,7 +128,7 @@ address eval_identifier(address start, size_t size) {
 				tokens[start].t_data.string);
 		}
 		if (arr_s.t_type != NUMBER) {
-			error(tokens[start].t_line, SYNTAX_ERROR);
+			error(tokens[start].t_line, INVALID_LIST_SUBSCRIPT);
 			return 0;
 		}
 
@@ -144,11 +144,11 @@ address eval_identifier(address start, size_t size) {
 		int j = start + size - 1;
 		while (tokens[j].t_type != DOT) {
 			j--;
-			if (j == start) error(tokens[start].t_line, SYNTAX_ERROR);
+			if (j == start) error(tokens[start].t_line, INVALID_IDENTIFIER);
 		}
 		token t = eval(start, j - start); 
 		if (t.t_type != STRUCT && t.t_type != STRUCT_INSTANCE) {
-			error(tokens[start].t_line, SYNTAX_ERROR);
+			error(tokens[start].t_line, NOT_A_STRUCT);
 		}
 		// Structs can only modify Static members, instances modify instance 
 		//   members.
@@ -281,16 +281,14 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 						bracket_count++;
 					}
 					i++;
-					if (i >= start + size) 
-					{
-						
-						error(tokens[start].t_line, SYNTAX_ERROR, "let");
+					if (i >= start + size) {				
+						error(tokens[start].t_line, INCOMPLETE_STATEMENT, "let");
 						return false;
 					}
 				}
 				token at_size = eval(start + 3, i - start - 3);
 				if (at_size.t_type != NUMBER) {
-					error(tokens[start].t_line, ARRAY_REF_NOT_NUM);
+					error(tokens[start].t_line, INVALID_LIST_SUBSCRIPT);
 					return false;
 				}
 				// i points to the right bracket, if theres a equal
@@ -531,7 +529,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 			// Check if its a struct.
 			token parent = eval(i + 1, 1); 
 			if (parent.t_type != STRUCT) {
-				error(f_token.t_line, SYNTAX_ERROR, "struct");
+				error(f_token.t_line, PARENT_NOT_STRUCT);
 			}
 			// parent's data number is an address to the metadata of the struct.
 			// We'll add that to our metadata.
@@ -559,7 +557,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 				for (; tokens[i].t_type != RIGHT_BRACK; i ++) {
 					if (tokens[i].t_type != IDENTIFIER &&
 							tokens[i].t_type != COMMA) {
-						error(f_token.t_line, SYNTAX_ERROR);
+						error(f_token.t_line, UNEXPECTED_TOKEN, "struct");
 						return false;
 					}
 					else if (tokens[i].t_type == COMMA) {
@@ -579,7 +577,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 				for (; tokens[i].t_type != RIGHT_PAREN; i ++) {
 					if (tokens[i].t_type != IDENTIFIER &&
 							tokens[i].t_type != COMMA) {
-						error(f_token.t_line, SYNTAX_ERROR);
+						error(f_token.t_line, UNEXPECTED_TOKEN);
 						return false;
 					}
 					else if (tokens[i].t_type == COMMA) {
@@ -640,7 +638,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 				}
 				i++;
 				if (i >= start + size) {
-					error(tokens[i].t_line, SYNTAX_ERROR);
+					error(tokens[i].t_line, INCOMPLETE_STATEMENT, "if");
 				}
 			}
 			// i is now right brace of first
@@ -660,7 +658,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 				}
 				i++;
 				if (i >= start + size) {
-					error(tokens[i].t_line, SYNTAX_ERROR);
+					error(tokens[i].t_line, INCOMPLETE_STATEMENT, "if");
 				}
 			}
 			// i now right brace of other
@@ -677,89 +675,6 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 		}
 		else {
 			error(f_token.t_line, COND_EVAL_NOT_BOOL);
-		}
-	}
-	else if (f_token.t_type == IF) {
-		// IF is deprecated, preprocessor will convert to COND
-		return false;
-		if (size < 5) {
-			error(f_token.t_line, SYNTAX_ERROR, "if");
-			return false;
-		}
-		// IF Syntax
-		//   1. IF (condition) { function block };
-		//   2. IF (condition) { function_block } 
-		//      ELSEIF (condition) {function_block};
-		//   3. IF (condition) { function_block } 
-		//      ELSEIF (condition) {function_block} ...
-		//      ELSE { function_block };
-		
-		// We scan through until the end, checking each condition as we go, and
-		//   runs the first function block that satisfies, then finishes.
-
-		// we start i at the first parentheses
-		address condition_start = start + 1;
-		address i = condition_start; 
-
-		while (i < size + start) {
-			while (tokens[i].t_type != LEFT_BRACE) {
-				// increment until left bracket
-				i++; 
-				if (i >= size + start) {
-					error(tokens[i].t_line, SYNTAX_ERROR, "if");
-					return false;
-				}
-			}
-			// evaluate the result from condition_start (LEFT PAREN) to
-			//   the left_bracket
-			token result = eval(condition_start, i - condition_start);
-			if (result.t_type != TRUE && result.t_type != FALSE) {
-				error(tokens[i].t_line, COND_EVAL_NOT_BOOL);
-				return false;
-			}
-			if (result.t_type == TRUE) {
-				// this is the condition we want to eval
-			//	printf("EVALED TURE ret pointer = %d\n", start + size + 1);
-
-				push_auto_frame(start + size + 1, "if"); 
-				*i_ptr = i + 1;
-				return false;
-			}
-			else {
-				// it's false, lets see what's next
-				int brace_count = 0;
-				i++; // we move into the function
-				while (i < size + start) {
-					if (tokens[i].t_type == RIGHT_BRACE && brace_count == 0) {
-						i++;
-						break;
-					}
-					else if (tokens[i].t_type == RIGHT_BRACE) {
-						brace_count--;
-					}
-					else if (tokens[i].t_type == LEFT_BRACE) {
-						brace_count++;
-					}
-					i++;
-				}
-				// at this point, i is either: END OF LINE, ELSEIF. or ELSE
-				if (i >= size + start) {
-					return false; // done with the line
-				}
-				else if (tokens[i].t_type == ELSEIF) {
-					i++; 
-					condition_start = i;
-					// move to the condition and go back up to try the next
-					//   condition
-				}
-				else if (tokens[i].t_type == ELSE) {
-					// MIGHT AS WELL EVAL THIS ONE LOL
-					push_auto_frame(start + size + 1, "else"); 
-
-					*i_ptr = i + 2;
-					return false;
-				}
-			}
 		}
 	}
 	else if (f_token.t_type == PRINTSTACK) {
@@ -785,7 +700,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 				i++;
 //				print_token(&tokens[i]);
 				if (i >= size + start) {
-					error(tokens[i].t_line, SYNTAX_ERROR, "loop");
+					error(tokens[i].t_line, INCOMPLETE_STATEMENT, "loop");
 					return false;
 				}
 			}
@@ -1003,7 +918,7 @@ token eval_uniop(token op, token a) {
 	if (op.t_type == U_STAR) {
 		// pointer operator
 		if (a.t_type != NUMBER && a.t_type != ADDRESS) {
-			error(a.t_line, SYNTAX_ERROR, "*");
+			error(a.t_line, INVALID_DEREFERENCE);
 			return none_token();
 		}
 		token* c = get_value_of_address(a.t_data.number, a.t_line);
@@ -1018,7 +933,7 @@ token eval_uniop(token op, token a) {
 	}
 	else if (op.t_type == U_MINUS) {
 		if (a.t_type != NUMBER) {
-			error(a.t_line, SYNTAX_ERROR, "-");
+			error(a.t_line, INVALID_NEGATE);
 			return none_token();
 		}
 		token res = make_token(NUMBER, make_data_num(-1 * a.t_data.number));
@@ -1026,7 +941,7 @@ token eval_uniop(token op, token a) {
 	}	
 	else if (op.t_type == NOT) {
 		if (a.t_type != TRUE &&  a.t_type != FALSE) {
-			error(a.t_line, SYNTAX_ERROR, "!");
+			error(a.t_line, INVALID_NEGATE);
 			return none_token();
 		}
 		return a.t_type == TRUE ? false_token() : true_token();	
@@ -1053,7 +968,7 @@ token eval_binop(token op, token a, token b) {
 		// Pull list header reference from list object.
 		address id_address = a.t_data.number;
 		if (b.t_type != NUMBER && b.t_type != RANGE) {
-			error(b.t_line, ARRAY_REF_NOT_NUM);
+			error(b.t_line, INVALID_LIST_SUBSCRIPT);
 			return none_token();
 		}
 //		printf("TDATA NUM IS %d\n", (int)(b.t_data.number));
@@ -1097,7 +1012,7 @@ token eval_binop(token op, token a, token b) {
 		// Member Access! Supports two built in, size and type.
 		// Left side should be a token.
 		if (b.t_type != IDENTIFIER) {
-			error(b.t_line, SYNTAX_ERROR);
+			error(b.t_line, MEMBER_NOT_IDEN);
 			return false_token();
 		}
 		if (strcmp("size", b.t_data.string) == 0) {
@@ -1221,13 +1136,13 @@ token eval_binop(token op, token a, token b) {
 				return make_token(has_address ? ADDRESS : NUMBER, 
 						make_data_num(a.t_data.number - b.t_data.number));
 			case STAR: 	
-				if (has_address) error(a.t_line, TYPE_ERROR);
+				if (has_address) error(a.t_line, TYPE_ERROR, "*");
 				return make_token(NUMBER, make_data_num(
 									a.t_data.number * b.t_data.number));
 			case SLASH:
 			case INTSLASH:
 			case PERCENT: 
-				if (has_address) error(a.t_line, TYPE_ERROR);
+				if (has_address) error(a.t_line, TYPE_ERROR, "%");
 				// check for division by zero error
 				if (b.t_data.number == 0) {
 					error(b.t_line, MATH_DISASTER); 
@@ -1261,7 +1176,7 @@ token eval_binop(token op, token a, token b) {
 				}
 				break;
 			default: 
-				error(a.t_line, TYPE_ERROR, op.t_data.string);
+				error(a.t_line, NUM_NUM_INVALID_OPERATOR);
 				break;
 		}
 	}
@@ -1337,7 +1252,7 @@ token eval_binop(token op, token a, token b) {
 					return make_token(LIST, make_data_num(new_adr));
 				}	
 				break;
-				default: error(a.t_line, SYNTAX_ERROR); break;
+				default: error(a.t_line, LIST_LIST_INVALID_OPERATOR); break;
 			}
 		} // End A==List && B==List
 		else if (a.t_type == LIST) {
@@ -1356,7 +1271,7 @@ token eval_binop(token op, token a, token b) {
 				free(new_list);
 				return make_token(LIST, make_data_num(new_adr));
 			}
-			else { error(a.t_line, SYNTAX_ERROR); }
+			else { error(a.t_line, INVALID_APPEND); }
 		}
 		else if (b.t_type == LIST) {
 			address start_b = b.t_data.number;
@@ -1386,7 +1301,7 @@ token eval_binop(token op, token a, token b) {
 				}
 				return false_token();
 			}
-			else { error(a.t_line, SYNTAX_ERROR); }
+			else { error(a.t_line, INVALID_APPEND); }
 		}
 	}
 	else if((a.t_type == STRING && b.t_type == STRING) ||
@@ -1413,7 +1328,7 @@ token eval_binop(token op, token a, token b) {
 			return make_token(STRING, make_data_str(result));
 		}
 		else {
-			error(a.t_line, TYPE_ERROR, op.t_data.string);
+			error(a.t_line, STRING_NUM_INVALID_OPERATOR);
 			return none_token();
 		}
 	}
@@ -1430,13 +1345,11 @@ token eval_binop(token op, token a, token b) {
 				error(a.t_line, TYPE_ERROR, op.t_data.string);
 				break;
 		}
-
 	}
 	else {
 		error(a.t_line, TYPE_ERROR, op.t_data.string);
 		return none_token();
 	}
-
 	return none_token();
 }
 
@@ -1449,7 +1362,6 @@ token size_of(token a) {
 		address h = a.t_data.number;
 		size = memory[h].t_data.number;
 	}
-
 	return make_token(NUMBER, make_data_num(size));
 }
 
@@ -1470,12 +1382,11 @@ token type_of(token a) {
 			return make_token(OBJ_TYPE, make_data_str("list"));
 		case STRUCT:
 			return make_token(OBJ_TYPE, make_data_str("struct"));
-		case STRUCT_INSTANCE:
-			{
-				token instance_loc = memory[(int)(a.t_data.number)]; 
-				return make_token(OBJ_TYPE, make_data_str(
-					memory[(int)instance_loc.t_data.number + 1].t_data.string));
-			}
+		case STRUCT_INSTANCE: {
+			token instance_loc = memory[(int)(a.t_data.number)]; 
+			return make_token(OBJ_TYPE, make_data_str(
+				memory[(int)instance_loc.t_data.number + 1].t_data.string));
+		}
 	}
 }
 
@@ -1594,7 +1505,9 @@ void eval_one_expr(address i, token_stack** expr_stack, token_type search_end,
 				op.t_type == U_MINUS) {
 			is_unary = true;
 		}
-
+		if (is_empty(eval_stack)) {
+			error(op.t_line, EVAL_STACK_EMPTY);							
+		}
 		if (is_unary) {
 			token b = *(eval_stack->val);
 			token answer = eval_uniop(op, b);
@@ -1603,11 +1516,6 @@ void eval_one_expr(address i, token_stack** expr_stack, token_type search_end,
 			eval_stack = push(&memory[adr], eval_stack);
 		}
 		else {
-			if (is_empty(eval_stack)) {
-//				print_token_stack(eval_stack);
-					
-			}
-
 			token a = *(eval_stack->val);
 			eval_stack = pop(eval_stack);
 			token b = *(eval_stack->val); 
@@ -1668,7 +1576,7 @@ token eval(address start, size_t size) {
 				while (true) {
 					i++;
 					if (i >= start + size) {
-						error(tokens[i].t_line, SYNTAX_ERROR, "list");
+						error(tokens[i].t_line, INCOMPLETE_STATEMENT, "list");
 					}
 					if (tokens[i].t_type == RIGHT_BRACK && b_count == 0) {
 						if (item_size != 0) {

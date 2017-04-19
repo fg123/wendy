@@ -39,8 +39,7 @@ static void copy_token(token t) {
 			new_tokens = tmp;
 		}
 		else {
-			printf("You have been blessed by a realloc error. Good luck figuring this out!\n");
-			exit(1);
+			w_error(REALLOC_ERROR);
 		}
 	}
 }
@@ -56,8 +55,7 @@ static void add_token(token_type type, data val) {
 			new_tokens = tmp;
 		}
 		else {
-			printf("You have been blessed by a realloc error. Good luck figuring this out!\n");
-			exit(1);
+			w_error(REALLOC_ERROR);
 		}
 	}
 
@@ -127,7 +125,7 @@ void make_lambda(int start, int end) {
 		copy_token(tokens[i]);
 		i++; 
 		if (i >= length) { 
-			error(tokens[i].t_line, SYNTAX_ERROR);
+			error(tokens[i].t_line, INCOMPLETE_LAMBDA);
 		}
 	}
 	add_token(LEFT_BRACE, make_data_str("{"));
@@ -156,7 +154,7 @@ void if_process_line(int start, int end) {
 		// The first condition get's pushed on the stack.
 		int i = start + 1;
 		if (tokens[i].t_type != LEFT_PAREN) {
-			error(tokens[i].t_line, SYNTAX_ERROR);
+			error(tokens[i].t_line, SYNTAX_ERROR, "if");
 		}
 		i++; // i now points to the beginning of the first condition
 		add_token(PUSH, make_data_str("push"));
@@ -174,7 +172,7 @@ void if_process_line(int start, int end) {
 			copy_token(tokens[i]);
 			i++;
 			if (i >= end) {
-				error(tokens[i].t_line, SYNTAX_ERROR);
+				error(tokens[i].t_line, INCOMPLETE_IF);
 			}
 		}
 		// i now points to the right paren, now we begin the cond chain
@@ -185,7 +183,7 @@ void if_process_line(int start, int end) {
 			// This loop requires that i + 1 is the left brace of the statement.
 			add_token(COND, make_data_str("cond"));
 			if (tokens[i + 1].t_type != LEFT_BRACE) {
-				error(tokens[i].t_line, SYNTAX_ERROR);
+				error(tokens[i].t_line, INCOMPLETE_IF);
 			}
 			i++; // i now is at the left brace
 			copy_token(tokens[i]); // copy left brace
@@ -195,7 +193,7 @@ void if_process_line(int start, int end) {
 				i++;
 				if (i >= end) {
 					//printf("FUCK %d\n", i);
-					error(tokens[i].t_line, SYNTAX_ERROR);
+					error(tokens[i].t_line, INCOMPLETE_IF);
 				}
 				else if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
 				//	printf("Found End\n");
@@ -212,7 +210,7 @@ void if_process_line(int start, int end) {
 			l_handle_function(s_start, i, if_process_line);
 			// i now at right brace
 			if (tokens[i].t_type != RIGHT_BRACE) {
-				error(tokens[i].t_line, SYNTAX_ERROR);
+				error(tokens[i].t_line, SYNTAX_ERROR, "if");
 			}
 			copy_token(tokens[i]); // copy right brace
 
@@ -225,7 +223,7 @@ void if_process_line(int start, int end) {
 			else if (tokens[i].t_type == ELSEIF) {
 				i++;
 				if (tokens[i].t_type != LEFT_PAREN) {
-					error(tokens[i].t_line, SYNTAX_ERROR);
+					error(tokens[i].t_line, SYNTAX_ERROR, "if");
 				}
 				i++; // i now points to the beginning of the first condition
 				add_token(LEFT_BRACE, make_data_str("{"));
@@ -244,7 +242,7 @@ void if_process_line(int start, int end) {
 					copy_token(tokens[i]);
 					i++;
 					if (i >= end) {
-						error(tokens[i].t_line, SYNTAX_ERROR);
+						error(tokens[i].t_line, INCOMPLETE_IF);
 					}
 				}
 				// i now at right paren
@@ -256,14 +254,14 @@ void if_process_line(int start, int end) {
 			else if (tokens[i].t_type == ELSE) {
 				i++;
 				if (tokens[i].t_type != LEFT_BRACE) {
-					error(tokens[i].t_line, SYNTAX_ERROR);
+					error(tokens[i].t_line, SYNTAX_ERROR, "if");
 				}
 				copy_token(tokens[i]); // copy left brace
 				// Do the inner substatementlist, end of the whole thing is
 				//  the end of the else hopefully.
 				l_handle_function(i + 1, end, if_process_line);
 				if (tokens[end - 1].t_type != RIGHT_BRACE) {
-					error(tokens[end].t_line, SYNTAX_ERROR);
+					error(tokens[end].t_line, SYNTAX_ERROR, "if");
 				}
 				copy_token(tokens[end - 1]); // copy right brace
 				continue_chain = false;
@@ -288,7 +286,7 @@ void if_process_line(int start, int end) {
 					i++;
 					if (i >= end) {
 						//printf("FUCK %d\n", i);
-						error(tokens[i].t_line, SYNTAX_ERROR);
+						error(tokens[i].t_line, INCOMPLETE_STATEMENT_LIST);
 					}
 					else if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
 					//	printf("Found End\n");
@@ -325,14 +323,14 @@ void l_process_line(int start, int end) {
 			while (tokens[i].t_type != LEFT_BRACE) { 
 				i++; 
 				if (i >= length) { 
-					error(tokens[i].t_line, SYNTAX_ERROR);
+					error(tokens[i].t_line, INCOMPLETE_LAMBDA);
 				}
 			}
 			int brace_count = 0;
 			while (1) {
 				i++;
 				if (i >= length) {
-					error(tokens[i].t_line, SYNTAX_ERROR);
+					error(tokens[i].t_line, INCOMPLETE_LAMBDA);
 				}
 				if (tokens[i].t_type == RIGHT_BRACE && brace_count == 0) {
 					f_end = i;
@@ -441,7 +439,7 @@ int fc_process_fn_call(int start, int end) {
 			i++;
 		}
 		if (i >= length) {
-			error(tokens[i].t_line, SYNTAX_ERROR);
+			error(tokens[i].t_line, INCOMPLETE_FN_CALL);
 		}
 //		printf("%d\n", i);
 	}
@@ -485,16 +483,20 @@ int fc_process_fn_call(int start, int end) {
 	add_token(SEMICOLON, make_data_str(";"));
 	tokens[endcall] = new_tokens[newidtoken];
 	int endend = endcall;
-	for (int i = endcall; i < end; i++) {
-		if (tokens[i].t_type == DOT) {
-			// Member access after the RIGHT PARENTHESES
-			int new = fc_process_fn_call(endcall, end);
-			if (new != -1) {
-				endcall = new;
-			}
-			break;
+	if (tokens[i].t_type == DOT) {
+		// Member access after the RIGHT PARENTHESES
+		int new = fc_process_fn_call(endcall, end);
+		if (new != -1) {
+			endcall = new;
 		}
 	}
+
+	/*for (int i = endcall; i < end; i++) {
+		// After right parentheses, if it's just identifiers and dots.
+		else {
+			break;
+		}
+	}*/
 	snprintf(tokens[start].t_data.string, MAX_STRING_LEN, 
 			"~tmp%d", tmp_count - 1);
 
@@ -522,7 +524,7 @@ void fc_process_line(int start, int end) {
 				i++;
 				if (i >= end) {
 					//printf("FUCK %d\n", i);
-					error(tokens[i].t_line, SYNTAX_ERROR);
+					error(tokens[i].t_line, INCOMPLETE_FN_CALL);
 				}
 				else if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
 				//	printf("Found End\n");

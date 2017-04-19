@@ -17,14 +17,13 @@ void free_error() {
 	}
 }
 
-
+// error handling functions
 void w_error(char* message) {
 	printf(RED "Wendy Error: " RESET "%s\n", message);
 	fflush(stdout);
 	exit(1);
 }
 
-// error handling functions
 void error(int line, char* message, ...) {
 	va_list a_list;
 	va_start(a_list, message);
