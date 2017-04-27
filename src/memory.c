@@ -338,11 +338,12 @@ void push_arg(token t) {
 	check_memory();
 }
 
-token pop_arg() {
+token pop_arg(int line) {
 	if (arg_pointer != MEMORY_SIZE - 1) {
 		return memory[++arg_pointer];
 	}
-	printf("ARGSTACK is EMPTY!\n");
+	error(line, FUNCTION_CALL_MISMATCH);
+//	printf("ARGSTACK is EMPTY!\n");
 	return none_token();
 }
 

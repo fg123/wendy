@@ -39,6 +39,10 @@ void start_program() {
 			brace_count++;
 		}
 		else if (curr_t.t_type == RIGHT_BRACE && brace_count == 0) {
+			// Start should just be one behind
+			if (line_start != i) {
+				error(curr_t.t_line, EXPECTED_END_OF_LINE);
+			}
 			if (pop_frame(false, &i)) {
 				//printf("we h ere nigga\n");
 				// was a function, we push a noneret
@@ -615,7 +619,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 		//   at the next COND chain.
 		
 		// Get Condition
-		token t = pop_arg();
+		token t = pop_arg(f_token.t_line);
 		if (t.t_type == TRUE) {
 			// Execute first statement list, return pointer at the end.
 			push_auto_frame(start + size + 1, "if"); 
@@ -752,7 +756,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 	}
 	else if (f_token.t_type == POP) {
 		address mem = eval_identifier(start + 1, size - 1);
-		token t = pop_arg();
+		token t = pop_arg(f_token.t_line);
 		memory[mem] = t;
 		/*if (t.t_type == ARRAY_HEADER) {
 			// Previously only reserved enough for one token!
@@ -875,7 +879,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 					struct_instance[offset - i] = none_token();
 				}
 				else {
-					struct_instance[offset - i] = pop_arg();	
+					struct_instance[offset - i] = pop_arg(f_token.t_line);	
 				}
 			}
 			// Struct instance is done.
@@ -1057,7 +1061,6 @@ token eval_binop(token op, token a, token b) {
 						}
 						else if (mdata.t_type == STRUCT_PARENT) {
 							parent_meta = mdata.t_data.number;
-					//		params_passed++;
 						}
 					}
 					// Check now if there is a parent class

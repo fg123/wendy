@@ -7,22 +7,23 @@
 
 bool last_printed_newline;
 
-typedef enum { 
+typedef enum {
+	EMPTY,
 	// Single-character Tokens
 	LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACK, RIGHT_BRACK,
 	COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR, COLON, AT, HASH, PERCENT,
 	INTSLASH, AMPERSAND, TILDE, RANGE_OP,
 
-	// Special Expression Token (Unary) (21)
+	// Special Expression Token (Unary) (22)
 	U_STAR, U_MINUS,
 
-	// Comparison Tokens (23)
+	// Comparison Tokens (24)
 	NOT, NOT_EQUAL,
 	EQUAL, EQUAL_EQUAL, 
 	GREATER, GREATER_EQUAL,
 	LESS, LESS_EQUAL, 
 	
-	// #: token (31)
+	// #: token (32)
 	LAMBDA,
 
 	// Block Comments (/* and */)

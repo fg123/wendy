@@ -62,6 +62,7 @@
 #define MEMORY_REF_ERROR "Reference to Memory Out of Range!"
 #define STACK_OVERFLOW "Call Stack Overflow!"
 #define MEMORY_OVERFLOW "Out of memory!" 
+#define FUNCTION_CALL_MISMATCH "Invalid number of parameters in function call!"
 
 #define UNKNOWN_TOKEN "Unknown Token!"
 

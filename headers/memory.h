@@ -139,6 +139,6 @@ address get_stack_pos_of_id(char* id, int line);
 // push_arg(t) pushes a token t into the other end of memory
 void push_arg(token t);
 
-// pop_arg() returns the top token t at the other end of memory
-token pop_arg();
+// pop_arg(line) returns the top token t at the other end of memory
+token pop_arg(int line);
 #endif

@@ -483,7 +483,11 @@ int fc_process_fn_call(int start, int end) {
 	add_token(SEMICOLON, make_data_str(";"));
 	tokens[endcall] = new_tokens[newidtoken];
 	int endend = endcall;
-	if (tokens[i].t_type == DOT) {
+	// Check for more calls?
+/*	printf("Ending Token was: %d\n", tokens[endcall].t_type);
+	print_token(&tokens[endcall]);*/
+	if (tokens[i].t_type == DOT) {// || tokens[i].t_type == RIGHT_PAREN ||
+	//		tokens[i].t_type == LEFT_PAREN) {
 		// Member access after the RIGHT PARENTHESES
 		int new = fc_process_fn_call(endcall, end);
 		if (new != -1) {
