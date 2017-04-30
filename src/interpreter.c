@@ -919,7 +919,7 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 			}
 		}
 		else {
-			error(t.t_line, SYNTAX_ERROR);
+			error(t.t_line, FN_CALL_NOT_FN, t.t_data.string);
 		}
 		return false;
 	}

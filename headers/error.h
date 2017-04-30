@@ -33,8 +33,9 @@
 #define ID_NOT_FOUND "Identifier not found. Did you declare it?"
 
 #define ASSERT_FAIL "Assertion failed!"
-
 #define EXPECTED_UNARY "Expected unary operator."
+
+#define FN_CALL_NOT_FN "Function call on identifier that is not a Function!"
 //   EVAL_IDENTIFIER ERRORS
 #define INVALID_IDENTIFIER "Invalid identifier. Syntax error." 
 #define INVALID_DEREFERENCE "Dereferencee must be Number or Address!"
