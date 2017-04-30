@@ -150,7 +150,68 @@ void make_lambda(int start, int end) {
 //   Cond chain is one line, this allows short circuit evaluation with the
 //     function call bytecode.
 void if_process_line(int start, int end) {
-	if (tokens[start].t_type == IF) {
+	if (tokens[start].t_type == LOOP) {
+		copy_token(tokens[start]);
+		// The condition gets wrapped and put on the stack
+		int i = start + 1;
+		if (tokens[i].t_type != LEFT_PAREN) {
+			error(tokens[i].t_line, SYNTAX_ERROR, "loop");
+		}
+		add_token(LEFT_BRACE, make_data_str("{"));
+		i++; // i now points to the beginning of the first condition
+		add_token(PUSH, make_data_str("push"));
+		int b = 0;
+		while (true) {
+			if (tokens[i].t_type == RIGHT_PAREN && b == 0) {
+				break;
+			}
+			else if (tokens[i].t_type == RIGHT_PAREN) {
+				b--;
+			}
+			else if (tokens[i].t_type == LEFT_PAREN) {
+				b++;
+			}
+			copy_token(tokens[i]);
+			i++;
+			if (i >= end) {
+				error(tokens[i].t_line, INCOMPLETE_IF);
+			}
+		}
+		// i now points to the right paren, now we begin the cond chain
+		add_token(SEMICOLON, make_data_str(";"));
+		add_token(RIGHT_BRACE, make_data_str("}"));
+		add_token(LOOP_CONTENT, make_data_str("LOOP=>"));	
+		i++; // i now is at the left brace
+		copy_token(tokens[i]); // copy left brace
+		int s_start = i + 1;
+		b = 0;
+		while (1) {
+			i++;
+			if (i >= end) {
+				//printf("FUCK %d\n", i);
+				error(tokens[i].t_line, INCOMPLETE_IF);
+			}
+			else if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
+			//	printf("Found End\n");
+				break;
+			}
+			else if (tokens[i].t_type == LEFT_BRACE) {
+				b++;
+			}
+			else if (tokens[i].t_type == RIGHT_BRACE) {
+				b--;
+			}
+		}
+		// Do the inner substatementlist.
+		l_handle_function(s_start, i, if_process_line);
+		// i now at right brace
+		if (tokens[i].t_type != RIGHT_BRACE) {
+			error(tokens[i].t_line, SYNTAX_ERROR, "loop");
+		}
+		copy_token(tokens[i]); // copy right brace
+		add_token(SEMICOLON, make_data_str(";"));
+	}
+	else if (tokens[start].t_type == IF) {
 		// The first condition get's pushed on the stack.
 		int i = start + 1;
 		if (tokens[i].t_type != LEFT_PAREN) {
@@ -368,21 +429,96 @@ void l_process_line(int start, int end) {
 
 // fc_eval_one evaluates one argument of a functino call to see if there are
 //   more
-void fc_eval_one(int start, int end) {
+void fc_eval_one(int start, int end, bool fn_argument) {
+	int ends[100] = {0};
+	int emb_fn_count = 0;
 	for (int i = start; i < end - 1; i++) {
-		if (tokens[i].t_type == IDENTIFIER) {
-			int save = i;
+//		printf("%d\n", i);
+		if (tokens[i].t_type == LEFT_BRACE) {
+			// find end of fn
+			int start = i + 1;
+			int b = 0;
+			while (1) {
+				i++;
+				if (i >= end) {
+					//printf("FUCK %d\n", i);
+					error(tokens[i].t_line, INCOMPLETE_FN_CALL);
+				}
+				else if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
+				//	printf("Found End\n");
+					break;
+				}
+				else if (tokens[i].t_type == LEFT_BRACE) {
+					b++;
+				}
+				else if (tokens[i].t_type == RIGHT_BRACE) {
+					b--;
+				}
+			}	
+			ends[emb_fn_count++] = i;
+		}
+		else if (tokens[i].t_type == LEFT_PAREN) {
+			// POTENTIAL FUNCTION CALL
+			// Scan previous tokens to find the caller maybe..
+			int l_paren_loc = i;
+			i--;
+			while (tokens[i].t_type == IDENTIFIER || tokens[i].t_type == DOT) {
+				// As long as they are identifiers or dots, we traverse back.
+				i--;
+				if (i < start) break;
+			}
+			i++; // to go back to the identifier or the dot
+			if (i < start || i == l_paren_loc) {
+				// i is out or bounds or hasn't changed
+				i = l_paren_loc; // Reset then go back to outer loop.
+				continue;
+			}
+			if (tokens[i].t_type != IDENTIFIER) {
+				// Function call did not start with an identifier...
+				error(tokens[i].t_line, INCOMPLETE_FN_CALL);
+			}
+			int tend = fc_process_fn_call(i, end);
+			// tend now is the end of that function call, the right parentheses.
+			for (int j = i; j < tend; j++) {
+				// Replace with emptys.
+				tokens[j].t_type = EMPTY;
+			}
+			i = tend;
+		}
+/*		else if (tokens[i].t_type == IDENTIFIER) {
+			// Find until no period
+			int start = i;
 			while (tokens[i].t_type == IDENTIFIER &&
 					tokens[i + 1].t_type == DOT) {
 				i += 2;
 			}
-			if (tokens[i + 1].t_type == LEFT_PAREN /* &&
-				tokens[start].t_data.string[0] != '~'*/) {
+			if (tokens[i + 1].t_type == LEFT_PAREN  &&
+				tokens[start].t_data.string[0] != '~') {
 				// Function Call within the Line
-				i = fc_process_fn_call(save, end);
+				int tend = fc_process_fn_call(start, end);
+				tokens[i + 1].t_data.number = tend;
+				i = tend;
 			}
-			// Function Call within the Line
+		}*/
+	}
+	int c = 0;
+	for (int i = start; i < end; i++) {
+	//	printf("%d\n", i);
+		if (tokens[i].t_type == LEFT_BRACE) {
+			copy_token(tokens[i]);
+			l_handle_function(i + 1, ends[c], fc_process_line);
+			i = ends[c++];
+			copy_token(tokens[i]);
 		}
+		else if (tokens[i].t_type == EMPTY) {
+			// Do nothing
+		}
+		else if (!fn_argument) {
+			copy_token(tokens[i]);
+		}
+	}
+	if (!fn_argument) {
+		add_token(SEMICOLON, make_data_str(";"));
 	}
 }
 
@@ -414,7 +550,7 @@ int fc_process_fn_call(int start, int end) {
 				 tokens[i].t_type == COMMA) && brace_count == 0) {
 			// has an argument, throw that to be processed too
 //			printf("FC_EVALONEARG %d, %d\n", arg_start, arg_start + arg_eval_size);
-			fc_eval_one(arg_start, arg_start + arg_eval_size);
+			fc_eval_one(arg_start, arg_start + arg_eval_size, true);
 //			printf("Done FC\n");
 			arg_vals_start[argc] = arg_start;
 			arg_vals_end[argc] = arg_start + arg_eval_size;
@@ -449,13 +585,7 @@ int fc_process_fn_call(int start, int end) {
 		// push each argument
 		add_token(PUSH, make_data_str("push"));
 		for (int j = arg_vals_start[i]; j < arg_vals_end[i]; j++) {
-			if (tokens[j].t_type == IDENTIFIER && 
-					tokens[j].t_data.string[0] == '~') {
-				copy_token(tokens[j]);
-//				printf("%d\n", j);
-				j = tokens[j + 1].t_data.number;
-			}
-			else {
+			if (tokens[j].t_type != EMPTY) {
 				copy_token(tokens[j]);
 			}
 		}
@@ -482,31 +612,6 @@ int fc_process_fn_call(int start, int end) {
 
 	add_token(SEMICOLON, make_data_str(";"));
 	tokens[endcall] = new_tokens[newidtoken];
-	int endend = endcall;
-	// Check for more calls?
-/*	printf("Ending Token was: %d\n", tokens[endcall].t_type);
-	print_token(&tokens[endcall]);*/
-	if (tokens[i].t_type == DOT) {// || tokens[i].t_type == RIGHT_PAREN ||
-	//		tokens[i].t_type == LEFT_PAREN) {
-		// Member access after the RIGHT PARENTHESES
-		int new = fc_process_fn_call(endcall, end);
-		if (new != -1) {
-			endcall = new;
-		}
-	}
-
-	/*for (int i = endcall; i < end; i++) {
-		// After right parentheses, if it's just identifiers and dots.
-		else {
-			break;
-		}
-	}*/
-	snprintf(tokens[start].t_data.string, MAX_STRING_LEN, 
-			"~tmp%d", tmp_count - 1);
-
-	tokens[endend] = make_token(RIGHT_PAREN, make_data_str(")"));
-	tokens[start + 1].t_data.number = endcall;
-
 	return endcall;
 }
 
@@ -516,68 +621,8 @@ void fc_process_line(int start, int end) {
 	if (tokens[start].t_type == REQ) {
 		return;
 	}
-	int ends[100] = {0};
-	int emb_fn_count = 0;
-	for (int i = start; i < end - 1; i++) {
-//		printf("%d\n", i);
-		if (tokens[i].t_type == LEFT_BRACE) {
-			// find end of fn
-			int start = i + 1;
-			int b = 0;
-			while (1) {
-				i++;
-				if (i >= end) {
-					//printf("FUCK %d\n", i);
-					error(tokens[i].t_line, INCOMPLETE_FN_CALL);
-				}
-				else if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
-				//	printf("Found End\n");
-					break;
-				}
-				else if (tokens[i].t_type == LEFT_BRACE) {
-					b++;
-				}
-				else if (tokens[i].t_type == RIGHT_BRACE) {
-					b--;
-				}
-			}	
-			ends[emb_fn_count++] = i;
-		}
-		else if (tokens[i].t_type == IDENTIFIER) {
-			// Find until no period
-			int start = i;
-			while (tokens[i].t_type == IDENTIFIER &&
-					tokens[i + 1].t_type == DOT) {
-				i += 2;
-			}
-			if (tokens[i + 1].t_type == LEFT_PAREN /* &&
-				tokens[start].t_data.string[0] != '~'*/) {
-				// Function Call within the Line
-				int tend = fc_process_fn_call(start, end);
-				tokens[i + 1].t_data.number = tend;
-				i = tend;
-			}
-		}
-	}
-	int c = 0;
-	for (int i = start; i < end; i++) {
-	//	printf("%d\n", i);
-		if (tokens[i].t_type == LEFT_BRACE) {
-			copy_token(tokens[i]);
-			l_handle_function(i + 1, ends[c], fc_process_line);
-			i = ends[c++];
-			copy_token(tokens[i]);
-		}
-		else if (tokens[i].t_type == IDENTIFIER && 
-					tokens[i].t_data.string[0] == '~') {
-			copy_token(tokens[i]);
-			i = tokens[i + 1].t_data.number;
-		}
-		else {
-			copy_token(tokens[i]);
-		}
-	}
-	add_token(SEMICOLON, make_data_str(";"));
+	// False because not a fn argument
+	fc_eval_one(start, end, false);
 }
 
 // applies line_fn to each line

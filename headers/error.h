@@ -16,7 +16,7 @@
 #define INCOMPLETE_LAMBDA "Incomplete lambda definition!"
 #define INCOMPLETE_IF "Incomplete if statement!"
 #define INCOMPLETE_STATEMENT_LIST "Incomplete statement list!"
-#define INCOMPLETE_FN_CALL "Incomplete function call!"
+#define INCOMPLETE_FN_CALL "Incomplete/invalid function call!"
 
 // Interpreter Messages:
 //   GENERAL ERRORS
@@ -28,9 +28,13 @@
 #define UNEXPECTED_TOKEN "Unexpected token!"
 #define COND_EVAL_NOT_BOOL "Condition must evaluate to true or false."
 #define EXPECTED_END_OF_LINE "Expected end of line!"
-#define NOT_A_LIST "Referenced identifier is not a list!"
+#define NOT_A_LIST "Setting nth item of identifier must be List."
+#define NOT_A_LIST_OR_STRING "Getting nth item of identifier must be List or String."
 #define ID_NOT_FOUND "Identifier not found. Did you declare it?"
 
+#define ASSERT_FAIL "Assertion failed!"
+
+#define EXPECTED_UNARY "Expected unary operator."
 //   EVAL_IDENTIFIER ERRORS
 #define INVALID_IDENTIFIER "Invalid identifier. Syntax error." 
 #define INVALID_DEREFERENCE "Dereferencee must be Number or Address!"

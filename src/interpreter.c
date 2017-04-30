@@ -691,43 +691,63 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 			return false;
 		}
 		// LOOP Syntax
-		//   1. LOOP (condition) { function block };
-		
-		// we start i at the first parentheses
-		address condition_start = start + 1;
-		address i = condition_start; 
+		//   1. LOOP { push condition; } LOOP_CONTENT { function block };
 	
-		while (1) {
-//			print_token(&tokens[i]);
-			while (tokens[i].t_type != LEFT_BRACE) {
-				// increment until left bracket
-				i++;
-//				print_token(&tokens[i]);
-				if (i >= size + start) {
-					error(tokens[i].t_line, INCOMPLETE_STATEMENT, "loop");
-					return false;
-				}
+		int b = 0;
+		int i = start + 2;
+		while (true) {
+			if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
+				break;
 			}
-			token result = eval(condition_start, i - condition_start);
-//			print_token(&result);
-			if (result.t_type != TRUE && result.t_type != FALSE) {
-				error(tokens[i].t_line, COND_EVAL_NOT_BOOL);
-				return false;
+			else if (tokens[i].t_type == RIGHT_BRACE) {
+				b--;
 			}
-			// i points to left bracket, our return value is the start so we
-			//	 can reevaluate
-			if (result.t_type == TRUE) {
-				// we run then parseline again!
-				push_auto_frame(start, "loop"); 
-				*i_ptr = i + 1;
-//				printf("Shifted to *iptr: %d\n", *i_ptr);
-				return false;
+			else if (tokens[i].t_type == LEFT_BRACE) {
+				b++;
 			}
-			else {
-				// condition is false
-				return false;
+			i++;
+			if (i >= start + size) {
+				error(tokens[i].t_line, INCOMPLETE_STATEMENT, "loop");
 			}
 		}
+		// i is now right brace of first
+		address ra = i + 1;
+		// RA points to LOOP_CONTENT
+		tokens[ra].t_data.number = start;	
+		push_auto_frame(ra, "evaluating");
+		*i_ptr = start + 2;
+	}
+	else if (f_token.t_type == LOOP_CONTENT) {
+		token t = pop_arg(f_token.t_line);
+		if (t.t_type != TRUE && t.t_type != FALSE) {
+			error(f_token.t_line, COND_EVAL_NOT_BOOL);
+			return false;
+		}
+		if (t.t_type == FALSE) {
+			return false;
+		}
+		int b = 0;	
+		int i = start + 1;
+		int fn_start = i + 1;
+		i++;
+		while (true) {
+			if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
+				break;
+			}
+			else if (tokens[i].t_type == RIGHT_BRACE) {
+				b--;
+			}
+			else if (tokens[i].t_type == LEFT_BRACE) {
+				b++;
+			}
+			i++;
+			if (i >= start + size) {
+				error(tokens[i].t_line, INCOMPLETE_STATEMENT, "loop");
+			}
+		}
+		int ra = f_token.t_data.number;
+		push_auto_frame(ra, "loop");
+		*i_ptr = fn_start;
 	}
 	else if (f_token.t_type == RET) {
 		//printf("Size: %d\n", size);
@@ -935,6 +955,57 @@ token eval_uniop(token op, token a) {
 //					get_address_of_id(a.t_data.string, a.t_line)));
 		return a;
 	}
+	else if (op.t_type == U_TILDE) {
+		// Create copy of object a, only applies to lists or 
+		// struct or struct instances
+		if (a.t_type == LIST) {
+			// We make a copy of the list as pointed to A.
+			token list_header = memory[(int)a.t_data.number];
+			int list_size = list_header.t_data.number;
+			token* new_a = malloc((list_size) * sizeof(token));
+			int n = 0;
+			address array_start = a.t_data.number;
+//			printf("listtsize %d", list_size);
+			for (int i = 0; i < list_size; i++) {
+				new_a[n++] = memory[array_start + i + 1];
+			}
+			address new_l_loc = push_memory_a(new_a, list_size);
+			free(new_a);
+			return make_token(LIST, make_data_num(new_l_loc));
+		}
+		else if (a.t_type == STRUCT || a.t_type == STRUCT_INSTANCE) {
+			// We make a copy of the STRUCT
+			address copy_start = a.t_data.number;
+			address metadata = (int)(a.t_data.number);
+			if (a.t_type == STRUCT_INSTANCE) {
+				metadata = memory[metadata].t_data.number;
+			}
+			int size = memory[metadata].t_data.number + 1;
+			if (a.t_type == STRUCT_INSTANCE) {
+				// find size of instance by counting instance members
+				int actual_size = 0;
+				for (int i = 0; i < size; i++) {
+					if (memory[metadata + i + 1].t_type == STRUCT_PARAM) {
+						actual_size++;
+					}
+				}
+				size = actual_size;
+			}
+			size++; // for the header itself
+			token* copy = malloc(size * sizeof(token));
+			for (int i = 0; i < size; i++) {
+				copy[i] = memory[copy_start + i];
+			}
+			address addr = push_memory_array(copy, size);
+			free(copy);
+			return a.t_type == STRUCT ? make_token(STRUCT, make_data_num(addr))
+				: make_token(STRUCT_INSTANCE, make_data_num(addr));
+		}
+		else {
+			// No copy needs to be made
+			return a;
+		}
+	}
 	else if (op.t_type == U_MINUS) {
 		if (a.t_type != NUMBER) {
 			error(a.t_line, INVALID_NEGATE);
@@ -961,13 +1032,17 @@ token eval_binop(token op, token a, token b) {
 	//print_token(&a);
 	//print_token(&b);
 	if (op.t_type == LEFT_BRACK) {
-		// Array Reference
-		// A must be a list, b must be a number.
-		if (a.t_type != LIST) {
-			error(a.t_line, NOT_A_LIST);
+		// Array Reference, or String
+		// A must be a list/string, b must be a number.
+		if (a.t_type != LIST && a.t_type != STRING) {
+			error(a.t_line, NOT_A_LIST_OR_STRING);
 		}
-		token list_header = memory[(int)a.t_data.number];
-		int list_size = list_header.t_data.number;
+		token list_header;
+		if (a.t_type == LIST) {
+			list_header = memory[(int)a.t_data.number];
+		}
+		int list_size = a.t_type == STRING ? strlen(a.t_data.string) :  
+			                                 list_header.t_data.number;
 //		printf("LIST SIZE IS: %d\n", list_size);
 		// Pull list header reference from list object.
 		address id_address = a.t_data.number;
@@ -985,6 +1060,11 @@ token eval_binop(token op, token a, token b) {
 		}
 
 		if (b.t_type == NUMBER) {
+			if (a.t_type == STRING) {
+				token c = make_token(STRING, make_data_str("0"));
+				c.t_data.string[0] = a.t_data.string[(int)floor(b.t_data.number)];
+				return c;
+			}
 			// Add 1 to offset because of the header.
 			int offset = floor(b.t_data.number) + 1;
 			token* c = get_value_of_address(id_address + offset, 
@@ -996,6 +1076,17 @@ token eval_binop(token op, token a, token b) {
 			int end = range_end(b);
 			int subarray_size = start - end;	
 			if (subarray_size < 0) subarray_size *= -1;
+
+			if (a.t_type == STRING) {
+				token c = make_token(STRING, make_data_str("0"));
+				int n = 0;
+				for (int i = start; i != end; start < end ? i++ : i--) {
+					c.t_data.string[n++] = a.t_data.string[i];
+				}
+				c.t_data.string[n] = 0;
+				return c;
+			}
+
 			subarray_size++;
 			
 			address array_start = (int)(a.t_data.number);
@@ -1421,6 +1512,7 @@ int precedence(token op) {
 			return 130;
 		case NOT:
 		case U_MINUS:
+	    case U_TILDE:
 		case U_STAR:
 			return 160;
 		case DOT:
@@ -1460,7 +1552,7 @@ void eval_one_expr(address i, token_stack** expr_stack, token_type search_end,
 				
 				bool is_unary = false;
 				if (op.t_type == NOT || op.t_type == U_STAR || 
-						op.t_type == U_MINUS) {
+					op.t_type == U_MINUS || op.t_type == U_TILDE) {
 					is_unary = true;
 				}
 	
@@ -1505,7 +1597,7 @@ void eval_one_expr(address i, token_stack** expr_stack, token_type search_end,
 		// remove operator
 		bool is_unary = false;
 		if (op.t_type == NOT || op.t_type == U_STAR || 
-				op.t_type == U_MINUS) {
+			op.t_type == U_MINUS || op.t_type == U_TILDE) {
 			is_unary = true;
 		}
 		if (is_empty(eval_stack)) {
@@ -1726,9 +1818,22 @@ token eval(address start, size_t size) {
 				// and at the front, or preceded by another operator
 				(is_empty(expr_stack) || 
 				 (precedence(*(expr_stack->val)))) &&
-				(tokens[i].t_type == MINUS || tokens[i].t_type == STAR)) {
+				(tokens[i].t_type == MINUS || tokens[i].t_type == STAR 
+				 || tokens[i].t_type == TILDE)) {
 				// it's an unary operator!
-				tokens[i].t_type = tokens[i].t_type == MINUS ? U_MINUS : U_STAR;
+				if (tokens[i].t_type == MINUS) {
+					tokens[i].t_type = U_MINUS;
+				}
+				else if (tokens[i].t_type == STAR) {
+					tokens[i].t_type = U_STAR;
+				}
+				else if (tokens[i].t_type == TILDE) {
+					tokens[i].t_type = U_TILDE;
+				}
+				else {
+					error(tokens[i].t_line, EXPECTED_UNARY);
+				}
+				//tokens[i].t_type = tokens[i].t_type == MINUS ? U_MINUS : U_STAR;
 			}
 			
 			expr_stack = push(&tokens[i], expr_stack);

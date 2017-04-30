@@ -15,7 +15,7 @@ typedef enum {
 	INTSLASH, AMPERSAND, TILDE, RANGE_OP,
 
 	// Special Expression Token (Unary) (22)
-	U_STAR, U_MINUS,
+	U_STAR, U_MINUS, U_TILDE,
 
 	// Comparison Tokens (24)
 	NOT, NOT_EQUAL,
@@ -42,7 +42,7 @@ typedef enum {
 	AND, OR, IF, ELSE, ELSEIF, TRUE, FALSE,
 
 	// Definitons
-	LET, SET, LOOP, DEFFN,
+	LET, SET, LOOP, LOOP_CONTENT, DEFFN,
 	
 	// Special Commands
 	RET, INPUT, INC, DEC, STRUCT, PRINTSTACK, REQ, EXPLODE,

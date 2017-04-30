@@ -1,0 +1,37 @@
+WendyScript Pre-Processor Dump: Function Definitions
+
+       1: let f => { 
+       5:   In Function; 
+       7: }; 
+       9: f (); 
+      13: let add1 => { 
+      17:   let x; 
+      20:   pop x; 
+      23:   ret x + 1; 
+      28: }; 
+      30: add1 (10); 
+      35: set add1 = 10; 
+      40: add1; 
+      42: set add1 => { 
+      46:   let x; 
+      49:   pop x; 
+      52:   ret x + x; 
+      57: }; 
+      59: add1 (10); 
+      64: let nat_range => { 
+      68:   let step; 
+      71:   pop step; 
+      74:   let end; 
+      77:   pop end; 
+      80:   let start; 
+      83:   pop start; 
+      86:   push start >= end; 
+      91:   cond { 
+      93:     ret ; 
+      96:   } 
+      97:   { 
+      98:     ret start +   + nat_range (start + step, end, step); 
+     114:   }; 
+     116: }; 
+     118: nat_range (5, 10, 2); 
+     127: add1 (add1 (10));
