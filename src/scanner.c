@@ -337,6 +337,7 @@ void identifier() {
 	else if (strcmp(text, "req") == 0)	{ 
 		handle_req();
 	}
+	else if (strcmp(text, "assert") == 0) { add_token(ASSERT); }
 	else if (strcmp(text, "time") == 0) { add_token(TIME); }
 	else if (strcmp(text, "inc") == 0)	{ add_token(INC); }
 	else if (strcmp(text, "dec") == 0)	{ add_token(DEC); }

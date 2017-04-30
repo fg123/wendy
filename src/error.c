@@ -45,10 +45,11 @@ void error(int line, char* message, ...) {
 	int curr_line = 0;
 	size_t charindex = 0;
 	size_t line_start = 0;
+//	printf("%s\n", source);
 	while (source[charindex]) {
-		if (source[charindex] == '\n') {
+		if (source[charindex] == '\n' || !source[charindex + 1]) {
 			curr_line++;
-		
+			if (!source[charindex + 1]) charindex++;	
 			if (curr_line >= line - 1 && curr_line <= line + 1) {	
 				char line_to_print[charindex - line_start + 1];
 				memcpy(line_to_print, &source[line_start], charindex - line_start);

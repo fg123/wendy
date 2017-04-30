@@ -20,6 +20,7 @@ static int tmp_count = 1;
 static int lambda_count = 0;
 static token* new_tokens;
 static int length;
+static int cur_line = 0;
 
 // Forward declarations for mutual recursion
 void l_process_line(int start, int end);
@@ -44,8 +45,8 @@ static void copy_token(token t) {
 	}
 }
 static void add_token(token_type type, data val) {
-	int line = t_curr != 0 ? t_curr - 1 : 0;
-	token new_t = { type, line, val };
+//	int line = t_curr != 0 ? t_curr - 1 : 0;
+	token new_t = { type, cur_line, val };
 	new_tokens[t_curr++] = new_t;
 	
 	if (t_curr == tokens_alloc_size) {
@@ -112,6 +113,7 @@ void printf_tokens(char* appended, char* extension) {
 void make_lambda(int start, int end) {
 	// run a check on the entire lambda
 	int old_count = lambda_count;
+	cur_line = tokens[start].t_line;
 	// run check on the contents of the lambda function
 	// now we map it out
 	add_token(LET, make_data_str("let"));
@@ -150,6 +152,8 @@ void make_lambda(int start, int end) {
 //   Cond chain is one line, this allows short circuit evaluation with the
 //     function call bytecode.
 void if_process_line(int start, int end) {
+	cur_line = tokens[start].t_line;
+
 	if (tokens[start].t_type == LOOP) {
 		copy_token(tokens[start]);
 		// The condition gets wrapped and put on the stack
@@ -430,6 +434,8 @@ void l_process_line(int start, int end) {
 // fc_eval_one evaluates one argument of a functino call to see if there are
 //   more
 void fc_eval_one(int start, int end, bool fn_argument) {
+	cur_line = tokens[start].t_line;
+
 	int ends[100] = {0};
 	int emb_fn_count = 0;
 	for (int i = start; i < end - 1; i++) {
@@ -525,6 +531,8 @@ void fc_eval_one(int start, int end, bool fn_argument) {
 // require start points to the identifier and returns the end of the fn_call
 int fc_process_fn_call(int start, int end) {
 //	printf("in here with %d to %d\n", start, end);
+	cur_line = tokens[start].t_line;
+
 	int i = start;
 	while (tokens[i].t_type != LEFT_PAREN) {
 		i++;
@@ -689,6 +697,8 @@ size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size) {
 	//   a =>, following which is the argument list, and also 
 	//   looking for function calls.
 	for (int i = 0; i < length; i++) {
+		cur_line = tokens[i].t_line;
+
 		if (tokens[i].t_type == REQ) {
 			// ignore until the end, already processed
 			while (i < length && tokens[i].t_type != SEMICOLON) i++;

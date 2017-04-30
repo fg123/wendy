@@ -2,12 +2,21 @@
 // List functions in WendyScript,
 // Based on Racket-style lists
 // By: Felix Guo
-// Provides: map, filter, fold, first and rest
+// Provides: map, filter, fold, first, for and rest
 
 let first => (list) {
 	@"First: ";
 	list;
 	ret list[0];
+};
+
+let for => (list, fn) {
+	let x = 0;
+	loop (x < list.size) {
+		fn(list[x]);
+		inc x;
+	};
+	ret;
 };
 
 let rest => (list) {

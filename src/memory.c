@@ -301,31 +301,35 @@ bool pop_frame(bool is_ret, address* ret) {
 }
 
 void print_call_stack() {
-	printf("\nDump: Stack Trace\n");
+	printf("\n===============\n");
+	printf("Dump: Stack Trace\n");
 	for (int i = 0; i < stack_pointer; i++) {
-		if (frame_pointer == i) {
-			if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
-				printf("%5d FP-> [" BLU "%s" RESET " -> %d: ", i, call_stack[i].id, 
-						call_stack[i].val);
+		if (call_stack[i].id[0] != '$' && call_stack[i].id[0] != '~') {
+			if (frame_pointer == i) {
+				if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
+					printf("%5d FP-> [" BLU "%s" RESET " -> %d", i, 
+							call_stack[i].id, call_stack[i].val);
+				}
+				else {
+					printf("%5d FP-> [%s -> %d", i, call_stack[i].id, 
+							call_stack[i].val);
+				}
+//				print_token_inline(&memory[call_stack[i].val], stdout);
+				printf("]\n");
 			}
 			else {
-				printf("%5d FP-> [%s -> %d: ", i, call_stack[i].id, 
-						call_stack[i].val);
+				if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
+					printf("%5d      [" BLU "%s" RESET " -> %d: ", i, 
+							call_stack[i].id, call_stack[i].val);
+				}
+				else {
+					printf("%5d      [%s -> %d: ",i, 
+							call_stack[i].id, call_stack[i].val);
+				}
+				print_token_inline(&memory[call_stack[i].val], stdout);
+				printf("]\n");
+				
 			}
-			print_token_inline(&memory[call_stack[i].val], stdout);
-			printf("]\n");
-		}
-		else {
-			if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
-				printf("%5d      [" BLU "%s" RESET " -> %d: ", i, call_stack[i].id, 
-						call_stack[i].val);
-			}
-			else {
-				printf("%5d      [%s -> %d: ",i, call_stack[i].id, call_stack[i].val);
-			}
-			print_token_inline(&memory[call_stack[i].val], stdout);
-			printf("]\n");
-			
 		}
 	}
 	printf("===============\n");

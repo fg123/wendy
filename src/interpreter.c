@@ -459,6 +459,12 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 		}
 		t->t_data.number--;
 	}
+	else if (f_token.t_type == ASSERT) {
+		token result = eval(start + 1, size - 1);
+		if (result.t_type != TRUE) {
+			error(f_token.t_line, ASSERT_FAIL);	
+		}
+	}
 	else if (f_token.t_type == INPUT) {
 		if (size < 2) {
 			error(f_token.t_line, SYNTAX_ERROR, "input");
@@ -919,7 +925,8 @@ bool parse_line(address start, size_t size, int* i_ptr) {
 			}
 		}
 		else {
-			error(t.t_line, FN_CALL_NOT_FN, t.t_data.string);
+			error(f_token.t_line, FN_CALL_NOT_FN, 
+					tokens[start + size - 1].t_data.string);
 		}
 		return false;
 	}
