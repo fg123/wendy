@@ -13,7 +13,7 @@
 // ID handling is done via memory.h
 
 // parse_line(start, size, i_ptr) parses a command statement
-bool parse_line(address start, size_t size, int* i_ptr);
+bool parse_line(address start, size_t size, address* i_ptr);
 
 // run(input_string) processes the given input string in WendyScript
 void run(char* input_string);

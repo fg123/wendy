@@ -827,7 +827,7 @@ token* file_to_tokens(FILE* file, size_t* size) {
 }
 
 void tokens_to_file(token* tokens, size_t length, FILE* file) {
-	fprintf(file, "WendyObj %d\n", length);
+	fprintf(file, "WendyObj %zd\n", length);
 	for(int i = 0; i < length; i++) {
 		fprintf(file, "%c", tokens[i].t_type);
 		if (tokens[i].t_type == NUMBER) {

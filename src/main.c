@@ -9,9 +9,9 @@
 #include "tests.h"
 #include "macros.h"
 #include "scanner.h"
+#include <string.h>
 
 #ifdef _WIN32
-#include <string.h>
 
 /* Fake readline function */
 char* readline(char* prompt) {

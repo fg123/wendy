@@ -31,7 +31,7 @@
 #define NOT_A_LIST "Setting nth item of identifier must be List."
 #define NOT_A_LIST_OR_STRING "Getting nth item of identifier must be List or String."
 #define ID_NOT_FOUND "Identifier not found. Did you declare it?"
-
+#define TYPE_INVALID_TOKEN "Invalid token for type access."
 #define ASSERT_FAIL "Assertion failed!"
 #define EXPECTED_UNARY "Expected unary operator."
 

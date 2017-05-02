@@ -6,6 +6,7 @@ BINDIR = ../bin
 SRCDIR = ./
 INCDIR = ../headers
 CFLAGS=-I $(INCDIR) -lreadline -g -lm 
+CFLAGSNOLINK = -I $(INCDIR) -g
 
 _DEPS = interpreter.h scanner.h token.h error.h stack.h memory.h execpath.h preprocessor.h tests.h macros.h 
 DEPS = $(patsubst %,$(INCDIR)/%,$(_DEPS))
@@ -15,7 +16,7 @@ OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 
 $(ODIR)/%.o: $(SRCDIR)/%.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS) $(CXXFLAGS)
+	$(CC) -c -o $@ $< $(CFLAGSNOLINK) $(CXXFLAGS)
 
 main: $(OBJ)
 	$(CC) -o $(BINDIR)/wendy $^ $(CFLAGS) $(CXXFLAGS)

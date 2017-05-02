@@ -19,7 +19,7 @@ static size_t tokens_count;
 void start_program() {
 	int brace_count = 0;
 	int line_start = 0;
-	for (int i = 0; i < tokens_count; i++) {
+	for (address i = 0; i < tokens_count; i++) {
 //		printf("i i %d\n", i);
 		token curr_t = tokens[i];
 		
@@ -208,11 +208,11 @@ address eval_identifier(address start, size_t size) {
 	}
 	else {
 		error(tokens[start].t_line, SYNTAX_ERROR);
-		return 0;
 	}
+	return 0;
 }
 
-bool parse_line(address start, size_t size, int* i_ptr) {
+bool parse_line(address start, size_t size, address* i_ptr) {
 	// process the first character
 	//printf("Parse Line: Size: %d\n", size);
 	//print_token(&tokens[start]);
@@ -1488,6 +1488,8 @@ token type_of(token a) {
 			return make_token(OBJ_TYPE, make_data_str(
 				memory[(int)instance_loc.t_data.number + 1].t_data.string));
 		}
+		default:
+			return make_token(OBJ_TYPE, make_data_str("none"));
 	}
 }
 
