@@ -98,6 +98,7 @@ void handle_req() {
 	strcat(path, "wendy-lib/");
 	strcat(path, tokens[str_loc].t_data.string);
 	FILE * f = fopen(path, "r");
+//	printf("Attempting to open %s\n", path);
 	if (f) {
 		fseek (f, 0, SEEK_END);
 		length = ftell (f);

@@ -46,10 +46,9 @@ let digit => (str) {
 	};
 };
 let strtonum => (str) {
-	explode str;
 	let num = 0;
 	let i = 0;
-	loop (str[i] != none) {
+	loop (i < str.size) {
 		set num = num * 10;
 		set num = num + digit(str[i]);
 		inc i;

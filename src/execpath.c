@@ -18,7 +18,28 @@ char* get_path() {
 	path[end + 1] = 0;
 	return path;
 }
+#elif __APPLE__
+#include <mach-o/dyld.h>
+#include <stdio.h>
+#include <string.h>
 
+char* get_path() {
+	char* path = malloc(W_MAX_PATH);
+	uint32_t size = W_MAX_PATH;
+	if(_NSGetExecutablePath(path, &size) == 0) {
+		size_t end = strlen(path);
+		while (path[end] != '/' && path[end] != '\\') {
+			end--;
+		}
+		path[end + 1] = 0;
+		return path;
+	}
+	else {
+		printf("Path is too long. Required %u bytes.\n", size);
+		exit(0);
+	}
+	return 0;
+}
 #else
 #undef __POSIX_VISIBLE
 #define __POSIX_VISIBLE 200112

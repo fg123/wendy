@@ -1061,8 +1061,7 @@ token eval_binop(token op, token a, token b) {
 		if ((b.t_type == NUMBER && (int)(b.t_data.number) >= list_size) ||
 			(b.t_type == RANGE && 
 			((range_start(b) >= list_size || range_end(b) >= list_size ||
-			 range_start(b) < 0 || range_end(b) < 0) || 
-			range_start(b) == range_end(b)))) {
+			 range_start(b) < 0 || range_end(b) < 0)))) {
 			error(b.t_line, ARRAY_REF_OUT_RANGE);
 		}
 
@@ -1083,6 +1082,7 @@ token eval_binop(token op, token a, token b) {
 			int end = range_end(b);
 			int subarray_size = start - end;	
 			if (subarray_size < 0) subarray_size *= -1;
+			subarray_size++;
 
 			if (a.t_type == STRING) {
 				token c = make_token(STRING, make_data_str("0"));
@@ -1090,12 +1090,12 @@ token eval_binop(token op, token a, token b) {
 				for (int i = start; i != end; start < end ? i++ : i--) {
 					c.t_data.string[n++] = a.t_data.string[i];
 				}
+				c.t_data.string[n++] = a.t_data.string[end];
 				c.t_data.string[n] = 0;
 				return c;
 			}
 
-			subarray_size++;
-			
+		//	subarray_size++;	
 			address array_start = (int)(a.t_data.number);
 			token* new_a = malloc(subarray_size * sizeof(token));
 			int n = 0;
