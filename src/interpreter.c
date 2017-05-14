@@ -254,10 +254,18 @@ bool parse_line(address start, size_t size, address* i_ptr) {
 				// We should run through do a preliminary check that it's the 
 				//   right syntax.
 				
-				// Push the address of the next instruction
-				//   (left parentheses)
-				address a = push_memory(
-						make_token(FUNCTION, make_data_num(start + 4))); 
+				// Grab the address of the next instruction as well as make a 
+				//   closure frame.
+				token function[2];
+				function[0] = make_token(ADDRESS, make_data_num(start + 4));
+				function[1] = make_token(CLOSURE, 
+					make_data_num(create_closure()));
+
+				address f_a = push_memory_array(function, 2);
+				
+				// Push the FUNCTION.
+				address a = push_memory(make_token(FUNCTION, 
+					make_data_num(f_a))); 
 				push_stack_entry(tokens[start + 1].t_data.string, a);
 			}
 			else if (size >= 5 && tokens[start + 2].t_type == LEFT_BRACK) {
@@ -313,6 +321,8 @@ bool parse_line(address start, size_t size, address* i_ptr) {
 					id_exist(tokens[start + 1].t_data.string, false);
 				if (size == 2) {	
 					if (already_declared) {
+						error(f_token.t_line, TOKEN_DECLARED, 
+							tokens[start + 1].t_data.string); 
 						return false;
 					}
 					else {
@@ -330,6 +340,8 @@ bool parse_line(address start, size_t size, address* i_ptr) {
 								tokens[start + 1].t_data.string, 
 								tokens[start].t_line);
 						if (token_equal(&evaled, stored)) {
+							error(f_token.t_line, TOKEN_DECLARED, 
+								tokens[start + 1].t_data.string); 
 							return false;
 						}
 						else {
@@ -381,8 +393,12 @@ bool parse_line(address start, size_t size, address* i_ptr) {
 		}
 		else if (tokens[start + 1 + id_size].t_type == DEFFN) {
 			// Same as defined above for the LET statement  
-			replace_memory(make_token(FUNCTION, 
-				make_data_num(start + 3 + id_size)), mem_to_mod);
+			token function[2];
+			function[0] = make_token(ADDRESS, 
+				make_data_num(start + 3 + id_size));
+			function[1] = make_token(CLOSURE, make_data_num(create_closure()));
+			address a = push_memory_array(function, 2);
+			replace_memory(make_token(FUNCTION, make_data_num(a)), mem_to_mod);
 		}
 		else {
 			error(f_token.t_line, SYNTAX_ERROR, "set");
@@ -781,26 +797,11 @@ bool parse_line(address start, size_t size, address* i_ptr) {
 		return false;
 	}
 	else if (f_token.t_type == POP) {
-		address mem = eval_identifier(start + 1, size - 1);
-		token t = pop_arg(f_token.t_line);
-		memory[mem] = t;
-		/*if (t.t_type == ARRAY_HEADER) {
-			// Previously only reserved enough for one token!
-			int size = get_array_size(t);
-			address new_mem = pls_give_memory(size + 1);
-			// Return old memory
-			here_u_go(mem, 1);
-			memory[new_mem] = t;
-			for (int i = 0; i < size; i++) {
-				// Pop each of the array elements one by one.
-				memory[new_mem + i + 1] = pop_arg();
-			}
-			address stack_adr = get_stack_pos_of_id(
-					tokens[start + 1].t_data.string, f_token.t_line);
-			call_stack[stack_adr].val = new_mem;
-		}*/
-		//memory[mem] = pop_arg();
-		//print_token(&memory[mem]);
+		//address mem = eval_identifier(start + 1, size - 1);
+		address a = push_memory(pop_arg(f_token.t_line));
+		//token t = pop_arg(f_token.t_line);
+		//memory[mem] = t;
+		push_stack_entry(tokens[start + 1].t_data.string, a);
 		return false;
 	}
 	else if (f_token.t_type == CALL) {
@@ -820,13 +821,30 @@ bool parse_line(address start, size_t size, address* i_ptr) {
 				}
 				j--;
 			}
+			token fn_pointer = memory[(int)t.t_data.number];
+			token fn_closure = memory[(int)t.t_data.number + 1];
+
 
 			push_frame(tokens[start + 1].t_data.string, ret_val);
 			 
-			push_stack_entry(tokens[start + size - 1].t_data.string, a);
-			*i_ptr = t.t_data.number;
-			if (this_adr) push_stack_entry("this", this_adr);
+			// push self reference for recursion
 
+			push_stack_entry(tokens[start + size - 1].t_data.string, a);
+		
+			*i_ptr = fn_pointer.t_data.number;
+
+			// push THIS reference for member access
+			if (this_adr) push_stack_entry("this", this_adr);
+				
+			// push closure variables
+			address cloc = fn_closure.t_data.number;
+			if (cloc != -1) {
+				size_t size = closure_list_sizes[cloc];
+				for (int i = 0; i < size; i++) {
+					copy_stack_entry(closure_list[cloc][i]);
+					//printf("COPIED: %s\n", closure_list[cloc][i].id);
+				}
+			}
 		}
 		else if (t.t_type == STRUCT) {
 			// Creating a struct instance! All the arguments are in the stack.

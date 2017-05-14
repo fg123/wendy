@@ -29,8 +29,11 @@ typedef enum {
 	// Block Comments (/* and */)
 	B_COMMENT_START, B_COMMENT_END,
 
-	// Literals.
+	// Literals / Primitives
 	IDENTIFIER, STRING, NUMBER, ADDRESS, FUNCTION, 
+
+	// Closures
+	CLOSURE, 
 
 	// Lists and Ranges 
 	LIST, LIST_HEADER, RANGE,
