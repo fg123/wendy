@@ -1,4 +1,8 @@
 #!/bin/sh
+
+mkdir -p ../bin
+mkdir -p ../build
+
 echo Building WendyScript...
 make clean -s
 make -s
