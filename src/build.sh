@@ -4,6 +4,10 @@ make clean -s
 make -s
 echo Build Done.
 
+echo Copying Wendy Library Files
+cp -R wendy-lib ../bin/
+echo Copied
+
 if [ "$1" != "-b" ]; then
 	echo Running Tests...
 
@@ -36,7 +40,4 @@ else
 	echo Ran in build-only mode.
 fi
 
-echo Copying Wendy Library Files
-cp -R wendy-lib ../bin/
-echo Copied
 echo Finished!
