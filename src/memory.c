@@ -77,7 +77,7 @@ address create_closure() {
 	address location = closure_list_pointer;
 	// Things to reserve.
 	size_t size = stack_pointer - main_end_pointer;	
-	if (size <= 0) return -1;
+	
 	stack_entry* closure = malloc(sizeof(stack_entry) * size);
 	size_t actual_size = 0;
 	for (int i = main_end_pointer; i < stack_pointer; i++) {
@@ -93,6 +93,7 @@ address create_closure() {
 			//	&call_stack[i], sizeof(stack_entry));
 		}
 	}
+	if (actual_size <= 0) return -1;
 	stack_entry* reallocated_closure = realloc(closure, 
 		actual_size * sizeof(stack_entry));
 	if (reallocated_closure) {
