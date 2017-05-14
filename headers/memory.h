@@ -38,12 +38,16 @@ struct mem_block {
 token* memory;
 mem_block* free_memory;
 
-// 128bytes per entry, 8mb of stack size
-// 8 * 1024 * 1024 = 8388608 bytes = 65536 entries in 8mb
 stack_entry* call_stack;
+
+// Includes a list of closures, used to store temporary stack frames.
+//   The size of the closure lists is also stored for easy iteration.
+stack_entry** closure_list;
+size_t* closure_list_sizes;
 
 extern address frame_pointer;
 extern address stack_pointer;
+extern address closure_list_pointer;
 extern bool enable_gc;
 
 // init_memory() allocates the memory
@@ -86,7 +90,7 @@ void push_auto_frame(address ret, char* type);
 // pop_frame(is_ret) ends a function call, pops the latest stack frame 
 //   (including automatically created local frames IF is_ret!
 //   is_ret is true if we RET instead of ending bracket
-//
+// 
 //   pop_frame also returns true if the popped frame is a function frame
 bool pop_frame(bool is_ret, address* ret);
 
@@ -95,15 +99,15 @@ bool pop_frame(bool is_ret, address* ret);
 address push_memory(token t);
 
 // push_memory_s(t, size) finds a continuous block of size in memory and sets
-//   it to t
+//   it all to the given token t.
 address push_memory_s(token t, int size);
 
 // push_memory_a(t, size) finds a continuous block of size in memory and sets
-//   it to the array a.
+//   it to the array a appending a list header token..
 address push_memory_a(token* a, int size);
 
 // push_memory_array(a, size) finds a continuous block of size in memory and
-//   sets it to the array a.
+//   sets it to the array "a" directly.
 address push_memory_array(token* a, int size);
 
 // pop_memory() removes a token from the memory after a push operation
@@ -115,6 +119,10 @@ void replace_memory(token t, address a);
 // push_stack_entry(id, t) adds a new entry into the 
 // stack frame (eg variable declaration).
 void push_stack_entry(char* id, address val);
+
+// copy_stack_entry(se) copies the given stack entry into the top of the call
+//   stack
+void copy_stack_entry(stack_entry se);
 
 // id_exist(id, search_main) returns true if id exists in the current stackframe 
 bool id_exist(char* id, bool search_main);
@@ -141,4 +149,9 @@ void push_arg(token t);
 
 // pop_arg(line) returns the top token t at the other end of memory
 token pop_arg(int line);
+
+// create_closure() creates a closure with the current stack frame and returns
+//   the index of the closure frame
+address create_closure();
+
 #endif

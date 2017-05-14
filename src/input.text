@@ -1,5 +1,0 @@
-let x = "hello ";
-let y = "hello world";
-set y = y + x;
-y;
-
