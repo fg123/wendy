@@ -381,7 +381,27 @@ void l_process_line(int start, int end) {
 	// first we scan to see if there are embedded lambda functions
 	int old_count = lambda_count;
 	for (int i = start; i < end; i++) {
-		if (tokens[i].t_type == LAMBDA) {
+		if (tokens[i].t_type == LEFT_BRACE) {
+			int b = 0;
+			while (1) {
+				i++;
+				if (i >= end) {
+					//printf("FUCK %d\n", i);
+					error(tokens[i].t_line, INCOMPLETE_STATEMENT_LIST);
+				}
+				else if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
+				//	printf("Found End\n");
+					break;
+				}
+				else if (tokens[i].t_type == LEFT_BRACE) {
+					b++;
+				}
+				else if (tokens[i].t_type == RIGHT_BRACE) {
+					b--;
+				}
+			}	
+		}
+		else if (tokens[i].t_type == LAMBDA) {
 			// Read until the end of the embedded lambda and lift
 			int f_start = i + 1;
 			int f_end = 0;
@@ -414,7 +434,31 @@ void l_process_line(int start, int end) {
 		}
 	}
 	for (int i = start; i < end; i++) {
-		if (tokens[i].t_type == LAMBDA) {
+		if (tokens[i].t_type == LEFT_BRACE) {
+			copy_token(tokens[i]);
+			int start = i + 1;
+			int b = 0;
+			while (1) {
+				i++;
+				if (i >= end) {
+					//printf("FUCK %d\n", i);
+					error(tokens[i].t_line, INCOMPLETE_STATEMENT_LIST);
+				}
+				else if (tokens[i].t_type == RIGHT_BRACE && b == 0) {
+				//	printf("Found End\n");
+					break;
+				}
+				else if (tokens[i].t_type == LEFT_BRACE) {
+					b++;
+				}
+				else if (tokens[i].t_type == RIGHT_BRACE) {
+					b--;
+				}
+			}	
+			l_handle_function(start, i, l_process_line);
+			copy_token(tokens[i]);
+		}
+		else if (tokens[i].t_type == LAMBDA) {
 			// already lifted, so we replace with old_count
 			add_token(IDENTIFIER, make_data_str(""));
 			snprintf(new_tokens[t_curr - 1].t_data.string, MAX_STRING_LEN, 
