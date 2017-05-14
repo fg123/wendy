@@ -15,9 +15,11 @@ address frame_pointer = 0;
 address stack_pointer = 0;
 address memory_pointer = 0;
 address arg_pointer = 0;
+address closure_list_pointer = 0;
 
 static const char FUNCTION_START_CHAR = '>';
 static const char AUTOFRAME_START_CHAR = '<';
+static const char RA_START_CHAR = '#';
 bool enable_gc = true;
 
 // pointer to the end of the main frame
@@ -71,6 +73,39 @@ bool garbage_collect(int size) {
 	return has_memory(size);
 }
 
+address create_closure() {
+	address location = closure_list_pointer;
+	// Things to reserve.
+	size_t size = stack_pointer - main_end_pointer;	
+	if (size <= 0) return -1;
+	stack_entry* closure = malloc(sizeof(stack_entry) * size);
+	size_t actual_size = 0;
+	for (int i = main_end_pointer; i < stack_pointer; i++) {
+		if (call_stack[i].id[0] == FUNCTION_START_CHAR ||
+			call_stack[i].id[0] == AUTOFRAME_START_CHAR ||
+			call_stack[i].id[0] == RA_START_CHAR) {
+		}
+		else {
+			strcpy(closure[actual_size].id, call_stack[i].id);
+			closure[actual_size].val = call_stack[i].val;
+			actual_size++;
+			//memcpy(&closure[actual_size++], 
+			//	&call_stack[i], sizeof(stack_entry));
+		}
+	}
+	stack_entry* reallocated_closure = realloc(closure, 
+		actual_size * sizeof(stack_entry));
+	if (reallocated_closure) {
+		closure = reallocated_closure;
+	}
+	else {
+		w_error(REALLOC_ERROR);
+	}
+	closure_list[closure_list_pointer] = closure;
+	closure_list_sizes[closure_list_pointer] = actual_size;
+	closure_list_pointer++;
+	return location;
+}
 
 bool has_memory(int size) {
 	// Do we have memory?? 
@@ -185,14 +220,21 @@ void print_free_memory() {
 }
 
 void init_memory() {
+	// Initialize Memory
 	memory = calloc(MEMORY_SIZE, sizeof(token));
+
+	// Initialize linked list of Free Memory
 	free_memory = malloc(sizeof(mem_block));
 	free_memory->size = MEMORY_SIZE - ARGSTACK_SIZE;
 	free_memory->start = 0;
 	free_memory->next = 0;
 
+	// Initialize Call Stack
 	call_stack = calloc(STACK_SIZE, sizeof(stack_entry));
 	arg_pointer = MEMORY_SIZE - 1;
+
+	closure_list = calloc(CLOSURES_SIZE, sizeof(stack_entry*));
+	closure_list_sizes = malloc(sizeof(size_t) * CLOSURES_SIZE);
 
 	// ADDRESS 0 REFERS TO NONE_TOKEN
 	push_memory(none_token());
@@ -213,6 +255,13 @@ void c_free_memory() {
 		free(c);
 		c = next;
 	}
+	free(closure_list_sizes);
+	int i = 0;
+	while (closure_list[i]) {
+		free(closure_list[i]);
+		i++;
+	}
+	free(closure_list);
 }
 
 void check_memory() {
@@ -250,7 +299,8 @@ void push_frame(char* name, address ret) {
 	// add and increment stack_pointer
 	call_stack[stack_pointer++] = new_entry;
 	check_memory();
-	stack_entry ne2 = { "R/A", ret }; 
+	stack_entry ne2 = { "0R/A", ret };
+	ne2.id[0] = RA_START_CHAR;
 	call_stack[stack_pointer++] = ne2;
 	check_memory();
 	// pointer to self
@@ -399,6 +449,12 @@ void replace_memory(token t, address a) {
 	}
 }
 
+void copy_stack_entry(stack_entry se) {
+	call_stack[stack_pointer++] = se;
+	if (frame_pointer == 0) { main_end_pointer = stack_pointer; }
+	check_memory();
+}
+
 void push_stack_entry(char* id, address val) {
 	stack_entry new_entry;
 	new_entry.val = val;
@@ -442,7 +498,9 @@ address get_address_of_id(char* id, int line) {
 		error(line, ID_NOT_FOUND, id);
 		return 0;
 	}
-	for (int i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
+	address frame_ptr = get_fn_frame_ptr();
+	for (int i = stack_pointer - 1; i > frame_ptr; i--) {
+	//for (int i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
 		if (strcmp(id, call_stack[i].id) == 0) {
 			return call_stack[i].val;	
 		}
@@ -461,7 +519,9 @@ address get_stack_pos_of_id(char* id, int line) {
 		error(line, ID_NOT_FOUND, id);
 		return 0;
 	}
-	for (int i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
+	address frame_ptr = get_fn_frame_ptr();
+	for (int i = stack_pointer - 1; i > frame_ptr; i--) {
+	//for (int i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
 		if (strcmp(id, call_stack[i].id) == 0) {
 			return i;
 		}

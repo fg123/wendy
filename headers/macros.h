@@ -21,8 +21,9 @@
 #define STACK_SIZE 100000
 #define ARGSTACK_SIZE 128 
 #define RESERVED_MEMORY 2
+#define CLOSURES_SIZE 128
 
-typedef unsigned int byte;
+//typedef unsigned int byte;
 
 
 

@@ -605,11 +605,11 @@ int fc_process_fn_call(int start, int end) {
 	}
 	add_token(SEMICOLON, make_data_str(";"));
 
-	add_token(LET, make_data_str("let"));
+	/*add_token(LET, make_data_str("let"));
 	add_token(IDENTIFIER, make_data_str(""));
 	snprintf(new_tokens[t_curr - 1].t_data.string, MAX_STRING_LEN, 
 			"~tmp%d", tmp_count);
-	add_token(SEMICOLON, make_data_str(";"));
+	add_token(SEMICOLON, make_data_str(";"));*/
 	add_token(POP, make_data_str("pop"));
 	add_token(IDENTIFIER, make_data_str(""));
 	snprintf(new_tokens[t_curr - 1].t_data.string, MAX_STRING_LEN, 
@@ -749,10 +749,10 @@ size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size) {
 			add_token(LEFT_BRACE, make_data_str("{"));
 			// set up pop instructions for the arguments
 			for (int j = req_arg_count - 1; j >= 0; j--) {
-				add_token(LET, make_data_str("let"));
+				/*add_token(LET, make_data_str("let"));
 				add_token(IDENTIFIER, make_data_str(""));
 				strcpy(new_tokens[t_curr - 1].t_data.string, arg_ids[j]);
-				add_token(SEMICOLON, make_data_str(";"));
+				add_token(SEMICOLON, make_data_str(";"));*/
 				add_token(POP, make_data_str("pop"));
 				add_token(IDENTIFIER, make_data_str(""));
 				strcpy(new_tokens[t_curr - 1].t_data.string, arg_ids[j]);
