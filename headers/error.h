@@ -18,6 +18,9 @@
 #define INCOMPLETE_STATEMENT_LIST "Incomplete statement list!"
 #define INCOMPLETE_FN_CALL "Incomplete/invalid function call!"
 
+// Debugger Messages:
+#define OUT_OF_BREAKPOINTS "Breakpoint limit reached! You cannot create more breakpoints!"
+
 // Interpreter Messages:
 //   GENERAL ERRORS
 #define RESERVED_TOKEN "Reserved Token used for Identifier!"
@@ -107,6 +110,10 @@ void error(int line, char* message, ...);
 // w_error(message) prints an error message corresponding to
 //   an internal wendyscript error, not one of the user.
 void w_error(char* message);
+
+// d_error(message) prints an error message corresponding to
+//   a debugger error message
+void d_error(char* message);
 
 // free_error() frees the allocated space for the source
 void free_error();

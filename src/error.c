@@ -24,6 +24,12 @@ void w_error(char* message) {
 	exit(1);
 }
 
+void d_error(char* message) {
+	printf(RED "Wendy Debugger Error: " RESET "%s\n", message);
+	fflush(stdout);
+	exit(1);
+}
+
 void error(int line, char* message, ...) {
 	va_list a_list;
 	va_start(a_list, message);

@@ -11,6 +11,7 @@
 #include <errno.h>
 #include "preprocessor.h"
 #include "macros.h"
+#include "debugger.h"
 
 // tokens is a pointer to the first instruction
 static token* tokens;
@@ -19,14 +20,18 @@ static size_t tokens_count;
 void start_program() {
 	int brace_count = 0;
 	int line_start = 0;
+
+	// Main Program Loop
 	for (address i = 0; i < tokens_count; i++) {
-//		printf("i i %d\n", i);
 		token curr_t = tokens[i];
 		
 		if (curr_t.t_type == SEMICOLON && brace_count == 0) {
 			// end of a line
 			address a = 0;
 			int oldI = i;
+			if (debug_output_path) {
+				debug_check(tokens[line_start].t_line);
+			}
 			parse_line(line_start, (i - line_start), &i);
 			if (oldI == i) { line_start = i + 1; }
 			else { i--; line_start = i + 1; } 

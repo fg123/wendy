@@ -8,10 +8,10 @@ INCDIR = ../headers
 CFLAGS=-I $(INCDIR) -lreadline -g -lm 
 CFLAGSNOLINK = -I $(INCDIR) -g
 
-_DEPS = interpreter.h scanner.h token.h error.h stack.h memory.h execpath.h preprocessor.h tests.h macros.h 
+_DEPS = interpreter.h scanner.h token.h error.h stack.h memory.h execpath.h preprocessor.h tests.h macros.h debugger.h 
 DEPS = $(patsubst %,$(INCDIR)/%,$(_DEPS))
 
-_OBJ = main.o interpreter.o scanner.o stack.o token.o memory.o error.o execpath.o preprocessor.o tests.o
+_OBJ = main.o interpreter.o debugger.o scanner.o stack.o token.o memory.o error.o execpath.o preprocessor.o tests.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 

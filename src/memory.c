@@ -13,7 +13,6 @@
 // Lets choose an arbitrary closest prime because why not: 129061
 address frame_pointer = 0;
 address stack_pointer = 0;
-address memory_pointer = 0;
 address arg_pointer = 0;
 address closure_list_pointer = 0;
 
@@ -351,6 +350,33 @@ bool pop_frame(bool is_ret, address* ret) {
 	return (is_ret || call_stack[trace].id[0] == FUNCTION_START_CHAR);
 }
 
+void write_state(FILE* fp) {
+	fprintf(fp, "FramePointer: %d\n", frame_pointer);
+	fprintf(fp, "StackTrace: %d\n", stack_pointer);
+	for (int i = 0; i < stack_pointer; i++) {
+		if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
+			fprintf(fp, ">%s %d\n", call_stack[i].id, call_stack[i].val);
+		}
+		else {
+			fprintf(fp, "%s %d\n", call_stack[i].id, call_stack[i].val);		
+		}
+	}
+	fprintf(fp, "ArgStack: %d\n", MEMORY_SIZE - arg_pointer - 1);
+	for (int i = arg_pointer + 1; i < MEMORY_SIZE; i++) {
+		fprintf(fp, "%s ", token_string[memory[i].t_type]);
+		print_token_inline(&memory[i], fp);
+		fprintf(fp, "\n");
+	}
+	fprintf(fp, "Memory: %d\n", MEMORY_SIZE);
+	for (int i = 0; i < MEMORY_SIZE; i++) {
+		if (memory[i].t_type != 0) {
+			fprintf(fp, "%d %s ", i, token_string[memory[i].t_type]);
+			print_token_inline(&memory[i], fp);
+			fprintf(fp, "\n");
+		}
+	} 
+}
+
 void print_call_stack() {
 	printf("\n===============\n");
 	printf("Dump: Stack Trace\n");
@@ -395,7 +421,9 @@ void push_arg(token t) {
 
 token pop_arg(int line) {
 	if (arg_pointer != MEMORY_SIZE - 1) {
-		return memory[++arg_pointer];
+		token ret = memory[++arg_pointer];
+		memory[arg_pointer].t_type = 0; 
+		return ret;
 	}
 	error(line, FUNCTION_CALL_MISMATCH);
 //	printf("ARGSTACK is EMPTY!\n");

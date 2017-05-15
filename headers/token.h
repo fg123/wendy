@@ -7,61 +7,101 @@
 
 bool last_printed_newline;
 
+#define FOREACH_TOKEN(OP) \
+	OP(EMPTY) \
+	OP(LEFT_PAREN) \
+	OP(RIGHT_PAREN) \
+	OP(LEFT_BRACE) \
+	OP(RIGHT_BRACE) \
+	OP(LEFT_BRACK) \
+	OP(RIGHT_BRACK) \
+	OP(COMMA) \
+	OP(DOT) \
+	OP(MINUS) \
+	OP(PLUS) \
+	OP(SEMICOLON) \
+	OP(SLASH) \
+	OP(STAR) \
+	OP(COLON) \
+	OP(AT) \
+	OP(HASH) \
+	OP(PERCENT) \
+	OP(INTSLASH) \
+	OP(AMPERSAND) \
+	OP(TILDE) \
+	OP(RANGE_OP) \
+	OP(U_STAR) \
+	OP(U_MINUS) \
+	OP(U_TILDE) \
+	OP(NOT) \
+	OP(NOT_EQUAL) \
+	OP(EQUAL) \
+	OP(EQUAL_EQUAL) \
+	OP(GREATER) \
+	OP(GREATER_EQUAL) \
+	OP(LESS) \
+	OP(LESS_EQUAL) \
+	OP(LAMBDA) \
+	OP(B_COMMENT_START) \
+	OP(B_COMMENT_END) \
+	OP(IDENTIFIER) \
+	OP(STRING) \
+	OP(NUMBER) \
+	OP(ADDRESS) \
+	OP(FUNCTION) \
+	OP(CLOSURE) \
+	OP(LIST) \
+	OP(LIST_HEADER) \
+	OP(RANGE) \
+	OP(OBJ_TYPE) \
+	OP(AND) \
+	OP(OR) \
+	OP(IF) \
+	OP(ELSE) \
+	OP(ELSEIF) \
+	OP(TRUE) \
+	OP(FALSE) \
+	OP(LET) \
+	OP(SET) \
+	OP(LOOP) \
+	OP(LOOP_CONTENT) \
+	OP(DEFFN) \
+	OP(RET) \
+	OP(INPUT) \
+	OP(INC) \
+	OP(DEC) \
+	OP(STRUCT) \
+	OP(PRINTSTACK) \
+	OP(REQ) \
+	OP(EXPLODE) \
+	OP(TIME) \
+	OP(ASSERT) \
+	OP(STRUCT_HEADER) \
+	OP(STRUCT_NAME) \
+	OP(STRUCT_METADATA) \
+	OP(STRUCT_STATIC) \
+	OP(STRUCT_PARAM) \
+	OP(STRUCT_INSTANCE) \
+	OP(STRUCT_INSTANCE_HEAD) \
+	OP(STRUCT_PARENT) \
+	OP(STRUCT_BASE_INSTANCE) \
+	OP(NONE) \
+	OP(NONERET) \
+	OP(CALL) \
+	OP(PUSH) \
+	OP(POP) \
+	OP(COND)
+
+#define ENUM(x) x,
+#define STRING(x) #x,
+
 typedef enum {
-	EMPTY,
-	// Single-character Tokens
-	LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACK, RIGHT_BRACK,
-	COMMA, DOT, MINUS, PLUS, SEMICOLON, SLASH, STAR, COLON, AT, HASH, PERCENT,
-	INTSLASH, AMPERSAND, TILDE, RANGE_OP,
-
-	// Special Expression Token (Unary) (22)
-	U_STAR, U_MINUS, U_TILDE,
-
-	// Comparison Tokens (24)
-	NOT, NOT_EQUAL,
-	EQUAL, EQUAL_EQUAL, 
-	GREATER, GREATER_EQUAL,
-	LESS, LESS_EQUAL, 
-	
-	// #: token (32)
-	LAMBDA,
-
-	// Block Comments (/* and */)
-	B_COMMENT_START, B_COMMENT_END,
-
-	// Literals / Primitives
-	IDENTIFIER, STRING, NUMBER, ADDRESS, FUNCTION, 
-
-	// Closures
-	CLOSURE, 
-
-	// Lists and Ranges 
-	LIST, LIST_HEADER, RANGE,
-
-	// Object Types
-	OBJ_TYPE, 
-
-	// Conditionals
-	AND, OR, IF, ELSE, ELSEIF, TRUE, FALSE,
-
-	// Definitons
-	LET, SET, LOOP, LOOP_CONTENT, DEFFN,
-	
-	// Special Commands
-	RET, INPUT, INC, DEC, STRUCT, PRINTSTACK, REQ, EXPLODE,
-	TIME, ASSERT,
-
-	// Struct Forms:
-	STRUCT_HEADER, STRUCT_NAME, STRUCT_METADATA, STRUCT_STATIC, STRUCT_PARAM,
-	STRUCT_INSTANCE, STRUCT_INSTANCE_HEAD, STRUCT_PARENT, STRUCT_BASE_INSTANCE, 
-
-	// Special Forms
-	NONE, NONERET,
-	
-	// Preprocessor Specific Symbols
-	CALL, PUSH, POP, COND
-
+	FOREACH_TOKEN(ENUM)
 } token_type;
+
+static const char *token_string[] = {
+    FOREACH_TOKEN(STRING)
+};
 
 typedef union {
 	double number;

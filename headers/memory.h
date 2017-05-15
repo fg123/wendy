@@ -154,4 +154,6 @@ token pop_arg(int line);
 //   the index of the closure frame
 address create_closure();
 
+// write_state(fp) writes the current state for debugging to the file fp
+void write_state(FILE* fp);
 #endif

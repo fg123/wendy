@@ -10,6 +10,7 @@
 #include "macros.h"
 #include "scanner.h"
 #include <string.h>
+#include "debugger.h"
 
 #ifdef _WIN32
 
@@ -32,11 +33,12 @@ char* readline(char* prompt) {
 // main.c: used to handle REPL and calling the interpreter on a file.
 
 void invalid_usage() {
-	printf("usage: wendy [file] [-p-dump file] [-nogc] [-c file] \n");
+	printf("usage: wendy [file] [-p-dump file] [-nogc] [-c file] [-d file b1 b2 ...]\n");
 	printf("    file         : is the WendyScript file to be preprocessed and run by the interpreter.\n");
 	printf("    -p-dump file : outputs each step of the preprocessing process.\n");
-	printf("    -no-gc       : disables garbage-collection.\n");
-	printf("    -c file      : only compiles and writes a preprocessed copy to the given file.\n");
+	printf("    -no-gc		 : disables garbage-collection.\n");
+	printf("    -c file		 : only compiles and writes a preprocessed copy to the given file.\n");
+	printf("\n-d file b1 b2 ...\n	Enables debugging mode, with an output file and an initial set of breakpoints.");
 
 
 	exit(1);
@@ -59,6 +61,16 @@ void process_options(char** options, int len) {
 			printf("Compiling file into %s.\n", compile_path);
 			i++;
 		}
+		else if (strcmp("-d", options[i]) == 0) {
+			if (i == len - 1) {
+				invalid_usage();
+			}
+			debug_output_path = options[i + 1];
+			i++;
+			for (; i < len; i++) {
+				add_breakpoint(atoi(options[i]));
+			}
+		}
 		else if (strcmp("-nogc", options[i]) == 0) {
 			enable_gc = false;	
 		}
@@ -71,11 +83,7 @@ void process_options(char** options, int len) {
 int main(int argc, char** argv) {
 	init_memory();
 
-	if (argc > 4) {
-		invalid_usage();
-		return 1;
-	}
-	else if (argc == 1) {
+	if (argc == 1) {
 		printf("Welcome to %s\nCreated by: Felix Guo\n", WENDY_VERSION);
 		run_tests();
 		char* path = get_path();
