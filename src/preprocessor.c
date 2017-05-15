@@ -816,12 +816,16 @@ size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size) {
 	l_handle_function(0, length, fc_process_line);
 	reset_counters();
 	if (p_dump_path) printf_tokens("Function Calls", "fncall");
+	//printf("EVER REACHED %s\n", compile_path);
 	if (compile_path) {
 		FILE* compiled = fopen(compile_path, "w");
 		if (compiled) {
 			tokens_to_file(tokens, length, compiled);
+			printf("Compiled file into %s.\n", compile_path);
 		}
-
+		else {
+			printf("Could not open file for writing %s.\n", compile_path);	
+		}
 		fclose(compiled);
 		return 0;
 	}
@@ -841,7 +845,7 @@ token* file_to_tokens(FILE* file, size_t* size) {
 	}
 	fscanf(file, "%d", &total_size);
 	fgetc(file);
-	token* tokens = malloc(total_size * sizeof(tokens));
+	token* tokens = malloc(total_size * sizeof(token));
 	int i = 0;
 	while (i < total_size) {
 		token next;
@@ -867,6 +871,7 @@ token* file_to_tokens(FILE* file, size_t* size) {
 
 	}
 	*size = i;
+
 	return tokens;
 }
 

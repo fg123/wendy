@@ -104,7 +104,7 @@ address create_closure() {
 	}
 	closure_list[closure_list_pointer] = closure;
 	closure_list_sizes[closure_list_pointer] = actual_size;
-	closure_list_pointer++;
+	closure_list_pointer++;	
 	return location;
 }
 

@@ -36,8 +36,7 @@ void invalid_usage() {
 	printf("    file         : is the WendyScript file to be preprocessed and run by the interpreter.\n");
 	printf("    -p-dump file : outputs each step of the preprocessing process.\n");
 	printf("    -no-gc       : disables garbage-collection.\n");
-	printf("    -p file      : only compiles and writes a preprocessed copy to the given file.\n");
-
+	printf("    -c file      : only compiles and writes a preprocessed copy to the given file.\n");
 
 
 	exit(1);
@@ -52,14 +51,14 @@ void process_options(char** options, int len) {
 			p_dump_path = options[i + 1];
 			i++;
 		}
-		else if (strcmp("-p", options[i]) == 0) {
+		else if (strcmp("-c", options[i]) == 0) {
 			if (i == len - 1) {
 				invalid_usage();	
 			}
 			compile_path = options[i + 1];
+			printf("Compiling file into %s.\n", compile_path);
 			i++;
 		}
-
 		else if (strcmp("-nogc", options[i]) == 0) {
 			enable_gc = false;	
 		}
@@ -104,15 +103,26 @@ int main(int argc, char** argv) {
 		// FILE READ MODE
 		long length = 0;
 		int filelength = strlen(argv[1]);
-		if (argv[1][filelength - 1] == 'o') {
+
+		// Determine file type
+		char header[40];
+		FILE *file = fopen(argv[1], "r");
+		if (!file) {
+			printf("Error opening file to determine type.\n");
+			exit(1);
+		}
+		fscanf(file, "%s", header);
+		fclose(file);
+		if (strcmp("WendyObj", header) == 0) {
 			FILE *f = fopen(argv[1], "r");
 			char* buffer;
 			if (f) {
 				size_t size = 0;
 				token* tokens = file_to_tokens(f, &size);
+				//print_token_list(tokens, size);
 				push_frame("main", 0);
 				run_tokens(tokens, size);
-//				print_token_list(tokens, size);
+			
 			}
 			if (!last_printed_newline) {
 				printf("\n");
