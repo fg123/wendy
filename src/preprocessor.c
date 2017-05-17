@@ -6,6 +6,7 @@
 #include <string.h>
 #include "scanner.h"
 #include <assert.h>
+#include "debugger.h"
 
 char* p_dump_path = 0;
 FILE* p_dump_file = 0;
@@ -742,8 +743,18 @@ size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size) {
 	//   looking for function calls.
 	for (int i = 0; i < length; i++) {
 		cur_line = tokens[i].t_line;
-
-		if (tokens[i].t_type == REQ) {
+		if (tokens[i].t_type == DEBUG) {
+			i++;
+			while (i < length && tokens[i].t_type != SEMICOLON) {
+				if (tokens[i].t_type != NUMBER) {
+					error(tokens[i].t_line, DEBUG_DIRECTIVE);
+				}
+				else {
+					add_breakpoint((int)tokens[i].t_data.number);
+				}
+			}
+		}
+		else if (tokens[i].t_type == REQ) {
 			// ignore until the end, already processed
 			while (i < length && tokens[i].t_type != SEMICOLON) i++;
 			

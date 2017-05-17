@@ -423,7 +423,18 @@ void scan_token() {
 		case '@': add_token(AT); break;
 		case ';': add_token(SEMICOLON); break;
 		case ':': add_token(COLON); break;
-		case '#': add_token(match(':') ? LAMBDA : HASH); break;
+		case '#': 
+			if (match(':')) {
+				add_token(LAMBDA);
+			}
+			else if (match('#')) {
+				add_token(DEBUG);
+			}
+			else {
+				add_token(HASH);
+			}
+			break;
+			
 		case '*': add_token(match('/') ? B_COMMENT_END : STAR); break;
 		case '!': add_token(match('=') ? NOT_EQUAL : NOT); break;
 		case '=': 

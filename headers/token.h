@@ -15,6 +15,7 @@ bool last_printed_newline;
 	OP(RIGHT_BRACE) \
 	OP(LEFT_BRACK) \
 	OP(RIGHT_BRACK) \
+	OP(DEBUG) \
 	OP(COMMA) \
 	OP(DOT) \
 	OP(MINUS) \
