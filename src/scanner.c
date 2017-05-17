@@ -384,6 +384,7 @@ void handle_number() {
 }*/
 
 // scan_token() processes the next token 
+bool ignore_next = false;
 void scan_token() {
 	char c = advance();	
 	switch(c) {
@@ -429,6 +430,7 @@ void scan_token() {
 			}
 			else if (match('#')) {
 				add_token(DEBUG);
+				ignore_next = true;
 			}
 			else {
 				add_token(HASH);
@@ -481,7 +483,8 @@ void scan_token() {
 			// Ignore whitespace. and commas
 			break;
 		case '\n':
-			line++;
+			if (!ignore_next) line++;
+			else ignore_next = false;
 			break;
 		case '"': handle_string(); break;
 		default:

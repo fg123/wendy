@@ -744,6 +744,9 @@ size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size) {
 	for (int i = 0; i < length; i++) {
 		cur_line = tokens[i].t_line;
 		if (tokens[i].t_type == DEBUG) {
+			if (!debug_output_path) {
+				error(tokens[i].t_line, DEBUG_NOT_SET);
+			}
 			i++;
 			while (i < length && tokens[i].t_type != SEMICOLON) {
 				if (tokens[i].t_type != NUMBER) {

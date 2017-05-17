@@ -18,6 +18,7 @@
 #define INCOMPLETE_STATEMENT_LIST "Incomplete statement list!"
 #define INCOMPLETE_FN_CALL "Incomplete/invalid function call!"
 #define DEBUG_DIRECTIVE "Debug directive syntax error."
+#define DEBUG_NOT_SET "Debug directive without debug output file!"
 
 // Debugger Messages:
 #define OUT_OF_BREAKPOINTS "Breakpoint limit reached! You cannot create more breakpoints!"

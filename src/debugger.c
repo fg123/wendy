@@ -26,6 +26,7 @@ int breakpoint_exist(int line) {
 }
 
 void add_breakpoint(int line) {
+//	printf("Breakpoint at: %d\n", line);
 	if (breakpoint_exist(line) == -1) {
 		if (bp_count == BREAKPOINT_MAX) {
 			d_error(OUT_OF_BREAKPOINTS);					
@@ -54,7 +55,7 @@ void remove_breakpoint(int line) {
 void write_wendy_state() {
 	if (debug_output_path) {
 		FILE* file = fopen(debug_output_path, "w");
-		printf("Writing State\n");
+//		printf("Writing State\n");
 		fprintf(file, "WendyScript Debugger\n");
 		write_state(file);	
 		fclose(file);
@@ -62,8 +63,9 @@ void write_wendy_state() {
 }
 
 void debug_check(int line) {
-	//printf("Debug check %d\n", line);
+//	printf("Debug check %d\n", line);
 	int bp = breakpoint_exist(line);
+
 	if (bp != -1) {
 		write_wendy_state();
 		// Wait for Input
