@@ -752,6 +752,7 @@ size_t preprocess(token** _tokens, size_t _length, size_t _alloc_size) {
 				else {
 					add_breakpoint((int)tokens[i].t_data.number);
 				}
+				i++;
 			}
 		}
 		else if (tokens[i].t_type == REQ) {
