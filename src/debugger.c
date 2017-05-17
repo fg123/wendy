@@ -69,8 +69,9 @@ void debug_check(int line) {
 	if (bp != -1) {
 		write_wendy_state();
 		// Wait for Input
-		char c = getchar();
-		getchar(); // consume newline
+		char buffer[3];
+		while(!fgets(buffer, 3, stdin)) {};
+		char c = buffer[0];
 		if (c == 'c') {
 			// Continue
 			return;
