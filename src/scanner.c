@@ -6,6 +6,7 @@
 #include <string.h>
 #include <execpath.h>
 #include "macros.h"
+#include "interpreter.h"
 
 static size_t source_len;
 static size_t current; // is used to keep track of source current
@@ -410,7 +411,8 @@ void scan_token() {
 			}
 			break;
 		case '-': 
-			if (is_digit(peek())) {
+			if (t_curr == 0 || (is_digit(peek()) && 
+					precedence(tokens[t_curr - 1]))) {
 				advance();
 				handle_number();
 			}
