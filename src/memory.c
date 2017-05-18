@@ -361,12 +361,6 @@ void write_state(FILE* fp) {
 			fprintf(fp, "%s %d\n", call_stack[i].id, call_stack[i].val);		
 		}
 	}
-	fprintf(fp, "ArgStack: %d\n", MEMORY_SIZE - arg_pointer - 1);
-	for (int i = arg_pointer + 1; i < MEMORY_SIZE; i++) {
-		fprintf(fp, "%s ", token_string[memory[i].t_type]);
-		print_token_inline(&memory[i], fp);
-		fprintf(fp, "\n");
-	}
 	fprintf(fp, "Memory: %d\n", MEMORY_SIZE);
 	for (int i = 0; i < MEMORY_SIZE; i++) {
 		if (memory[i].t_type != 0) {
