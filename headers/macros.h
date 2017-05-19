@@ -25,8 +25,4 @@
 
 //typedef unsigned int byte;
 
-
-
-
-
 #endif

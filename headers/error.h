@@ -12,6 +12,12 @@
 #define UNEXPECTED_CHARACTER "Unexpected character!"
 #define REQ_FILE_READ_ERR "req: File read error."
 
+// Parser Errors:
+#define EXPECTED_TOKEN "Expected token!"
+#define PARSING_UNFINISHED "Parsing unfinished by EOF!"
+#define UNEXPECTED_PRIMARY "Unexpected primary expression!"
+#define EXPECTED_IDENTIFIER "Expected identifier in identifier list!"
+
 // Preprocessor Messages:
 #define INCOMPLETE_LAMBDA "Incomplete lambda definition!"
 #define INCOMPLETE_IF "Incomplete if statement!"
@@ -19,6 +25,7 @@
 #define INCOMPLETE_FN_CALL "Incomplete/invalid function call!"
 #define DEBUG_DIRECTIVE "Debug directive syntax error."
 #define DEBUG_NOT_SET "Debug directive without debug output file!"
+
 
 // Debugger Messages:
 #define OUT_OF_BREAKPOINTS "Breakpoint limit reached! You cannot create more breakpoints!"

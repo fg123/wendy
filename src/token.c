@@ -30,6 +30,10 @@ token noneret_token() {
 	return make_token(NONERET, make_data_str("<noneret>"));
 }
 
+token empty_token() {
+	return make_token(EMPTY, make_data_str(""));
+}
+
 token range_token(int start, int end) {
 	token res = make_token(RANGE, make_data_str(""));
 	sprintf(res.t_data.string, "%d|%d", start, end);

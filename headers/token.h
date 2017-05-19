@@ -136,6 +136,9 @@ token true_token();
 // time_token() returns the current time in a number token
 token time_token();
 
+// empty_token() returns an empty token
+token empty_token();
+
 // noneret_token() returns a new noneret_token
 token noneret_token();
 
