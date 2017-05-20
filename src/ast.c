@@ -15,7 +15,7 @@ static bool is_at_end() {
 	return index == length;
 }
 
-bool fnmatch(int count, ...) {
+static bool fnmatch(int count, ...) {
 	va_list a_list;
     va_start(a_list, count);	
 	for (int i = 0; i < count; i++) {
@@ -33,7 +33,7 @@ static token advance() {
 	return previous();
 }
 
-token previous() {
+static token previous() {
 	return tokens[index - 1];
 }
 
@@ -41,11 +41,12 @@ static token peek() {
 	return tokens[index];
 }
 
-bool check(token_type t) {
+static bool check(token_type t) {
 	if (is_at_end()) return false;
 	return peek().t_type == t;
 }
-void consume(token_type t) {
+
+static void consume(token_type t) {
 	if (check(t)) {
 		advance();
 	}
@@ -426,24 +427,24 @@ void traverse_expr(expr* expression,
 		void (*c)(void*), void (*d)(void*)) {
 	if (!expression) return;
 	if (pre_order) a(expression);
-	if (expression->type == LITERAL) {
+	if (expression->type == E_LITERAL) {
 		
 	}
-	else if (expression->type == BINARY) {
+	else if (expression->type == E_BINARY) {
 		traverse_expr(expression->op.bin_expr.left, a, b, c, d);
 		traverse_expr(expression->op.bin_expr.right, a, b, c, d);
 	}
-	else if (expression->type == UNARY) {
+	else if (expression->type == E_UNARY) {
 		traverse_expr(expression->op.una_expr.operand, a, b, c, d);
 	}
-	else if (expression->type == CALL) {
+	else if (expression->type == E_CALL) {
 		traverse_expr_list(expression->op.call_expr.arguments, a, b, c, d);
 		traverse_expr(expression->op.call_expr.function, a, b, c, d);
 	}
-	else if (expression->type == LIST) {
+	else if (expression->type == E_LIST) {
 		traverse_expr_list(expression->op.list_expr.contents, a, b, c, d);
 	}
-	else if (expression->type == FUNCTION) {
+	else if (expression->type == E_FUNCTION) {
 		traverse_expr_list(expression->op.func_expr.parameters, a, b, c, d);
 		traverse_statement_list(expression->op.func_expr.body, a, b, c, d);
 	}
@@ -465,24 +466,24 @@ void traverse_expr_list(expr_list* list,
 
 void print_e(void* expre) {
 	expr* expression = (expr*)expre;
-	if (expression->type == LITERAL) {
+	if (expression->type == E_LITERAL) {
 		printf("(%p) Literal Expression ", expre);
 		print_token(&expression->op.lit_expr);
 	}
-	else if (expression->type == BINARY) {
+	else if (expression->type == E_BINARY) {
 		printf("(%p) Binary Expression (%p, %p)\n", expre,
 			expression->op.bin_expr.left, expression->op.bin_expr.right);
 	}
-	else if (expression->type == UNARY) {
+	else if (expression->type == E_UNARY) {
 		printf("Unary Expression\n");
 	}
-	else if (expression->type == CALL) {
+	else if (expression->type == E_CALL) {
 		printf("Call Expression\n");
 	}
-	else if (expression->type == LIST) {
+	else if (expression->type == E_LIST) {
 		printf("List Expression\n");
 	}
-	else if (expression->type == FUNCTION) {
+	else if (expression->type == E_FUNCTION) {
 		printf("Function Expression\n");
 	}
 	else {
@@ -549,13 +550,13 @@ void free_ast(statement_list* ast) {
 
 expr* make_lit_expr(token t) {
 	expr* node = malloc(sizeof(expr));
-	node->type = LITERAL;
+	node->type = E_LITERAL;
 	node->op.lit_expr = t;
 	return node;
 }
 expr* make_bin_expr(expr* left, token op, expr* right) {
 	expr* node = malloc(sizeof(expr));
-	node->type = BINARY;
+	node->type = E_BINARY;
 	node->op.bin_expr.operator = op;
 	node->op.bin_expr.left = left;
 	node->op.bin_expr.right = right;
@@ -563,27 +564,27 @@ expr* make_bin_expr(expr* left, token op, expr* right) {
 }
 expr* make_una_expr(token op, expr* operand) {
 	expr* node = malloc(sizeof(expr));
-	node->type = UNARY;
+	node->type = E_UNARY;
 	node->op.una_expr.operator = op;
 	node->op.una_expr.operand = operand;
 	return node;
 }
 expr* make_call_expr(expr* left, expr_list* arg_list) {
 	expr* node = malloc(sizeof(expr));
-	node->type = CALL;
+	node->type = E_CALL;
 	node->op.call_expr.function = left;
 	node->op.call_expr.arguments = arg_list;
 	return node;
 }
 expr* make_list_expr(expr_list* list) {
 	expr* node = malloc(sizeof(expr));
-	node->type = LIST;
+	node->type = E_LIST;
 	node->op.list_expr.contents = list;
 	return node;
 }
 expr* make_func_expr(expr_list* parameters, statement_list* body) {
 	expr* node = malloc(sizeof(expr));
-	node->type = FUNCTION;
+	node->type = E_FUNCTION;
 	node->op.func_expr.parameters = parameters;
 	node->op.func_expr.body = body;
 	return node;

@@ -1,7 +1,6 @@
 #ifndef AST_H
 #define AST_H
 #include "token.h"
-#include "error.h"
 #include <stdbool.h>
 
 // AST.H declares the abstract syntax tree of WendyScript before it compiles
@@ -24,7 +23,7 @@
 
 // Inspired by https://lambda.uta.edu/cse5317/notes/node26.html
 typedef struct expr {
-	enum { LITERAL, BINARY, UNARY, FUNCTION, LIST, CALL } type;
+	enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL } type;
 	union { token											lit_expr;
 			struct {	token				operator;
 						struct expr*		left;
@@ -73,7 +72,7 @@ typedef struct statement_list {
 static bool is_at_end();
 
 // match(count, ...) checks for a match of the token stream
-bool fnmatch(int count, ...);
+static bool fnmatch(int count, ...);
 
 // advance() proceeds to the next token
 static token advance();
@@ -82,10 +81,10 @@ static token advance();
 static token peek();
 
 // previous() returns the last token
-token previous();
+static token previous();
 
 // check(type) checks the next token
-bool check(token_type type);
+static bool check(token_type type);
 
 // generate_ast(tokens, length) generates an ast based on the tokens/lengths
 statement_list* generate_ast(token* tokens, size_t length);
