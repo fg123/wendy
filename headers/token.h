@@ -5,6 +5,10 @@
 #include <stdio.h>
 #include "macros.h"
 
+// token.h - Felix Guo
+// This module provides utilities for creating and manipulating tokens for the
+//   [scanner].
+
 bool last_printed_newline;
 
 #define FOREACH_TOKEN(OP) \

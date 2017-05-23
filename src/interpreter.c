@@ -78,10 +78,10 @@ void run_tokens(token* _tokens, size_t _length) {
 void run(char* input_string) {
 	size_t alloc_size = 0;
 	tokens_count = scan_tokens(input_string, &tokens, &alloc_size);
-	/*statement_list* ast = generate_ast(tokens, tokens_count);
+	statement_list* ast = generate_ast(tokens, tokens_count);
 	
 	print_ast(ast);
-	free_ast(ast);*/
+	free_ast(ast);
 	tokens_count = preprocess(&tokens, tokens_count, alloc_size);
 	start_program();
 }

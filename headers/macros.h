@@ -12,6 +12,12 @@
 #define MAX_LIST_INIT_LEN 100
 #define MAX_STRUCT_META_LEN 100
 
+// CodeGenerator Information
+
+// Always have 1024 more bytes than we need in the allocation.
+#define CODEGEN_PAD_SIZE 512
+#define CODEGEN_START_SIZE 1024
+
 // Stack Entry Sizes
 #define MAX_IDENTIFIER_LEN 59
 

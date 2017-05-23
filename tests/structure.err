@@ -1,0 +1,27 @@
+ Statement List Item:
+ (0x7fd69300f600) Struct Statement point:(0x7fd692500090 (0x0)
+  Expression List Item:
+  (0x7fd693010000) Literal Expression x
+  Expression List Item:
+  (0x7fd693010600) Literal Expression y
+ Statement List Item:
+ (0x7fd693010c00) Let Statement (0x7fd693011600, 0x7fd693012e00)
+  (0x7fd693011600) Literal Expression a
+  Call Expression
+    (0x7fd693011c00) Literal Expression point
+    Expression List Item:
+    (0x7fd693012200) Literal Expression 10
+    Expression List Item:
+    (0x7fd693012800) Literal Expression 40
+ Statement List Item:
+ (0x7fd693013400) Expression Statement (0x7fd693014a00)
+  (0x7fd693014a00) Binary Expression (0x7fd693013e00, 0x7fd693014400)
+    (0x7fd693013e00) Literal Expression a
+    (0x7fd693014400) Literal Expression x
+ Statement List Item:
+ (0x7fd693015000) Expression Statement (0x7fd693016600)
+  (0x7fd693016600) Binary Expression (0x7fd693015a00, 0x7fd693016000)
+    (0x7fd693015a00) Literal Expression a
+    (0x7fd693016000) Literal Expression y
+10
+40

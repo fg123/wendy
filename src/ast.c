@@ -313,6 +313,7 @@ statement* parse_statement() {
 		case INPUT:
 		case EXPLODE:
 		case AT:
+		case REQ:
 			{
 			sm->type = S_OPERATION;
 			sm->op.operation_statement.operator = first;
@@ -326,11 +327,13 @@ statement* parse_statement() {
 				sm->op.operation_statement.operand = expression();
 			}
 			else {
-				sm->op.operation_statement.operand = 0;
+				sm->op.operation_statement.operand = make_lit_expr(none_token());
 			}
 			break;
 		}
 		default:
+			// We advanced it so we gotta roll back.
+			index--;	
 			// Handle as expression.
 			sm->type = S_EXPR;
 			sm->op.expr_statement = expression();
@@ -361,6 +364,7 @@ statement_list* parse_statement_list() {
 /* 	void (*a)(expr*), void (*b)(expr_list*), 
 	void (*c)(statement*), void (*d)(statement_list*) */
 bool pre_order = 0;
+int indentation = 0;
 
 void traverse_expr(expr* expression, 
 		void (*a)(void*), void (*b)(void*), 
@@ -390,6 +394,7 @@ void traverse_statement(statement* state,
 		void (*c)(void*), void (*d)(void*)) {
 	if (!state) return;
 	if (pre_order) c(state);
+	indentation++;
 	if (state->type == S_LET) {
 		traverse_expr(state->op.let_statement.lvalue, a, b, c, d);
 		traverse_expr(state->op.let_statement.rvalue, a, b, c, d);
@@ -419,6 +424,7 @@ void traverse_statement(statement* state,
 	else {
 		printf("Traverse Statement: Unknown Type\n");
 	}
+	indentation--;
 	if(!pre_order) c(state);
 }
 
@@ -427,6 +433,7 @@ void traverse_expr(expr* expression,
 		void (*c)(void*), void (*d)(void*)) {
 	if (!expression) return;
 	if (pre_order) a(expression);
+	indentation++;
 	if (expression->type == E_LITERAL) {
 		
 	}
@@ -438,8 +445,8 @@ void traverse_expr(expr* expression,
 		traverse_expr(expression->op.una_expr.operand, a, b, c, d);
 	}
 	else if (expression->type == E_CALL) {
-		traverse_expr_list(expression->op.call_expr.arguments, a, b, c, d);
 		traverse_expr(expression->op.call_expr.function, a, b, c, d);
+		traverse_expr_list(expression->op.call_expr.arguments, a, b, c, d);
 	}
 	else if (expression->type == E_LIST) {
 		traverse_expr_list(expression->op.list_expr.contents, a, b, c, d);
@@ -451,6 +458,7 @@ void traverse_expr(expr* expression,
 	else {
 		printf("Traverse Expr: Unknown Type\n");
 	}
+	indentation--;
 	if (!pre_order) a(expression);
 }
 
@@ -459,12 +467,13 @@ void traverse_expr_list(expr_list* list,
 		void (*c)(void*), void (*d)(void*)) {
 	if (!list) return;
 	if (pre_order) b(list);
-	traverse_expr_list(list->next, a, b, c, d);
 	traverse_expr(list->elem, a, b, c, d);
+	traverse_expr_list(list->next, a, b, c, d);
 	if (!pre_order) b(list);
 }
 
 void print_e(void* expre) {
+	printf("%*c", indentation * 2, ' ');
 	expr* expression = (expr*)expre;
 	if (expression->type == E_LITERAL) {
 		printf("(%p) Literal Expression ", expre);
@@ -491,9 +500,11 @@ void print_e(void* expre) {
 	}
 }
 void print_el(void* el) {
-	printf("Expression List\n");
+	printf("%*c", indentation * 2, ' ');
+	printf("Expression List Item:\n");
 }
 void print_s(void* s) {
+	printf("%*c", indentation * 2, ' ');
 	statement* state = (statement*)s;
 	if (state->type == S_LET) {
 		printf("(%p) Let Statement (%p, %p)\n", state,
@@ -520,13 +531,13 @@ void print_s(void* s) {
 			state->op.struct_statement.static_members);
 	}
 	else if (state->type == S_IF) {
-		printf("(%p) If Statement (%p) T(%p) F(%p)", state,
+		printf("(%p) If Statement (%p) T(%p) F(%p)\n", state,
 			state->op.if_statement.condition,
 			state->op.if_statement.statement_true, 
 			state->op.if_statement.statement_false);
 	}
 	else if (state->type == S_LOOP) {
-			printf("(%p) Loop Statement (%p) T(%p)", state, 
+			printf("(%p) Loop Statement (%p) T(%p)\n", state, 
 			state->op.loop_statement.condition,
 			state->op.loop_statement.statement_true);
 	}
@@ -535,13 +546,21 @@ void print_s(void* s) {
 	}
 }
 void print_sl(void* sl) {
-//	statement_list* list = (statement*)list;
-	printf("Statement List\n");
+	printf("%*c", indentation * 2, ' ');
+	printf("Statement List Item:\n");
 }
 void print_ast(statement_list* ast) {
 	pre_order = true;
 	traverse_statement_list(ast, print_e, print_el, print_s, print_sl);
 }
+
+void traverse_ast(statement_list* list, 
+		void (*a)(void*), void (*b)(void*), 
+		void (*c)(void*), void (*d)(void*), bool order) {
+	pre_order = false;
+	traverse_statement_list(list, a, b, c, d);
+}
+
 
 void free_ast(statement_list* ast) {
 	pre_order = false;

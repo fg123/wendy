@@ -5,13 +5,13 @@ ODIR = ../build
 BINDIR = ../bin
 SRCDIR = ./
 INCDIR = ../headers
-CFLAGS=-I $(INCDIR) -lreadline -g -lm -Wall 
+CFLAGS=-I $(INCDIR) -lreadline -g -lm -Wall  
 CFLAGSNOLINK = -I $(INCDIR) -g
 
-_DEPS = interpreter.h scanner.h token.h error.h stack.h memory.h execpath.h preprocessor.h tests.h macros.h debugger.h ast.h
+_DEPS = interpreter.h scanner.h token.h error.h stack.h memory.h execpath.h preprocessor.h tests.h macros.h debugger.h ast.h codegen.h
 DEPS = $(patsubst %,$(INCDIR)/%,$(_DEPS))
 
-_OBJ = main.o interpreter.o debugger.o scanner.o stack.o token.o memory.o error.o execpath.o preprocessor.o tests.o ast.o
+_OBJ = main.o interpreter.o debugger.o scanner.o stack.o token.o memory.o error.o execpath.o preprocessor.o tests.o ast.o codegen.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 

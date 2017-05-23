@@ -1,0 +1,13 @@
+[31mRuntime Error[0m at line [33m7[0m: Unexpected primary expression!
+==========================
+ Line Source
+    6 	}
+    7 [31m	else if (a > 10) {
+[0m    8 		ret "a is greater than 10";
+==========================
+
+===============
+Dump: Stack Trace
+    0 FP-> [[34m> main()[0m -> 0]
+    1      [#R/A -> 0: <none>]
+===============

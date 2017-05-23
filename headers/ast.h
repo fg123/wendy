@@ -95,6 +95,11 @@ void free_ast(statement_list* ast);
 // prints the tree in post order
 void print_ast(statement_list* ast); 
 
+// traverse_ast(ast, a, b, c, d, order)
+void traverse_ast(statement_list* list, 
+		void (*a)(void*), void (*b)(void*), 
+		void (*c)(void*), void (*d)(void*), bool order);
+
 // Following Functions create expression node
 //   effects: will allocated memory, caller must free
 expr* make_lit_expr(token t);
