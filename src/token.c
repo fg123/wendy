@@ -181,3 +181,48 @@ void print_token_inline(const token* t, FILE* buf) {
 	}
 	last_printed_newline = false;
 }
+
+int precedence(token op) {
+	switch (op.t_type) {
+		case PLUS:
+		case MINUS:
+			return 140;
+		case STAR:
+		case SLASH:
+		case INTSLASH:
+		case PERCENT:
+			return 150;
+		case AND:
+			return 120;
+		case OR:
+			return 110;
+		case RANGE_OP:
+		/*case TYPEOF:*/
+			return 132;
+		case NOT_EQUAL:
+		case EQUAL_EQUAL:
+		case TILDE:
+			return 130;
+		case GREATER:
+		case GREATER_EQUAL:
+		case LESS:
+		case LESS_EQUAL:
+			return 130;
+		case NOT:
+		case U_MINUS:
+	    case U_TILDE:
+		case U_STAR:
+			return 160;
+		case DOT:
+		case LEFT_BRACK:
+			// Array bracket
+			return 170;
+		case AMPERSAND:
+			// Actually precedes the left bracket!?
+			return 180;
+		default: 
+			return 0;
+	}
+}
+
+

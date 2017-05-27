@@ -10,7 +10,8 @@
 //  expression		->	or
 //  or				->	and (("or") and) *
 //  and				->	comparison (("and") comparison))*
-//  comparison		->	term (("!=" | "==" | "<" | ">" | "<=" | ">=" | "~") term)*
+//  comparison		->	range (("!=" | "==" | "<" | ">" | "<=" | ">=" | "~") range)*
+//  range           ->  comparison (("..") comparison)*
 //	term			->	factor (("-" | "+") factor)*
 //	factor			->	unary (("*" | "/" | "\" | "%") unary)*
 //	unary			->	("-" | "!" | "~") unary | member
@@ -32,7 +33,8 @@ typedef struct expr {
 						struct expr*		operand; }		una_expr;
 			struct {	struct expr*		function;
 						struct expr_list*	arguments; }	call_expr;
-			struct {	struct expr_list*	contents; }		list_expr;
+			struct {	int					length;	
+						struct expr_list*	contents; }		list_expr;
 			struct {	struct expr_list*	parameters;
 						struct statement_list* body; }		func_expr;
 		} op;			
@@ -48,7 +50,7 @@ typedef struct statement {
 	union { expr*										expr_statement;
 			struct {	token		operator;
 						expr*		operand; }			operation_statement;
-			struct {	expr*		lvalue; 
+			struct {	token		lvalue; 
 						expr*		rvalue;	}			let_statement;
 			struct {	token		name; 
 						token		parent;

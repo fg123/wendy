@@ -42,9 +42,6 @@ address eval_identifier(address start, size_t size);
 void eval_one_expr(address i, token_stack** expr_stack, token_type search_end, 
 		bool entire_line);
 
-// precedence(op) returns the precedece of the operator
-int precedence(token op);
-
 // type_of(a) returns the type of the token a in an OBJ_TYPE token.
 token type_of(token a);
 

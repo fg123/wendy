@@ -17,6 +17,11 @@
 #define PARSING_UNFINISHED "Parsing unfinished by EOF!"
 #define UNEXPECTED_PRIMARY "Unexpected primary expression!"
 #define EXPECTED_IDENTIFIER "Expected identifier in identifier list!"
+#define INVALID_OPERATOR "Invalid binary or unary operator!"
+#define LVALUE_EXPECTED_IDENTIFIER "Expected identifier in lvalue expression."
+
+// VM Errors:
+#define INVALID_OPCODE "VM Crash - Invalid OpCode."
 
 // Preprocessor Messages:
 #define INCOMPLETE_LAMBDA "Incomplete lambda definition!"

@@ -165,4 +165,8 @@ void print_token_inline(const token* t, FILE* buf);
 
 // token_equal(a, b) returns true if both tokens are equal and false otherwise
 bool token_equal(token* a, token* b);
+
+// precedence(op) returns the precedece of the operator
+int precedence(token op);
+
 #endif

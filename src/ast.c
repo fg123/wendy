@@ -150,6 +150,7 @@ expr* array() {
 		token op = previous();
 		expr* right = expression();
 		left = make_bin_expr(left, op, right);
+		consume(RIGHT_BRACK);
 	}
 	return left;
 }
@@ -188,12 +189,21 @@ expr* term() {
 	}
 	return left;
 }
-expr* comparison() {
+expr* range() {
 	expr* left = term();
+	while (match(RANGE_OP)) {
+		token op = previous();
+		expr* right = term();
+		left = make_bin_expr(left, op, right);
+	}
+	return left;
+}
+expr* comparison() {
+	expr* left = range();
 	while (match(NOT_EQUAL, EQUAL_EQUAL, LESS, GREATER, LESS_EQUAL, 
 					GREATER_EQUAL, TILDE)) {
 		token op = previous();
-		expr* right = term();
+		expr* right = range();
 		left = make_bin_expr(left, op, right);
 	}
 	return left;
@@ -233,7 +243,8 @@ statement* parse_statement() {
 		}
 		case LET: {
 			// Read an expression for a LVALUE
-			expr* lvalue = expression();
+			consume(IDENTIFIER);
+			token lvalue = previous();
 			expr* rvalue = 0;
 			if (match(EQUAL)) {
 				rvalue = expression();
@@ -396,7 +407,6 @@ void traverse_statement(statement* state,
 	if (pre_order) c(state);
 	indentation++;
 	if (state->type == S_LET) {
-		traverse_expr(state->op.let_statement.lvalue, a, b, c, d);
 		traverse_expr(state->op.let_statement.rvalue, a, b, c, d);
 	}
 	else if (state->type == S_OPERATION) {
@@ -507,8 +517,9 @@ void print_s(void* s) {
 	printf("%*c", indentation * 2, ' ');
 	statement* state = (statement*)s;
 	if (state->type == S_LET) {
-		printf("(%p) Let Statement (%p, %p)\n", state,
-			state->op.let_statement.lvalue, state->op.let_statement.rvalue);
+		printf("(%p) Let Statement (%s, %p)\n", state,
+			state->op.let_statement.lvalue.t_data.string, 
+			state->op.let_statement.rvalue);
 	}
 	else if (state->type == S_OPERATION) {
 		printf("(%p) Operation Statement ", state);
@@ -598,12 +609,32 @@ expr* make_call_expr(expr* left, expr_list* arg_list) {
 expr* make_list_expr(expr_list* list) {
 	expr* node = malloc(sizeof(expr));
 	node->type = E_LIST;
+	int size = 0;
+	expr_list* start = list;
+	while (start) {
+		start = start->next;
+		size++;
+	}
+	node->op.list_expr.length = size;
 	node->op.list_expr.contents = list;
 	return node;
 }
 expr* make_func_expr(expr_list* parameters, statement_list* body) {
 	expr* node = malloc(sizeof(expr));
 	node->type = E_FUNCTION;
+
+	// Reverse Parameters
+	expr_list* curr = parameters;
+	expr_list* prev = 0;
+	expr_list* next = 0;
+
+	while (curr) {
+		next = curr->next;
+		curr->next = prev;
+		prev = curr;
+		curr = next;
+	}
+	parameters = prev;
 	node->op.func_expr.parameters = parameters;
 	node->op.func_expr.body = body;
 	return node;

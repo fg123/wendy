@@ -11,6 +11,9 @@
 #include "scanner.h"
 #include <string.h>
 #include "debugger.h"
+#include "ast.h"
+#include "vm.h"
+#include "codegen.h"
 
 #ifdef _WIN32
 
@@ -80,6 +83,31 @@ void process_options(char** options, int len) {
 	}
 }
 
+void run (char* input_string) {
+	size_t alloc_size = 0;
+	token* tokens;
+	size_t tokens_count;
+
+	// Scanning and Tokenizing
+	tokens_count = scan_tokens(input_string, &tokens, &alloc_size);
+
+	// Build AST
+	statement_list* ast = generate_ast(tokens, tokens_count);
+	
+	print_ast(ast);
+	
+	// Generate Bytecode
+	size_t bytecodesize = 0;
+	uint8_t* bytecode = generate_code(ast, &bytecodesize);
+	print_bytecode(bytecode, bytecodesize, stdout);
+
+//	vm_init();
+	vm_run(bytecode, bytecodesize);
+	free(bytecode);
+	free_ast(ast);
+	free(tokens);
+}
+
 int main(int argc, char** argv) {
 	init_memory();
 
@@ -129,7 +157,7 @@ int main(int argc, char** argv) {
 				token* tokens = file_to_tokens(f, &size);
 				//print_token_list(tokens, size);
 				push_frame("main", 0);
-				run_tokens(tokens, size);
+				//run_tokens(tokens, size);
 			
 			}
 			if (!last_printed_newline) {
