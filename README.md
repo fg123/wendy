@@ -1,7 +1,7 @@
 # WendyScript C Interpreter
 ## Language and Interpreter created by Felix Guo
 
-The syntax for WendyScript can be found at [feliguo.me](http://felixguo.me/wendy).
+The syntax for WendyScript can be found at [felixguo.me](http://felixguo.me/wendy).
 
 The repository is a WendyScript interpreter written in C. 
 
