@@ -328,21 +328,13 @@ bool pop_frame(bool is_ret, address* ret) {
 	//print_call_stack();
 	// trace back until we hit a FUNC 
 	address trace = frame_pointer;
-	if (is_ret)
-	{
+	if (is_ret) {
 		// character [ is a function frame pointer, we trace until we find it
 		while (call_stack[trace].id[0] != FUNCTION_START_CHAR) {
 			trace = call_stack[trace].val;
 		}
+		*ret = call_stack[trace + 1].val;
 	}
-//	printf("NEW STACK POINTER IS %d\n", trace);
-	// trace is now the address in the call stack of the start of the function
-	// stack_pointer is now that address
-	// frame pointer is going back 1 frame to the value trace holds
-	
-	// return value is 1 slot under the function header
-	*ret = call_stack[trace + 1].val;
-//	printf("Ret:%d\n", *ret);
 	stack_pointer = trace;
 	frame_pointer = call_stack[trace].val;
 //	printf("NEW FP IS %d\n", frame_pointer);
@@ -371,10 +363,12 @@ void write_state(FILE* fp) {
 	} 
 }
 
-void print_call_stack() {
+void print_call_stack(int maxlines) {
 	printf("\n===============\n");
 	printf("Dump: Stack Trace\n");
-	for (int i = 0; i < stack_pointer; i++) {
+	int start = stack_pointer - maxlines;
+	if (start < 0) start = 0;
+	for (int i = start; i < stack_pointer; i++) {
 		if (call_stack[i].id[0] != '$' && call_stack[i].id[0] != '~') {
 			if (frame_pointer == i) {
 				if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
@@ -413,6 +407,15 @@ void push_arg(token t) {
 	check_memory();
 }
 
+token top_arg(int line) {
+	if (arg_pointer != MEMORY_SIZE - 1) {
+		token ret = memory[arg_pointer + 1];
+		return ret;
+	}
+	error(line, FUNCTION_CALL_MISMATCH);
+	return none_token();
+}
+
 token pop_arg(int line) {
 	if (arg_pointer != MEMORY_SIZE - 1) {
 		token ret = memory[++arg_pointer];
@@ -420,7 +423,6 @@ token pop_arg(int line) {
 		return ret;
 	}
 	error(line, FUNCTION_CALL_MISMATCH);
-//	printf("ARGSTACK is EMPTY!\n");
 	return none_token();
 }
 

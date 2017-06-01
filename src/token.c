@@ -121,15 +121,12 @@ void print_token(const token* t) {
 void print_token_inline(const token* t, FILE* buf) {
 	if (t->t_type == OBJ_TYPE) {
 		fprintf(buf, "<%s>", t->t_data.string);
-		fflush(buf);
 	}
 	else if (t->t_type == STRUCT) {
 		fprintf(buf, "<struct>");
-		fflush(buf);
 	}
 	else if (t->t_type == FUNCTION) {
 		fprintf(buf, "<function>");
-		fflush(buf);
 	}
 	else if (t->t_type == STRUCT_INSTANCE) {
 		token instance_loc = memory[(int)(t->t_data.number)];
@@ -138,7 +135,9 @@ void print_token_inline(const token* t, FILE* buf) {
 	}
 	else if (t->t_type == RANGE) {
 		fprintf(buf, "<range from %d to %d>", range_start(*t), range_end(*t));
-		fflush(buf);
+	}
+	else if (t->t_type == LIST_HEADER) {
+		fprintf(buf, "<lhd size %d>", (int)(t->t_data.number));	
 	}
 	else if (t->t_type == LIST) {
 		// Traverse to list header
@@ -150,7 +149,6 @@ void print_token_inline(const token* t, FILE* buf) {
 			print_token_inline(&memory[start + i + 1], buf);
 		}
 		fprintf(buf, "]");
-		fflush(buf);
 	}
 	else if (t->t_type == NUMBER || t->t_type == ADDRESS) {
 		size_t len = snprintf(0, 0, "%f", t->t_data.number);
@@ -169,7 +167,6 @@ void print_token_inline(const token* t, FILE* buf) {
 		}
 			
 		fprintf(buf, "%s", buffer);
-		fflush(buf);
 	}
 	/*else if (t->t_type == ARRAY_HEADER) {
 		fprintf(buf, "<array size %d>", t->t_data.number);
@@ -177,9 +174,9 @@ void print_token_inline(const token* t, FILE* buf) {
 	}*/
 	else {
 		fprintf(buf, "%s", t->t_data.string);
-		fflush(buf);
 	}
 	last_printed_newline = false;
+	fflush(buf);
 }
 
 int precedence(token op) {

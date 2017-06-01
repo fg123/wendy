@@ -35,7 +35,8 @@ void error(int line, char* message, ...) {
 	va_start(a_list, message);
 	char* additional = va_arg(a_list, char*);
 	if (line != 0) {
-		printf(RED "Runtime Error" RESET " at line " YEL "%d" RESET, line);
+		printf(RED "Runtime Error" RESET " at line " YEL "%d (%x)" RESET, 
+			line, line);
 	}
 	else {
 		printf(RED "Runtime Error" RESET);
@@ -75,7 +76,7 @@ void error(int line, char* message, ...) {
 		charindex++;
 	}
 	printf("==========================\n");
-	print_call_stack();
+	print_call_stack(20);
 	fflush(stdout);
 	exit(1);
 }

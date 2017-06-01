@@ -139,7 +139,7 @@ token* get_value_of_id(char* id, int line);
 token* get_value_of_address(address a, int line);
 
 // print_call_stack prints out the callstack
-void print_call_stack();
+void print_call_stack(int maxlines);
 
 // get_address_pos_of_id(id, line) gets the stack address of the id
 address get_stack_pos_of_id(char* id, int line);
@@ -149,6 +149,9 @@ void push_arg(token t);
 
 // pop_arg(line) returns the top token t at the other end of memory
 token pop_arg(int line);
+
+// top_arg(line) returns the top token without popping!!
+token top_arg(int line);
 
 // create_closure() creates a closure with the current stack frame and returns
 //   the index of the closure frame

@@ -322,7 +322,7 @@ void identifier() {
 	else if (strcmp(text, "let") == 0)	{ add_token(LET); }
 	else if (strcmp(text, "set") == 0)	{ add_token(SET); }
 //	else if (strcmp(text, "memset") == 0){ add_token(MEMSET); }
-	else if (strcmp(text, "loop") == 0)	{ add_token(LOOP); }
+	else if (strcmp(text, "for") == 0)	{ add_token(LOOP); }
 	else if (strcmp(text, "none") == 0)	{ add_token(NONE); }
 	
 /*	else if (strcmp(text, "Bool") == 0)	{ add_token(OBJ_TYPE); }
@@ -398,30 +398,25 @@ void scan_token() {
 		case '&': add_token(AMPERSAND); break;
 		case '~': add_token(TILDE); break;
 		case ',': add_token(COMMA); break;
-		case '.': 
-			if (match('.')) {
-				add_token(RANGE_OP);
-			}
-			/*else if (is_alpha(peek())) {
-				advance();
-				handle_accessor();
-			}*/
-			else {
-				add_token(DOT); 
-			}
-			break;
+		case '.': add_token(DOT); break;
 		case '-': 
 			if (t_curr == 0 || (is_digit(peek()) && 
 					precedence(tokens[t_curr - 1]))) {
 				advance();
 				handle_number();
 			}
+			else if (match('=')) {
+				add_token(ASSIGN_MINUS);
+			}
+			else if (match('>')) {
+				add_token(RANGE_OP);
+			}
 			else {
 				add_token(MINUS); 
 			}
 			break;
-		case '+': add_token(PLUS); break;
-		case '\\': add_token(INTSLASH); break;
+		case '+': add_token(match('=') ? ASSIGN_PLUS : PLUS); break;
+		case '\\': add_token(match('=') ? ASSIGN_INTSLASH : INTSLASH); break;
 		case '%': add_token(PERCENT); break;
 		case '@': add_token(AT); break;
 		case ';': add_token(SEMICOLON); break;
@@ -439,7 +434,8 @@ void scan_token() {
 			}
 			break;
 			
-		case '*': add_token(match('/') ? B_COMMENT_END : STAR); break;
+		case '*': add_token(match('/') ? B_COMMENT_END : 
+					match('=') ? ASSIGN_STAR : STAR); break;
 		case '!': add_token(match('=') ? NOT_EQUAL : NOT); break;
 		case '=': 
 			if (match('='))
@@ -471,6 +467,9 @@ void scan_token() {
 			if (match('/')) {
 				// A comment goes until the end of the line.
 				while (peek() != '\n' && !is_at_end()) advance();
+			}
+			else if (match('=')) {
+				add_token(ASSIGN_SLASH);
 			}
 			else if (match('*')) {
 				add_token(B_COMMENT_START);

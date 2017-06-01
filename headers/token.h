@@ -24,6 +24,11 @@ bool last_printed_newline;
 	OP(DOT) \
 	OP(MINUS) \
 	OP(PLUS) \
+	OP(ASSIGN_PLUS)\
+	OP(ASSIGN_MINUS)\
+	OP(ASSIGN_STAR)\
+	OP(ASSIGN_SLASH)\
+	OP(ASSIGN_INTSLASH)\
 	OP(SEMICOLON) \
 	OP(SLASH) \
 	OP(STAR) \

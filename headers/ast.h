@@ -6,12 +6,13 @@
 // AST.H declares the abstract syntax tree of WendyScript before it compiles
 //   to WendyScript Byte Code
 // WendyScript Syntax Grammar is defined as follows:
-//	expression_list	->	expression | expression "," expression_list
-//  expression		->	or
-//  or				->	and (("or") and) *
+//	expression_list	->	assignment | assignment "," expression_list
+//	expression      ->  assignment
+//  assignment		->	or (("=" | "=>" | "+=" | "-=" | "*=" | "/=" | "\=") or)*
+//  or				->	and (("or") and)*
 //  and				->	comparison (("and") comparison))*
 //  comparison		->	range (("!=" | "==" | "<" | ">" | "<=" | ">=" | "~") range)*
-//  range           ->  comparison (("..") comparison)*
+//  range           ->  comparison (("->") comparison)*
 //	term			->	factor (("-" | "+") factor)*
 //	factor			->	unary (("*" | "/" | "\" | "%") unary)*
 //	unary			->	("-" | "!" | "~") unary | member
@@ -24,7 +25,9 @@
 
 // Inspired by https://lambda.uta.edu/cse5317/notes/node26.html
 typedef struct expr {
-	enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL } type;
+	enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_ASSIGN,
+			E_BIN_LVALUE } 
+		type;
 	union { token											lit_expr;
 			struct {	token				operator;
 						struct expr*		left;
@@ -37,6 +40,10 @@ typedef struct expr {
 						struct expr_list*	contents; }		list_expr;
 			struct {	struct expr_list*	parameters;
 						struct statement_list* body; }		func_expr;
+			struct {	token				operator;
+						struct expr*		lvalue;
+						struct expr*		rvalue; }		assign_expr;
+
 		} op;			
 } expr;
 
@@ -46,7 +53,8 @@ typedef struct expr_list {
 } expr_list;
 
 typedef struct statement { 
-	enum { S_EXPR, S_OPERATION, S_LET, S_STRUCT, S_IF, S_BLOCK, S_LOOP } type;
+	enum { S_EXPR, S_OPERATION, S_LET, S_STRUCT, S_IF, S_BLOCK, S_LOOP, S_SET } 
+		type;
 	union { expr*										expr_statement;
 			struct {	token		operator;
 						expr*		operand; }			operation_statement;
@@ -59,7 +67,8 @@ typedef struct statement {
 			struct {	expr*		condition; 
 						struct statement*	statement_true;
 						struct statement*	statement_false; }	if_statement;
-			struct {	expr*		condition;
+			struct {	token		index_var;
+						expr*		condition;
 						struct statement*	statement_true;	} loop_statement;
 			struct statement_list*						block_statement;
 	} op;
@@ -110,6 +119,8 @@ expr* make_una_expr(token op, expr* operand);
 expr* make_call_expr(expr* left, expr_list* arg_list);
 expr* make_list_expr(expr_list* list);
 expr* make_func_expr(expr_list* parameters, statement_list* body);
+expr* make_assign_expr(expr* left, expr* right, token op);
+expr* make_lvalue_expr(expr* left, token op, expr* right);
 
 // The following functions create, parse, and return the corresponding
 //   expression or statement.

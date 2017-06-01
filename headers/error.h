@@ -19,6 +19,8 @@
 #define EXPECTED_IDENTIFIER "Expected identifier in identifier list!"
 #define INVALID_OPERATOR "Invalid binary or unary operator!"
 #define LVALUE_EXPECTED_IDENTIFIER "Expected identifier in lvalue expression."
+#define INVALID_LVALUE "Invalid lvalue expression!"
+#define EXPECTED_IDENTIFIER_LOOP "Expected identifier in place of loop variable."
 
 // VM Errors:
 #define INVALID_OPCODE "VM Crash - Invalid OpCode."
@@ -58,6 +60,7 @@
 #define INVALID_DEREFERENCE "Dereferencee must be Number or Address!"
 
 //   LIST ERRORS
+#define INVALID_LVALUE_LIST_SUBSCRIPT "List index must be a number!"
 #define INVALID_LIST_SUBSCRIPT "List index must be a number or a range!"
 #define ARRAY_REF_OUT_RANGE "Array subscript is out of range!"
 
