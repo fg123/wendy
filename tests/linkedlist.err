@@ -1,13 +1,11 @@
-[31mRuntime Error[0m at line [33m10[0m: Unexpected primary expression!
+[31mRuntime Error[0m at line [33m13 (d)[0m: IDENTIFIER: Expected token!
 ==========================
  Line Source
-    9 	list;
-   10 [31m	ret list[0];
-[0m   11 };
+   12 };
+   13 [31m
+[0m   14 let for => (list, fn) {
 ==========================
 
 ===============
 Dump: Stack Trace
-    0 FP-> [[34m> main()[0m -> 0]
-    1      [#R/A -> 0: <none>]
 ===============

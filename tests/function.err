@@ -1,13 +1,11 @@
-[31mRuntime Error[0m at line [33m2[0m: Unexpected primary expression!
+[31mRuntime Error[0m at line [33m15 (f)[0m: Unexpected primary expression!
 ==========================
  Line Source
-    1 // Basic Function Call with <none> return
-    2 [31mlet f => () { 
-[0m    3 	"In Function"; 
+   14 // Testing Function Reassignment
+   15 [31mset add1 = 10;
+[0m   16 add1;
 ==========================
 
 ===============
 Dump: Stack Trace
-    0 FP-> [[34m> main()[0m -> 0]
-    1      [#R/A -> 0: <none>]
 ===============

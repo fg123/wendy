@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
-#include "macros.h"
+#include "global.h"
 #include "memory.h"
 
 bool last_printed_newline = false;
@@ -139,6 +139,9 @@ void print_token_inline(const token* t, FILE* buf) {
 	else if (t->t_type == LIST_HEADER) {
 		fprintf(buf, "<lhd size %d>", (int)(t->t_data.number));	
 	}
+	else if (t->t_type == STRUCT_METADATA) {
+		fprintf(buf, "<meta size %d>", (int)(t->t_data.number));	
+	}
 	else if (t->t_type == LIST) {
 		// Traverse to list header
 		address start = t->t_data.number;
@@ -150,7 +153,7 @@ void print_token_inline(const token* t, FILE* buf) {
 		}
 		fprintf(buf, "]");
 	}
-	else if (t->t_type == NUMBER || t->t_type == ADDRESS) {
+	else if (t->t_type == NUMBER) {
 		size_t len = snprintf(0, 0, "%f", t->t_data.number);
 //		printf("length %d\n", len);
 		char* buffer = malloc(len + 1);
@@ -167,6 +170,9 @@ void print_token_inline(const token* t, FILE* buf) {
 		}
 			
 		fprintf(buf, "%s", buffer);
+	}
+	else if (t->t_type == ADDRESS) {
+		fprintf(buf, "0x%X", (int)t->t_data.number);
 	}
 	/*else if (t->t_type == ARRAY_HEADER) {
 		fprintf(buf, "<array size %d>", t->t_data.number);
@@ -222,4 +228,10 @@ int precedence(token op) {
 	}
 }
 
+bool is_numeric(token t) {
+	return t.t_type == NUMBER || t.t_type == ADDRESS || t.t_type == LIST ||
+		t.t_type == LIST_HEADER || t.t_type == STRUCT || 
+		t.t_type == STRUCT_METADATA || t.t_type == STRUCT_INSTANCE || 
+		t.t_type == STRUCT_INSTANCE_HEAD;
+}
 

@@ -3,7 +3,7 @@
 
 #include "token.h"
 #include <stdbool.h>
-#include "macros.h"
+#include "global.h"
 
 // memory is a list of tokens holding values.
 // call_stack/array includes all the frames and each frame has entries.
@@ -37,8 +37,8 @@ struct mem_block {
 // FIRST SLOT OF MEMORY IS RESERVED FOR NONE TOKEN
 token* memory;
 mem_block* free_memory;
-
 stack_entry* call_stack;
+address* mem_reg_stack;
 
 // Includes a list of closures, used to store temporary stack frames.
 //   The size of the closure lists is also stored for easy iteration.
@@ -48,7 +48,6 @@ size_t* closure_list_sizes;
 extern address frame_pointer;
 extern address stack_pointer;
 extern address closure_list_pointer;
-extern bool enable_gc;
 
 // init_memory() allocates the memory
 void init_memory();
@@ -150,8 +149,11 @@ void push_arg(token t);
 // pop_arg(line) returns the top token t at the other end of memory
 token pop_arg(int line);
 
-// top_arg(line) returns the top token without popping!!
-token top_arg(int line);
+// top_arg(line) returns the pointer to top token without popping!!
+token* top_arg(int line);
+
+// clear_arg_stack() clears the operational stack
+void clear_arg_stack();
 
 // create_closure() creates a closure with the current stack frame and returns
 //   the index of the closure frame
@@ -159,4 +161,11 @@ address create_closure();
 
 // write_state(fp) writes the current state for debugging to the file fp
 void write_state(FILE* fp);
+
+// push_mem_reg(memory_register) saves the memory register to the stack
+void push_mem_reg(address memory_register);
+
+// pop_mem_reg() pops the saved memory register 
+address pop_mem_reg();
+
 #endif

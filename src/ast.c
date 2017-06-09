@@ -4,15 +4,78 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define match(...) fnmatch(sizeof((token_type []) {__VA_ARGS__}) / sizeof(token_type), __VA_ARGS__)
 
-token* tokens = 0;
-size_t length = 0;
-int index = 0;
+static token* tokens = 0;
+static size_t length = 0;
+static int curr_index = 0;
+static bool pre_order = 0;
+static int indentation = 0;
+static bool error_thrown = false;
 
+// Forward Declarations
+static void traverse_expr(expr* expression, 
+		void (*a)(void*), void (*b)(void*), 
+		void (*c)(void*), void (*d)(void*));
+static void traverse_expr_list(expr_list* list, 
+		void (*a)(void*), void (*b)(void*), 
+		void (*c)(void*), void (*d)(void*));
+static void traverse_statement_list(statement_list* list,
+		void (*a)(void*), void (*b)(void*), 
+		void (*c)(void*), void (*d)(void*));
+static void traverse_statement(statement* state, 
+		void (*a)(void*), void (*b)(void*), 
+		void (*c)(void*), void (*d)(void*));
+
+static expr* make_lit_expr(token t);
+static expr* make_bin_expr(expr* left, token op, expr* right);
+static expr* make_una_expr(token op, expr* operand);
+static expr* make_call_expr(expr* left, expr_list* arg_list);
+static expr* make_list_expr(expr_list* list);
+static expr* make_func_expr(expr_list* parameters, statement* body);
+static expr* make_assign_expr(expr* left, expr* right, token op);
+static expr* make_lvalue_expr(expr* left, token op, expr* right);
+static expr* parse_expression();
+static statement* parse_statement();
+static statement_list* parse_statement_list();
+static expr* expression();
+static expr* or();
+static void print_e(void* expre);
+static void print_el(void* expre);
+static void print_s(void* expre);
+static void print_sl(void* expre);
+static bool check(token_type t);
+static token advance();
+static token previous();
+
+// Public Methods
+statement_list* generate_ast(token* _tokens, size_t _length) {
+	error_thrown = false;
+	tokens = _tokens;
+	length = _length;
+	curr_index = 0;
+	return parse_statement_list();
+}
+
+void print_ast(statement_list* ast) {
+	pre_order = true;
+	traverse_statement_list(ast, print_e, print_el, print_s, print_sl);
+}
+
+void free_ast(statement_list* ast) {
+	pre_order = false;
+	traverse_statement_list(ast, free, free, free, free);
+}
+
+bool ast_error_flag() {
+	return error_thrown;
+}
+
+// Private Methods
 static bool is_at_end() {
-	return index == length;
+	return curr_index == length;
 }
 
 static bool fnmatch(int count, ...) {
@@ -29,16 +92,16 @@ static bool fnmatch(int count, ...) {
 }
 
 static token advance() {
-	if (!is_at_end()) index++;
+	if (!is_at_end()) curr_index++;
 	return previous();
 }
 
 static token previous() {
-	return tokens[index - 1];
+	return tokens[curr_index - 1];
 }
 
 static token peek() {
-	return tokens[index];
+	return tokens[curr_index];
 }
 
 static bool check(token_type t) {
@@ -52,21 +115,13 @@ static void consume(token_type t) {
 	}
 	else {
 		error(peek().t_line, EXPECTED_TOKEN, token_string[t]);
+		advance();
+		error_thrown = true;
+		return;
 	}
 }
 
-statement_list* generate_ast(token* _tokens, size_t _length) {
-	tokens = _tokens;
-	length = _length;
-	index = 0;
-	return parse_statement_list();
-}
-
-// Foward Declaration
-expr* expression();
-expr* or();
-
-expr_list* identifier_list() {
+static expr_list* identifier_list() {
 	expr_list* list = malloc(sizeof(expr_list));
 	list->next = 0;
 	expr** curr = &list->elem;
@@ -83,12 +138,13 @@ expr_list* identifier_list() {
 		}
 		else {
 			error(previous().t_line, EXPECTED_IDENTIFIER);
+			error_thrown = true;
 		}
 	}
 	return list;
 }
 
-expr_list* expression_list(token_type end_delimiter) {
+static expr_list* expression_list(token_type end_delimiter) {
 	if (peek().t_type == end_delimiter) return 0;	
 	expr_list* list = malloc(sizeof(expr_list));
 	list->next = 0;
@@ -103,32 +159,17 @@ expr_list* expression_list(token_type end_delimiter) {
 			curr = &curr_list->elem;
 		} else break;
 	}
-	return list;
-}
-
-// traverses the expr, returns true if the expression contains a left bracket,
-//   and false otherwise
-bool process_array_lvalue(expr* ex) {
-	if (ex->type == E_LITERAL) {
-		return false;
-	}
-	else if (ex->type == E_BINARY) {
-		bool right_contain = process_array_lvalue(ex->op.bin_expr.right);
-		if (!right_contain && ex->op.bin_expr.operator.t_type == LEFT_BRACK) {
-			ex->type = E_BIN_LVALUE;
-			ex->op.bin_expr.operator.t_data.string[2] = 0;
-			ex->op.bin_expr.operator.t_data.string[1] = '[';
-			ex->op.bin_expr.operator.t_data.string[0] = 'L';
-			return true;
-		}
-		return right_contain;
+	if (error_thrown) {
+		// Rollback
+		traverse_expr_list(list, free, free, free, free);
+		return 0;
 	}
 	else {
-		return false;
+		return list;
 	}
 }
 
-expr* lvalue() {
+static expr* lvalue() {
 	// If call expression() it will infinite loop.
 	expr* exp = or();
 	token last = previous();
@@ -142,9 +183,8 @@ expr* lvalue() {
 	return exp;
 }
 
-expr* primary() {
-	if (match(STRING) || match(NUMBER) || match(TRUE) || match(FALSE) ||
-		match(NONE) || match(IDENTIFIER)) {
+static expr* primary() {
+	if (match(STRING, NUMBER, TRUE, FALSE, NONE, IDENTIFIER, OBJ_TYPE)) {
 		return make_lit_expr(previous());	
 	}
 	else if (match(LEFT_BRACK)) {
@@ -162,52 +202,41 @@ expr* primary() {
 		consume(LEFT_PAREN);
 		expr_list* list = expression_list(RIGHT_PAREN);
 		consume(RIGHT_PAREN);
-		consume(LEFT_BRACE);
-		statement_list* fn_body = parse_statement_list();
-		consume(RIGHT_BRACE);
+		statement* fn_body = parse_statement();
 		return make_func_expr(list, fn_body);
 	}
 	else {
 		error(peek().t_line, UNEXPECTED_PRIMARY);
+		advance();
+		error_thrown = true;
 		return 0;
 	}
 }
 
-expr* function_call() {
+static expr* access() {
 	expr* left = primary();
-	while (match(LEFT_PAREN)) {
-		expr_list* args = expression_list(RIGHT_PAREN);
-		left = make_call_expr(left, args);
-		consume(RIGHT_PAREN);
-	}
-	return left;
-}
-expr* just_member() {
-	expr* left = function_call();
-	while(match(DOT)) {
-		token op = previous();
-		expr* right = just_member();
-		left = make_bin_expr(left, op, right);
-	}
-	return left;
-}
-expr* access() {
-	expr* left = function_call();
-	while (match(LEFT_BRACK) || match(DOT)) {
+	while (match(LEFT_BRACK, DOT, LEFT_PAREN)) {
 		token op = previous();
 		expr* right = 0;
 		if (op.t_type == LEFT_BRACK) {
 			right = expression();
 			consume(RIGHT_BRACK);
+			left = make_bin_expr(left, op, right);
 		} 
-		else {
-			right = just_member();
+		else if (op.t_type == LEFT_PAREN) {
+			expr_list* args = expression_list(RIGHT_PAREN);
+			left = make_call_expr(left, args);
+			consume(RIGHT_PAREN);
 		}
-		left = make_bin_expr(left, op, right);
+		else {	
+			right = primary();
+			left = make_bin_expr(left, op, right);
+		}	
 	}
 	return left;
 }
-expr* unary() {
+
+static expr* unary() {
 	if (match(MINUS, NOT, TILDE)) {
 		token op = previous();
 		expr* right = unary();
@@ -215,7 +244,7 @@ expr* unary() {
 	}
 	return access();
 }
-expr* factor() {
+static expr* factor() {
 	expr* left = unary();
 	while (match(STAR, SLASH, INTSLASH, PERCENT)) {
 		token op = previous();
@@ -224,7 +253,7 @@ expr* factor() {
 	}
 	return left;
 }
-expr* term() {
+static expr* term() {
 	expr* left = factor();
 	while (match(PLUS, MINUS)) {
 		token op = previous();
@@ -233,7 +262,7 @@ expr* term() {
 	}
 	return left;
 }
-expr* range() {
+static expr* range() {
 	expr* left = term();
 	while (match(RANGE_OP)) {
 		token op = previous();
@@ -242,7 +271,7 @@ expr* range() {
 	}
 	return left;
 }
-expr* comparison() {
+static expr* comparison() {
 	expr* left = range();
 	while (match(NOT_EQUAL, EQUAL_EQUAL, LESS, GREATER, LESS_EQUAL, 
 					GREATER_EQUAL, TILDE)) {
@@ -252,7 +281,7 @@ expr* comparison() {
 	}
 	return left;
 }
-expr* and() {
+static expr* and() {
 	expr* left = comparison();
 	while (match(AND)) {
 		token op = previous();
@@ -261,7 +290,7 @@ expr* and() {
 	}
 	return left;
 }
-expr* or() {
+static expr* or() {
 	expr* left = and();
 	while (match(OR)) {
 		token op = previous();
@@ -270,7 +299,7 @@ expr* or() {
 	}
 	return left;
 }
-expr* assignment() {
+static expr* assignment() {
 	expr* left = lvalue();
 	if (match(EQUAL) || match(ASSIGN_PLUS) || match(ASSIGN_MINUS) 
 			|| match(ASSIGN_STAR) || match(ASSIGN_SLASH) 
@@ -284,20 +313,26 @@ expr* assignment() {
 		consume(LEFT_PAREN);
 		expr_list* parameters = expression_list(RIGHT_PAREN);
 		consume(RIGHT_PAREN);
-		consume(LEFT_BRACE);
-		statement_list* fnbody = parse_statement_list();
-		consume(RIGHT_BRACE);
+		statement* fnbody = parse_statement();
 		expr* rvalue = make_func_expr(parameters, fnbody);
 		left = make_assign_expr(left, rvalue, 
 				make_token(EQUAL, make_data_str("=")));
 	}
 	return left;
 }
-expr* expression() {
-	return assignment();
+static expr* expression() {
+	expr* res = assignment();
+	if (error_thrown) {
+		// Rollback
+		traverse_expr(res, free, free, free, free);
+		return 0;
+	}
+	else {
+		return res;
+	}
 }
 
-statement* parse_statement() {
+static statement* parse_statement() {
 	token first = advance();
 	statement* sm = malloc(sizeof(statement));
 	switch (first.t_type) {
@@ -320,9 +355,7 @@ statement* parse_statement() {
 				consume(LEFT_PAREN);
 				expr_list* parameters = expression_list(RIGHT_PAREN);
 				consume(RIGHT_PAREN);
-				consume(LEFT_BRACE);
-				statement_list* fnbody = parse_statement_list();
-				consume(RIGHT_BRACE);
+				statement* fnbody = parse_statement();
 				rvalue = make_func_expr(parameters, fnbody);
 			}
 			else {
@@ -350,7 +383,7 @@ statement* parse_statement() {
 			expr* index_var = expression();
 			token a_index;
 			expr* condition;
-			if (match(COLON)) {
+			if (match(COLON) || match(INOP)) {
 				condition = expression();
 				if (index_var->type != E_LITERAL || 
 						index_var->op.lit_expr.t_type != IDENTIFIER) {
@@ -386,18 +419,76 @@ statement* parse_statement() {
 			consume(DEFFN);
 			expr_list* static_members = 0;
 			expr_list* instance_members = 0;
+			int saved_before_iden = 0;
 			while (match(LEFT_PAREN, LEFT_BRACK)) {
 				if (previous().t_type == LEFT_PAREN) {
+					saved_before_iden = curr_index;
+					if (match(RIGHT_PAREN)) continue;
 					instance_members = identifier_list();
 					consume(RIGHT_PAREN);
 				}
 				else {
+					if (match(RIGHT_BRACK)) continue;
 					static_members = identifier_list();
 					consume(RIGHT_BRACK);
 				}
 			}
+			// Default Initiation Function
+			statement_list* init_fn = malloc(sizeof(statement_list));
+			statement_list* curr = init_fn;
+			statement_list* prev = 0;
+
+			expr_list* tmp_ins = instance_members;
+			while (tmp_ins) {
+				curr->elem = malloc(sizeof(statement));
+				curr->elem->type = S_EXPR;
+				curr->elem->op.expr_statement = malloc(sizeof(expr));
+				curr->elem->op.expr_statement->type = E_ASSIGN;
+				expr* ass_expr = curr->elem->op.expr_statement;
+				ass_expr->op.assign_expr.operator = 
+						make_token(EQUAL, make_data_str("="));
+				ass_expr->op.assign_expr.rvalue = 
+						make_lit_expr(tmp_ins->elem->op.lit_expr);
+				// Binary Dot Expr
+				expr* left = make_lit_expr(make_token(IDENTIFIER, 
+								make_data_str("this")));
+				expr* right = make_lit_expr(tmp_ins->elem->op.lit_expr);
+				token op = make_token(DOT, make_data_str("."));
+				ass_expr->op.assign_expr.lvalue = 
+						make_bin_expr(left, op, right);
+				
+				if (prev) prev->next = curr;
+				prev = curr;
+				curr = malloc(sizeof(statement_list));
+				
+				tmp_ins = tmp_ins->next;
+			}
+			// Return This Operation
+			curr->elem = malloc(sizeof(statement));
+			if(prev) prev->next = curr;
+			curr->next = 0;
+			curr->elem->type = S_OPERATION;
+			curr->elem->op.operation_statement.operator = make_token(RET, 
+					make_data_str("ret"));
+			curr->elem->op.operation_statement.operand = make_lit_expr(
+				make_token(IDENTIFIER, make_data_str("this")));
+
+			expr_list* parameters = 0;	
+			if (instance_members) {
+				int saved_before_pop = curr_index;
+				curr_index = saved_before_iden;
+				parameters = identifier_list();
+				curr_index = saved_before_pop;
+			}
+			statement* function_body = malloc(sizeof(statement));
+			function_body->type = S_BLOCK;
+			function_body->op.block_statement = init_fn;
+			// init_fn is now the list of statements, to make it a function
+			expr* function_const = make_func_expr(parameters, function_body);
+
 			sm->type = S_STRUCT;
 			sm->op.struct_statement.name = name;
+			sm->op.struct_statement.init_fn = function_const;
 			sm->op.struct_statement.parent = parent;
 			sm->op.struct_statement.instance_members = instance_members;
 			sm->op.struct_statement.static_members = static_members;
@@ -428,17 +519,22 @@ statement* parse_statement() {
 		}
 		default:
 			// We advanced it so we gotta roll back.
-			index--;	
+			curr_index--;	
 			// Handle as expression.
 			sm->type = S_EXPR;
 			sm->op.expr_statement = expression();
 			break;
 	}
 	match(SEMICOLON);
+	if (error_thrown) {
+		// Rollback
+		traverse_statement(sm, free, free, free, free);
+		return 0;
+	}
 	return sm;
 }
 
-statement_list* parse_statement_list() {
+static statement_list* parse_statement_list() {
 	statement_list* ast = malloc(sizeof(statement_list));
 	ast->next = 0;
 	statement** curr = &ast->elem;
@@ -452,39 +548,32 @@ statement_list* parse_statement_list() {
 			curr = &curr_ast->elem;
 		} else break;
 	}
-	return ast;
+	if (error_thrown) {
+		// Rollback
+		traverse_statement_list(ast, free, free, free, free);
+		return 0;
+	}
+	else {
+		return ast;
+	}
 }
 
 // Expression Traversal:
 /* 	void (*a)(expr*), void (*b)(expr_list*), 
 	void (*c)(statement*), void (*d)(statement_list*) */
-bool pre_order = 0;
-int indentation = 0;
-
-void traverse_expr(expr* expression, 
-		void (*a)(void*), void (*b)(void*), 
-		void (*c)(void*), void (*d)(void*));
-void traverse_expr_list(expr_list* list, 
-		void (*a)(void*), void (*b)(void*), 
-		void (*c)(void*), void (*d)(void*));
-void traverse_statement_list(statement_list* list,
-		void (*a)(void*), void (*b)(void*), 
-		void (*c)(void*), void (*d)(void*));
-void traverse_statement(statement* state, 
-		void (*a)(void*), void (*b)(void*), 
-		void (*c)(void*), void (*d)(void*));
-
-void traverse_statement_list(statement_list* list,
+static void traverse_statement_list(statement_list* list,
 		void (*a)(void*), void (*b)(void*), 
 		void (*c)(void*), void (*d)(void*)) {
 	if (!list) return;
 	if (pre_order) d(list);
+	indentation++;
 	traverse_statement(list->elem, a, b, c, d);
+	indentation--;
 	traverse_statement_list(list->next, a, b, c, d);
 	if (!pre_order) d(list);
 }
 
-void traverse_statement(statement* state, 
+static void traverse_statement(statement* state, 
 		void (*a)(void*), void (*b)(void*), 
 		void (*c)(void*), void (*d)(void*)) {
 	if (!state) return;
@@ -503,6 +592,7 @@ void traverse_statement(statement* state,
 		traverse_statement_list(state->op.block_statement, a, b, c, d);
 	}
 	else if (state->type == S_STRUCT) {
+		traverse_expr(state->op.struct_statement.init_fn, a, b, c, d);
 		traverse_expr_list(state->op.struct_statement.instance_members, a, b, c, d);
 		traverse_expr_list(state->op.struct_statement.static_members, a, b, c, d);
 	}
@@ -522,7 +612,7 @@ void traverse_statement(statement* state,
 	if(!pre_order) c(state);
 }
 
-void traverse_expr(expr* expression, 
+static void traverse_expr(expr* expression, 
 		void (*a)(void*), void (*b)(void*), 
 		void (*c)(void*), void (*d)(void*)) {
 	if (!expression) return;
@@ -547,7 +637,7 @@ void traverse_expr(expr* expression,
 	}
 	else if (expression->type == E_FUNCTION) {
 		traverse_expr_list(expression->op.func_expr.parameters, a, b, c, d);
-		traverse_statement_list(expression->op.func_expr.body, a, b, c, d);
+		traverse_statement(expression->op.func_expr.body, a, b, c, d);
 	}
 	else if (expression->type == E_ASSIGN) {
 		traverse_expr(expression->op.assign_expr.lvalue, a, b, c, d);	
@@ -560,31 +650,41 @@ void traverse_expr(expr* expression,
 	if (!pre_order) a(expression);
 }
 
-void traverse_expr_list(expr_list* list, 
+static void traverse_expr_list(expr_list* list, 
 		void (*a)(void*), void (*b)(void*), 
 		void (*c)(void*), void (*d)(void*)) {
 	if (!list) return;
 	if (pre_order) b(list);
+	indentation++;
 	traverse_expr(list->elem, a, b, c, d);
+	indentation--;
 	traverse_expr_list(list->next, a, b, c, d);
 	if (!pre_order) b(list);
 }
-
-void print_e(void* expre) {
-	printf("%*c", indentation * 2, ' ');
+static void print_indent() {
+	char a[50] = {0};
+	for (int i = 0; i < indentation; i++) {
+		strcat(a, "| ");
+	}
+	strcat(a, "`-");
+	printf("%s", a);
+}
+static void print_e(void* expre) {
+	print_indent();
 	expr* expression = (expr*)expre;
+	printf(YEL);
 	if (expression->type == E_LITERAL) {
-		printf("(%p) Literal Expression ", expre);
+		printf("Literal Expression " GRN);
 		print_token(&expression->op.lit_expr);
+		printf(RESET);
 	}
 	else if (expression->type == E_BINARY) {
-		printf("(%p) Binary Expression (%p, %p) ", expre,
-			expression->op.bin_expr.left, expression->op.bin_expr.right);
+		printf("Binary Expression " GRN);
 		print_token(&expression->op.bin_expr.operator);
+		printf(RESET);
 	}
 	else if (expression->type == E_BIN_LVALUE) {
-		printf("(%p) Binary LValue Expression (%p, %p)\n", expre,
-			expression->op.bin_expr.left, expression->op.bin_expr.right);
+		printf("Binary LValue Expression\n");
 	}
 	else if (expression->type == E_UNARY) {
 		printf("Unary Expression\n");
@@ -599,90 +699,73 @@ void print_e(void* expre) {
 		printf("Function Expression\n");
 	}
 	else if (expression->type == E_ASSIGN) {
-		printf("(%p) Assignment Expression (%p, %p)\n", expre,
-			expression->op.assign_expr.lvalue, 
-			expression->op.assign_expr.rvalue);
+		printf("Assignment Expression \n");
 	}
 	else {
 		printf("Traverse Expr: Unknown Type\n");
 	}
+	printf(RESET);
 }
-void print_el(void* el) {
-	printf("%*c", indentation * 2, ' ');
-	printf("Expression List Item:\n");
+static void print_el(void* el) {
+	print_indent();
+	printf(CYN "<Expression List Item>\n" RESET);
 }
-void print_s(void* s) {
-	printf("%*c", indentation * 2, ' ');
+static void print_s(void* s) {
+	print_indent();
 	statement* state = (statement*)s;
+	printf(BLU);
 	if (state->type == S_LET) {
-		printf("(%p) Let Statement (%s, %p)\n", state,
-			state->op.let_statement.lvalue.t_data.string, 
-			state->op.let_statement.rvalue);
+		printf("Let Statement " GRN "(%s)\n" RESET,
+			state->op.let_statement.lvalue.t_data.string);
 	}
 	else if (state->type == S_OPERATION) {
-		printf("(%p) Operation Statement ", state);
+		printf("Operation Statement " GRN);
 		print_token_inline(&state->op.operation_statement.operator, stdout);
-		printf(" (%p)\n", state->op.operation_statement.operand);
+		printf(" \n" RESET);
 	}
 	else if (state->type == S_EXPR) {
-		printf("(%p) Expression Statement (%p)\n", state, 
-			state->op.expr_statement);	
+		printf("Expression Statement \n");	
 	}
 	else if (state->type == S_BLOCK) {
-		printf("(%p) Block Statement (%p)\n", state, state->op.block_statement);
+		printf("Block Statement \n");
 	}
 	else if (state->type == S_STRUCT) {
-		printf("(%p) Struct Statement ", state);
+		printf("Struct Statement " GRN);
 		print_token_inline(&state->op.struct_statement.name, stdout);
-		printf(":");
+		printf(RESET ":" GRN);
 		print_token_inline(&state->op.struct_statement.parent, stdout);
-		printf("(%p (%p)\n", state->op.struct_statement.instance_members,
-			state->op.struct_statement.static_members);
+		printf("\n" RESET);
 	}
 	else if (state->type == S_IF) {
-		printf("(%p) If Statement (%p) T(%p) F(%p)\n", state,
-			state->op.if_statement.condition,
-			state->op.if_statement.statement_true, 
-			state->op.if_statement.statement_false);
+		printf("If Statement\n");
 	}
 	else if (state->type == S_LOOP) {
-			printf("(%p) Loop Statement (%p) T(%p)\n", state, 
-			state->op.loop_statement.condition,
-			state->op.loop_statement.statement_true);
+		printf("Loop Statement\n");
 	}
 	else {
 		printf("Traverse Statement: Unknown Type\n");
 	}
+	printf(RESET);
 }
-void print_sl(void* sl) {
-	printf("%*c", indentation * 2, ' ');
-	printf("Statement List Item:\n");
-}
-void print_ast(statement_list* ast) {
-	pre_order = true;
-	traverse_statement_list(ast, print_e, print_el, print_s, print_sl);
+static void print_sl(void* sl) {
+	print_indent();
+	printf(MAG "<Statement List Item>\n" RESET);
 }
 
-void traverse_ast(statement_list* list, 
+static void traverse_ast(statement_list* list, 
 		void (*a)(void*), void (*b)(void*), 
 		void (*c)(void*), void (*d)(void*), bool order) {
 	pre_order = false;
-	traverse_statement_list(list, a, b, c, d);
+	traverse_statement_list(list, a, b, c, d);	
 }
-
-
-void free_ast(statement_list* ast) {
-	pre_order = false;
-	traverse_statement_list(ast, free, free, free, free);
-}
-
-expr* make_lit_expr(token t) {
+ 
+static expr* make_lit_expr(token t) {
 	expr* node = malloc(sizeof(expr));
 	node->type = E_LITERAL;
 	node->op.lit_expr = t;
 	return node;
 }
-expr* make_lvalue_expr(expr* left, token op, expr* right) {
+static expr* make_lvalue_expr(expr* left, token op, expr* right) {
 	expr* node = malloc(sizeof(expr));
 	node->type = E_BIN_LVALUE;
 	node->op.bin_expr.operator = op;
@@ -690,7 +773,7 @@ expr* make_lvalue_expr(expr* left, token op, expr* right) {
 	node->op.bin_expr.right = right;
 	return node;
 }
-expr* make_bin_expr(expr* left, token op, expr* right) {
+static expr* make_bin_expr(expr* left, token op, expr* right) {
 	expr* node = malloc(sizeof(expr));
 	node->type = E_BINARY;
 	node->op.bin_expr.operator = op;
@@ -698,21 +781,21 @@ expr* make_bin_expr(expr* left, token op, expr* right) {
 	node->op.bin_expr.right = right;
 	return node;
 }
-expr* make_una_expr(token op, expr* operand) {
+static expr* make_una_expr(token op, expr* operand) {
 	expr* node = malloc(sizeof(expr));
 	node->type = E_UNARY;
 	node->op.una_expr.operator = op;
 	node->op.una_expr.operand = operand;
 	return node;
 }
-expr* make_call_expr(expr* left, expr_list* arg_list) {
+static expr* make_call_expr(expr* left, expr_list* arg_list) {
 	expr* node = malloc(sizeof(expr));
 	node->type = E_CALL;
 	node->op.call_expr.function = left;
 	node->op.call_expr.arguments = arg_list;
 	return node;
 }
-expr* make_list_expr(expr_list* list) {
+static expr* make_list_expr(expr_list* list) {
 	expr* node = malloc(sizeof(expr));
 	node->type = E_LIST;
 	int size = 0;
@@ -725,7 +808,7 @@ expr* make_list_expr(expr_list* list) {
 	node->op.list_expr.contents = list;
 	return node;
 }
-expr* make_assign_expr(expr* left, expr* right, token op) {
+static expr* make_assign_expr(expr* left, expr* right, token op) {
 	expr* node = malloc(sizeof(expr));
 	node->type = E_ASSIGN;
 	node->op.assign_expr.lvalue = left;
@@ -733,7 +816,7 @@ expr* make_assign_expr(expr* left, expr* right, token op) {
 	node->op.assign_expr.operator = op;
 	return node;
 }
-expr* make_func_expr(expr_list* parameters, statement_list* body) {
+static expr* make_func_expr(expr_list* parameters, statement* body) {
 	expr* node = malloc(sizeof(expr));
 	node->type = E_FUNCTION;
 

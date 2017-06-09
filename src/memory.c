@@ -3,7 +3,7 @@
 #include "error.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "macros.h"
+#include "global.h"
 
 // Memory.c, provides functions for the interpreter to manipulate the local 
 //   WendyScript memory
@@ -15,17 +15,19 @@ address frame_pointer = 0;
 address stack_pointer = 0;
 address arg_pointer = 0;
 address closure_list_pointer = 0;
+address mem_reg_pointer = 0;
 
 static const char FUNCTION_START_CHAR = '>';
 static const char AUTOFRAME_START_CHAR = '<';
 static const char RA_START_CHAR = '#';
-bool enable_gc = true;
 
 // pointer to the end of the main frame
 address main_end_pointer = 0; 
 
 bool garbage_collect(int size) {
-	if (!enable_gc) { return has_memory(size); }
+	if (get_settings_flag(SETTINGS_NOGC)) { 
+		return has_memory(size); 
+	}
 	// Garbage! We'll implement the most basic mark and sweep algo.
 	bool *marked = calloc(MEMORY_SIZE, sizeof(bool));
 	for (int i = 0; i < RESERVED_MEMORY; i++) {
@@ -223,6 +225,9 @@ void init_memory() {
 	// Initialize Memory
 	memory = calloc(MEMORY_SIZE, sizeof(token));
 
+	// Initialize MemReg
+	mem_reg_stack = calloc(MEMREGSTACK_SIZE, sizeof(address));
+
 	// Initialize linked list of Free Memory
 	free_memory = malloc(sizeof(mem_block));
 	free_memory->size = MEMORY_SIZE - ARGSTACK_SIZE;
@@ -240,14 +245,17 @@ void init_memory() {
 	push_memory(none_token());
 	// ADDRESS 1 REFERS TO EMPTY RETURNS TOKEN
 	push_memory(make_token(NONERET, make_data_str("<noneret>")));
-	
-	enable_gc = true;
+}
+
+void clear_arg_stack() {
+	arg_pointer = MEMORY_SIZE - 1;
 }
 
 void c_free_memory() {
 	free(memory);
 	free(call_stack);
-
+	free(mem_reg_stack);
+	
 	// Clear all the free_memory blocks.
 	mem_block* c = free_memory;
 	while (c) {
@@ -303,8 +311,7 @@ void push_frame(char* name, address ret) {
 	ne2.id[0] = RA_START_CHAR;
 	call_stack[stack_pointer++] = ne2;
 	check_memory();
-	// pointer to self
-	
+	// pointer to self	
 }
 
 void push_auto_frame(address ret, char* type) {
@@ -407,13 +414,12 @@ void push_arg(token t) {
 	check_memory();
 }
 
-token top_arg(int line) {
+token* top_arg(int line) {
 	if (arg_pointer != MEMORY_SIZE - 1) {
-		token ret = memory[arg_pointer + 1];
-		return ret;
+		return &memory[arg_pointer + 1];
 	}
 	error(line, FUNCTION_CALL_MISMATCH);
-	return none_token();
+	return 0;
 }
 
 token pop_arg(int line) {
@@ -571,4 +577,15 @@ token* get_value_of_address(address a, int line) {
 		error(line, MEMORY_REF_ERROR);
 		return &memory[0];
 	}
+}
+void push_mem_reg(address memory_register) {
+	mem_reg_stack[mem_reg_pointer++] = memory_register;
+}
+
+address pop_mem_reg() {
+	if (mem_reg_pointer == 0) {
+		printf("MEMORY REGISTER STACK EMPTY! \n");
+		return 0;
+	}
+	return mem_reg_stack[--mem_reg_pointer];
 }

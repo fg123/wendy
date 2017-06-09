@@ -1,5 +1,5 @@
 #include "ast.h"
-#include "macros.h"
+#include "global.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -16,7 +16,18 @@ static size_t capacity = 0;
 static size_t size = 0;
 static int global_loop_id = 0;
 
-void guarantee_size() {
+int verify_header(uint8_t* bytecode) {
+	char* start = (char*)bytecode;
+	if (strcmp(WENDY_VM_HEADER, start) == 0) {
+		return strlen(WENDY_VM_HEADER) + 1;
+	}
+	else {
+		error(0, INVALID_HEADER); 
+	}
+	return 0;
+}
+
+static void guarantee_size() {
 	if (size + CODEGEN_PAD_SIZE	> capacity) {
 		capacity *= 2;
 		uint8_t* re = realloc(bytecode, capacity * sizeof(uint8_t));
@@ -27,7 +38,7 @@ void guarantee_size() {
 	}
 }
 
-void write_string(char* string) {
+static void write_string(char* string) {
 	for (int i = 0; string[i]; i++) {
 		bytecode[size++] = string[i];
 	}
@@ -35,7 +46,7 @@ void write_string(char* string) {
 	guarantee_size();
 }
 
-void write_address(address a) {
+static void write_address(address a) {
 	uint8_t* first = (void*)&a;
 	for (int i = 0; i < sizeof(a); i++) {
 		bytecode[size++] = first[i];
@@ -43,17 +54,25 @@ void write_address(address a) {
 	guarantee_size();
 }
 
-void write_address_at(address a, int pos) {
+static void write_address_at(address a, int pos) {
 	uint8_t* first = (void*)&a;
 	for (int i = 0; i < sizeof(a); i++) {
 		bytecode[pos++] = first[i];
 	}
 }
+
+static void write_double_at(double a, int pos) {
+	unsigned char * p = (void*)&a;
+	for (int i = 0; i < sizeof(double); i++) {
+		bytecode[pos++] = p[i];
+	}
+
+}
+
 // writes the token to the bytestream, guaranteed to be a literal
-void write_token(token t) {
+static void write_token(token t) {
 	bytecode[size++] = t.t_type;
-	if (t.t_type == NUMBER || t.t_type == ADDRESS ||
-		t.t_type == LIST_HEADER) {
+	if (is_numeric(t)) {
 		// Writing a double
 		unsigned char * p = (void*)&t.t_data.number;
 		for (int i = 0; i < sizeof(double); i++) {
@@ -66,17 +85,17 @@ void write_token(token t) {
 	guarantee_size();
 }
 
-void write_opcode(opcode op) {
+static void write_opcode(opcode op) {
 	bytecode[size++] = op;
 	guarantee_size();
 }
 
 // Generates Evaluates lValue expr and stores in memory register
 
-void codegen_expr(void* expre);
-void codegen_statement(void* expre);
-void codegen_statement_list(void* expre);
-void codegen_lvalue_expr(expr* expression) {
+static void codegen_expr(void* expre);
+static void codegen_statement(void* expre);
+static void codegen_statement_list(void* expre);
+static void codegen_lvalue_expr(expr* expression) {
 	if (expression->type == E_LITERAL) {
 		// Better be a identifier eh
 		if (expression->op.lit_expr.t_type != IDENTIFIER) {
@@ -88,13 +107,18 @@ void codegen_lvalue_expr(expr* expression) {
 	else if (expression->type == E_BINARY) {
 		// Left side in memory reg
 		codegen_lvalue_expr(expression->op.bin_expr.left);
-		// Write Right side as Usual
-		codegen_expr(expression->op.bin_expr.right);	
 
 		if (expression->op.bin_expr.operator.t_type == DOT) {
+			if (expression->op.bin_expr.right->type != E_LITERAL) {
+				error(expression->op.bin_expr.operator.t_line, SYNTAX_ERROR);
+			}
+			expression->op.bin_expr.right->op.lit_expr.t_type = MEMBER;
+			write_opcode(OPUSH);
+			write_token(expression->op.bin_expr.right->op.lit_expr);
 			write_opcode(MEMPTR);	
 		}	
 		else if (expression->op.bin_expr.operator.t_type == LEFT_BRACK) {
+			codegen_expr(expression->op.bin_expr.right);	
 			write_opcode(NTHPTR);
 		}
 		else {
@@ -105,14 +129,16 @@ void codegen_lvalue_expr(expr* expression) {
 		error(0, INVALID_LVALUE);
 	}
 }
-void codegen_expr_list(void* expre) {
+
+static void codegen_expr_list(void* expre) {
 	expr_list* list = (expr_list*) expre;
 	while (list) {
 		codegen_expr(list->elem);
 		list = list->next;
 	}
 }
-opcode tok_to_opcode(token t) {
+
+static opcode tok_to_opcode(token t) {
 	switch(t.t_type) {
 		case INC:
 			return OINC;
@@ -128,16 +154,13 @@ opcode tok_to_opcode(token t) {
 	return 0;
 }
 
-void codegen_statement(void* expre) {
+static void codegen_statement(void* expre) {
 	if (!expre) return;
 	statement* state = (statement*) expre;
 	if (state->type == S_LET) {
 		codegen_expr(state->op.let_statement.rvalue);
 		// Request Memory
-		write_opcode(OREQ);
-		bytecode[size++] = 1;
-		write_opcode(WRITE);
-		write_opcode(BIND);
+		write_opcode(RBW);
 		write_string(state->op.let_statement.lvalue.t_data.string);			
 	}
 	else if (state->type == S_OPERATION) {
@@ -164,12 +187,76 @@ void codegen_statement(void* expre) {
 		codegen_statement_list(state->op.block_statement);
 	}
 	else if (state->type == S_STRUCT) {
-		printf("(%p) Struct Statement ", state);
-		print_token_inline(&state->op.struct_statement.name, stdout);
-		printf(":");
-		print_token_inline(&state->op.struct_statement.parent, stdout);
-		printf("(%p (%p)\n", state->op.struct_statement.instance_members,
-			state->op.struct_statement.static_members);
+		int push_size = 2; // For Header and Name
+		char* struct_name = state->op.struct_statement.name.t_data.string;
+		
+		// Push Header and Name
+		write_opcode(OPUSH);
+		int metaHeaderLoc = size;
+		write_token(make_token(STRUCT_METADATA, make_data_num(1)));
+		write_opcode(OPUSH);
+		write_token(make_token(STRUCT_NAME, make_data_str(struct_name)));
+		write_opcode(OPUSH);
+		write_token(make_token(STRUCT_STATIC, make_data_str("init")));
+		// Push Init Function
+		codegen_expr(state->op.struct_statement.init_fn);
+
+		push_size += 2;
+
+		if (state->op.struct_statement.parent.t_type != EMPTY) {
+			// Write Parent, but assert first
+			write_opcode(WHERE);
+			write_string(state->op.struct_statement.parent.t_data.string);
+			write_opcode(ASSERT);
+			bytecode[size++] = STRUCT;
+			write_string(PARENT_NOT_STRUCT);
+
+			write_opcode(READ); // Read Parent Element In
+			write_opcode(CHTYPE);  // Store Address of Struct Meta in Data Reg
+			bytecode[size++] = STRUCT_PARENT;
+			write_opcode(OPUSH);
+			write_token(make_token(STRUCT_PARAM, make_data_str("base")));
+			push_size += 2;
+		}
+	
+		expr_list* curr = state->op.struct_statement.instance_members;
+		while (curr) {
+			expr* elem = curr->elem;
+			if (elem->type != E_LITERAL 
+				|| elem->op.lit_expr.t_type != IDENTIFIER) {
+				error(elem->op.lit_expr.t_line, SYNTAX_ERROR);
+			}
+			write_opcode(OPUSH);
+			write_token(make_token(STRUCT_PARAM, elem->op.lit_expr.t_data));
+			push_size++;
+			curr = curr->next;
+		}
+		curr = state->op.struct_statement.static_members;
+		while (curr) {
+			expr* elem = curr->elem;
+			if (elem->type != E_LITERAL 
+				|| elem->op.lit_expr.t_type != IDENTIFIER) {
+				error(elem->op.lit_expr.t_line, SYNTAX_ERROR);
+			}
+			write_opcode(OPUSH);
+			write_token(make_token(STRUCT_STATIC, elem->op.lit_expr.t_data));
+			write_opcode(OPUSH);
+			write_token(none_token());
+			push_size += 2;
+			curr = curr->next;
+		}
+		// Request Memory to Store MetaData
+		write_opcode(OREQ);
+		bytecode[size++] = push_size;
+		write_opcode(PLIST);
+		bytecode[size++] = push_size;
+		// Now there's a List Token at the top of the stack.
+		write_opcode(CHTYPE);
+		bytecode[size++] = STRUCT;
+		
+		write_opcode(RBW);
+		write_string(struct_name);
+		write_double_at(push_size, metaHeaderLoc + 1);	
 	}
 	else if (state->type == S_IF) {
 		codegen_expr(state->op.if_statement.condition);
@@ -187,25 +274,19 @@ void codegen_statement(void* expre) {
 	}
 	else if (state->type == S_LOOP) {
 		// Setup Loop Index
-		write_opcode(OREQ);
-		bytecode[size++] = 1;
 		write_opcode(OPUSH);
 		write_token(make_token(NUMBER, make_data_num(0)));
-		write_opcode(WRITE);
-		write_opcode(BIND);
+		write_opcode(RBW);
 		char loopIndexName[30];
-		sprintf(loopIndexName, "~O.o~%d", global_loop_id++);
+		sprintf(loopIndexName, ":\")%d", global_loop_id++);
 		write_string(loopIndexName);
 
 		write_opcode(FRM); // Start Local Variable Frame OUTER
 		if (state->op.loop_statement.index_var.t_type != EMPTY) {
 			// User has a custom variable, also load that.
-			write_opcode(OREQ);
-			bytecode[size++] = 1;
 			write_opcode(OPUSH);
 			write_token(make_token(NUMBER, make_data_num(0)));
-			write_opcode(WRITE);
-			write_opcode(BIND);
+			write_opcode(RBW);
 			write_string(state->op.loop_statement.index_var.t_data.string);
 		}
 
@@ -256,14 +337,16 @@ void codegen_statement(void* expre) {
 	}
 
 }
-void codegen_statement_list(void* expre) {
+
+static void codegen_statement_list(void* expre) {
 	statement_list* list = (statement_list*) expre;
 	while (list) {
 		codegen_statement(list->elem);
 		list = list->next;
 	}	
 }
-void codegen_expr(void* expre) {
+
+static void codegen_expr(void* expre) {
 	if (!expre) return;
 	expr* expression = (expr*)expre;
 	if (expression->type == E_LITERAL) {
@@ -272,9 +355,19 @@ void codegen_expr(void* expre) {
 		write_token(expression->op.lit_expr);
 	}
 	else if (expression->type == E_BINARY) {
-		codegen_expr(expression->op.bin_expr.left);
-		codegen_expr(expression->op.bin_expr.right);
-//		write_opcode(tok_to_opcode(expression->op.bin_expr.operator, false));
+		if (expression->op.bin_expr.operator.t_type == DOT) {
+			codegen_expr(expression->op.bin_expr.left);
+			if (expression->op.bin_expr.right->type != E_LITERAL) {
+				error(expression->op.bin_expr.operator.t_line, SYNTAX_ERROR);
+			}
+			expression->op.bin_expr.right->op.lit_expr.t_type = MEMBER;
+			write_opcode(OPUSH);
+			write_token(expression->op.bin_expr.right->op.lit_expr);
+		}
+		else {
+			codegen_expr(expression->op.bin_expr.left);
+			codegen_expr(expression->op.bin_expr.right);
+		}
 		write_opcode(BIN);
 		write_token(expression->op.bin_expr.operator);
 	}
@@ -303,15 +396,12 @@ void codegen_expr(void* expre) {
 				break;
 			default: break;
 		}
+		codegen_expr(expression->op.assign_expr.rvalue);
+		
 		codegen_lvalue_expr(expression->op.assign_expr.lvalue);
 		if (operator.t_type != EQUAL) {
 			write_opcode(READ);
-		}
-		codegen_expr(expression->op.assign_expr.rvalue);
-
-		// Expression stored on top of stack.
-		if (operator.t_type != EQUAL) {
-			write_opcode(BIN);
+			write_opcode(RBIN);
 			write_token(operator);
 		}
 		// Memory Register should still be where lvalue is	
@@ -331,9 +421,6 @@ void codegen_expr(void* expre) {
 	}
 	else if (expression->type == E_LIST) {
 		int count = expression->op.list_expr.length;
-		write_opcode(OREQ);
-		// For the Header
-		bytecode[size++] = count + 1;
 		write_opcode(OPUSH);
 		write_token(make_token(LIST_HEADER, make_data_num(count)));
 		expr_list* param = expression->op.list_expr.contents;
@@ -341,6 +428,9 @@ void codegen_expr(void* expre) {
 			codegen_expr(param->elem);
 			param = param->next;
 		}
+		write_opcode(OREQ);
+		// For the Header
+		bytecode[size++] = count + 1;
 		write_opcode(PLIST);
 		bytecode[size++] = count + 1;
 	}
@@ -353,38 +443,48 @@ void codegen_expr(void* expre) {
 		expr_list* param = expression->op.func_expr.parameters;
 		while (param) {
 			token t = param->elem->op.lit_expr;
-			write_opcode(OREQ);
-			bytecode[size++] = 1;
-			write_opcode(BIND);
+			write_opcode(RBW);
 			write_string(t.t_data.string);
-			write_opcode(WRITE);
 			param = param->next;
 		}
-		codegen_statement_list(expression->op.func_expr.body);
-		if (bytecode[size - 1] != ORET) {
-			// Function has no explicit Return
-			write_opcode(OPUSH);
-			write_token(noneret_token());
+		if (expression->op.func_expr.body->type == S_EXPR) {
+			codegen_expr(expression->op.func_expr.body->op.expr_statement);
 			write_opcode(ORET);
+		}
+		else {
+			codegen_statement(expression->op.func_expr.body);
+			if (bytecode[size - 1] != ORET) {
+				// Function has no explicit Return
+				write_opcode(OPUSH);
+				write_token(noneret_token());
+				write_opcode(ORET);
+			}
 		}
 		write_address_at(size, writeSizeLoc);
 		write_opcode(OPUSH);
 		write_token(make_token(ADDRESS, make_data_num(startAddr)));
+		write_opcode(CLOSUR);
+		write_opcode(OREQ);
+		bytecode[size++] = 2;
+		write_opcode(PLIST);
+		bytecode[size++] = 2;
+		write_opcode(CHTYPE);
+		bytecode[size++] = FUNCTION;
 	}
 	else {
 		printf("Traverse Expr: Unknown Type\n");
 	}
 }
 
-uint8_t* generate_code(statement_list* _ast, size_t* _size) {
-
+uint8_t* generate_code(statement_list* _ast) {
 	// reset
 	capacity = CODEGEN_START_SIZE;
 	bytecode = malloc(capacity * sizeof(uint8_t));
 	size = 0;
 	global_loop_id = 0;
+	write_string(WENDY_VM_HEADER);
 	codegen_statement_list(_ast);
-	*_size = size;
+	write_opcode(HALT);
 	return bytecode;
 }
 
@@ -394,8 +494,7 @@ token get_token(uint8_t* bytecode, unsigned int* end) {
 	int i = 0;
 	t.t_type = bytecode[i++];
 	t.t_data.string[0] = 0;
-	if (t.t_type == NUMBER || t.t_type == ADDRESS ||
-		t.t_type == LIST_HEADER) {
+	if (is_numeric(t)) {
 		unsigned char * p = (void*)&t.t_data.number;
 		for (int j = 0; j < sizeof(double); j++) {
 			p[j] = bytecode[i++];
@@ -413,24 +512,48 @@ token get_token(uint8_t* bytecode, unsigned int* end) {
 	return t;
 }
 
-void print_bytecode(uint8_t* bytecode, size_t size, FILE* buffer) {
-	fprintf(buffer, "WendyVM ByteCode Disassembly %zd\n", size);
-	for (unsigned int i = 0; i < size; i++) {
+void write_bytecode(uint8_t* bytecode, FILE* buffer) {
+	fwrite(bytecode, sizeof(uint8_t), size, buffer);
+}
+
+void print_bytecode(uint8_t* bytecode, FILE* buffer) {
+	fprintf(buffer, RED "WendyVM ByteCode Disassembly\n" GRN ".header\n");
+	fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: ", &bytecode[0], 0);
+	fprintf(buffer, YEL WENDY_VM_HEADER);
+	fprintf(buffer, GRN "\n.code\n");
+	int maxlen = 12;
+	for (unsigned int i = verify_header(bytecode);; i++) {
 		unsigned int start = i;
-		fprintf(buffer, "  <%p> <+%04X>: ", &bytecode[i], i);
+		fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
 		opcode op = bytecode[i];
 		long int oldChar = ftell(buffer);
-		fprintf(buffer, "%s ", opcode_string[op]);
-		if (op == OPUSH || op == BIN || op == UNA) {
+		fprintf(buffer, YEL "%6s " RESET, opcode_string[op]);
+		if (op == OPUSH || op == BIN || op == UNA || op == RBIN) {
 			i++;
 			token t = get_token(&bytecode[i], &i);
-			print_token_inline(&t, buffer);
+			if (t.t_type == STRING) {	
+				fprintf(buffer, "%.*s ", maxlen, t.t_data.string);
+				if (strlen(t.t_data.string) > maxlen) {
+					fprintf(buffer, ">");
+				}
+			}
+			else {
+				print_token_inline(&t, buffer);
+			}
 		}
-		else if (op == BIND || op == WHERE) {
+		else if (op == BIND || op == WHERE || op == RBW) {
 			i++;
 			char* c = (char*)(bytecode + i);
-			fprintf(buffer, "%s", c);
+			fprintf(buffer, "%.*s ", maxlen, c);
+			if (strlen(c) > maxlen) {
+				fprintf(buffer, ">");
+			}
+
 			i += strlen(c);
+		}
+		else if (op == CHTYPE) {
+			i++;
+			fprintf(buffer, "%s", token_string[bytecode[i]]);
 		}
 		else if (op == OREQ || op == PLIST) {
 			i++;
@@ -447,29 +570,42 @@ void print_bytecode(uint8_t* bytecode, size_t size, FILE* buffer) {
 			fprintf(buffer, "0x%X ", *((address*)loc));
 			i++;
 			char* c = (char*)(bytecode + i);
-			fprintf(buffer, "%s", c);
+			fprintf(buffer, "%.*s ", maxlen, c);
+			if (strlen(c) > maxlen) {
+				fprintf(buffer, ">");
+			}
 			i += strlen(c);
 		}
 		else if (op == LBIND) {
 			i++;
 			char* c = (char*)(bytecode + i);
-			fprintf(buffer, "%s ", c);
+			fprintf(buffer, "%.*s ", maxlen, c);
 			i += strlen(c);
 			i++;
 			c = (char*)(bytecode + i);
-			fprintf(buffer, "%s", c);
+			fprintf(buffer, "%.*s ", maxlen, c);
+			i += strlen(c);
+		}
+		else if (op == ASSERT) {
+			i++;
+			fprintf(buffer, "%s <error>", token_string[bytecode[i]]);
+			i++;
+			char* c = (char*)(bytecode + i);
 			i += strlen(c);
 		}
 		long int count = ftell(buffer) - oldChar;
 		while (count++ < 30) {
 			fprintf(buffer, " ");
 		}
-		fprintf(buffer, "| ");
+		fprintf(buffer, CYN "| ");
 		for (int j = start; j <= i; j++) {
 			if (j != start) fprintf(buffer, " ");
 			fprintf(buffer, "%02X", bytecode[j]);
 		}
-		fprintf(buffer, "\n");
+		fprintf(buffer, "\n" RESET);
+		if (op == HALT) {
+			break;
+		}
 	}
 }
 

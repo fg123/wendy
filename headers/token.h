@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
-#include "macros.h"
+#include "global.h"
 
 // token.h - Felix Guo
 // This module provides utilities for creating and manipulating tokens for the
@@ -55,6 +55,7 @@ bool last_printed_newline;
 	OP(B_COMMENT_START) \
 	OP(B_COMMENT_END) \
 	OP(IDENTIFIER) \
+	OP(MEMBER) \
 	OP(STRING) \
 	OP(NUMBER) \
 	OP(ADDRESS) \
@@ -67,6 +68,7 @@ bool last_printed_newline;
 	OP(AND) \
 	OP(OR) \
 	OP(IF) \
+	OP(INOP) \
 	OP(ELSE) \
 	OP(ELSEIF) \
 	OP(TRUE) \
@@ -85,7 +87,6 @@ bool last_printed_newline;
 	OP(REQ) \
 	OP(EXPLODE) \
 	OP(TIME) \
-	OP(ASSERT) \
 	OP(STRUCT_HEADER) \
 	OP(STRUCT_NAME) \
 	OP(STRUCT_METADATA) \
@@ -95,6 +96,7 @@ bool last_printed_newline;
 	OP(STRUCT_INSTANCE_HEAD) \
 	OP(STRUCT_PARENT) \
 	OP(STRUCT_BASE_INSTANCE) \
+	OP(STRUCT_FUNCTION) \
 	OP(NONE) \
 	OP(NONERET) \
 	OP(CALL) \
@@ -174,4 +176,7 @@ bool token_equal(token* a, token* b);
 // precedence(op) returns the precedece of the operator
 int precedence(token op);
 
+// is_numeric(tok) returns true if the token holds a numeric value and false
+//   otherwise.
+bool is_numeric(token tok);
 #endif

@@ -1,11 +1,13 @@
-#ifndef MACROS_H
-#define MACROS_H
+#ifndef GLOBAL_H
+#define GLOBAL_H
 
 // This file contains information that the majority of WendyScript modules use.
+#include <stdbool.h>
 
 // Main Information
-#define WENDY_VERSION "Wendy 1.1"
+#define WENDY_VERSION "Wendy 2.0"
 #define INPUT_BUFFER_SIZE 2048
+#define WENDY_VM_HEADER "WendyVM Bytecode"
 
 // Data/Token Information
 #define MAX_STRING_LEN 1024
@@ -21,14 +23,23 @@
 // Stack Entry Sizes
 #define MAX_IDENTIFIER_LEN 59
 
-
 // VM Memory Limits
 #define MEMORY_SIZE 129061
 #define STACK_SIZE 100000
-#define ARGSTACK_SIZE 128 
+#define ARGSTACK_SIZE 512 
 #define RESERVED_MEMORY 2
 #define CLOSURES_SIZE 128
+#define MEMREGSTACK_SIZE 100
+#define SETTINGS_COUNT 5
 
-//typedef unsigned int byte;
+typedef enum {
+	SETTINGS_COMPILE = 0, 
+	SETTINGS_NOGC = 1, 
+	SETTINGS_ASTPRINT = 2,
+	SETTINGS_DISASSEMBLE = 3,
+	SETTINGS_STRICT_ERROR = 4} settings_flags; 
+
+void set_settings_flag(settings_flags flag);
+bool get_settings_flag(settings_flags flag);
 
 #endif

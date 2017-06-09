@@ -1,22 +1,11 @@
- Statement List Item:
- (0x7f9aab00d200) Let Statement (0x7f9aab000000, 0x7f9aab00dc00)
-  (0x7f9aab000000) Literal Expression x
-  (0x7f9aab00dc00) Literal Expression 5
- Statement List Item:
- (0x7f9aab00e200) Loop Statement (0x7f9aab00f800) T(0x7f9aab00fe00)
-  (0x7f9aab00f800) Binary Expression (0x7f9aab00ec00, 0x7f9aab00f200)
-    (0x7f9aab00ec00) Literal Expression x
-    (0x7f9aab00f200) Literal Expression 0
-  (0x7f9aab00fe00) Block Statement (0x7f9aaac02750)
-    Statement List Item:
-    (0x7f9aab010800) Expression Statement (0x7f9aab011200)
-      (0x7f9aab011200) Literal Expression x
-    Statement List Item:
-    (0x7f9aab011800) Operation Statement dec (0x7f9aab012200)
-      (0x7f9aab012200) Literal Expression x
-5
-4
-3
-2
-1
-0
+[31mRuntime Error[0m at line [33m53 (35)[0m: loop: Identifier not found. Did you declare it?
+==========================
+ Line Source
+==========================
+
+===============
+Dump: Stack Trace
+    0 FP-> [[34m> main()[0m -> 0]
+    1      [#R/A -> 0: <none>]
+    2      [x -> 2: 5]
+===============

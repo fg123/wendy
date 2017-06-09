@@ -5,8 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <execpath.h>
-#include "macros.h"
-#include "interpreter.h"
+#include "global.h"
 
 static size_t source_len;
 static size_t current; // is used to keep track of source current
@@ -21,12 +20,12 @@ static void add_token(token_type type);
 static void add_token_V(token_type type, data val);
 
 // is_at_end() returns true if scanning index reached the end
-bool is_at_end() {
+static bool is_at_end() {
 	return current >= source_len;
 }
 
 // match(expected, source) advances the index and checks the next character
-bool match(char expected) {
+static bool match(char expected) {
 	if (is_at_end()) return false;
 	if (source[current] != expected) return false;
 
@@ -35,36 +34,36 @@ bool match(char expected) {
 }
 
 // peek(char) returns the next character or \0 if we are at the end
-char peek() {
+static char peek() {
 	if (is_at_end()) return '\0';
 	return source[current];
 }
 
 // advance() returns the current character then moves onto the next one
-char advance() {
+static char advance() {
 	current++;
 	return source[current - 1];
 }
 // peek_next() peeks at the character after the next or \0 if at end
-char peek_next() {
+static char peek_next() {
 	if(current + 1 >= source_len) return '\0';
 	return source[current + 1];
 }
 
 // is_alpha(c) returns true if c is alphabet
-bool is_alpha(char c) {
+static bool is_alpha(char c) {
 	return (c >= 'a' && c <= 'z') ||
 		(c >= 'A' && c <= 'Z') ||
 		c == '_';
 }
 
 // is_digit(c) returns true if c is digit
-bool is_digit(char c) {
+static bool is_digit(char c) {
 	return c >= '0' && c <= '9';
 }
 
 // is_alpha_numeric(c) returns true if c is alpha AND numeric
-bool is_alpha_numeric(char c) {
+static bool is_alpha_numeric(char c) {
 	return is_alpha(c) || is_digit(c);
 }
 
@@ -72,13 +71,12 @@ bool is_alpha_numeric(char c) {
 //   encounter a req
 //   We first find the file and get the file's contents, then append it
 //   right after in the source code and increase the length as needed.
-void handle_req() {
-
-	add_token_V(REQ, make_data_str("req"));
+static void handle_req() {
+	
 	// we scan a string
 	// t_curr points to space after REQ
 	int str_loc = t_curr;
-	while (peek() != ';' && !is_at_end()) {
+	while (peek() != '\n' && !is_at_end()) {
 		start = current;
 		scan_token();
 	}
@@ -87,10 +85,10 @@ void handle_req() {
 		error(line, SYNTAX_ERROR);
 		return;
 	}
+	t_curr--;
 	// consume the semicolon
 	advance();
-	add_token_V(SEMICOLON, make_data_str(";"));
-
+	
 	// We need path to the wendy libraries
 	char* path = get_path();
 	long length = 0;
@@ -137,120 +135,8 @@ void handle_req() {
 	free(path);
 }
 
-// handle_struct() processes the next struct definition
-//   called when we encounter a STRUCT
-void handle_struct() {
-//	printf("HANDLING STRUCT\n");
-	add_token_V(STRUCT, make_data_str("struct"));
-	// we scan to the end of the line, recording the whole struct line.
-	// t_curr points to the space after STRUCT
-	// That's where the ID is.
-	int id_loc = t_curr; 
-	while (peek() != ';' && !is_at_end()) {
-		start = current;		
-		scan_token();
-	}
-	if (is_at_end() || tokens[id_loc].t_type != IDENTIFIER ||
-			tokens[id_loc + 1].t_type != DEFFN) {
-		error(line, SYNTAX_ERROR);
-		return;
-	}
-
-	// The closing ;.
-	add_token_V(SEMICOLON, make_data_str(";"));
-	advance(); //consume it
-
-	// STRUCT Syntax:
-	//   struct ID => (param1, param2, ...);
-	// t_curr is now at the location after the semicolon
-	// We first go through and collect all the param tokens.
-	// tokens[id_loc] now has the struct identifier.
-	token param[1024];
-	int param_c = 0;
-	// 3rd token after should be a identifier, 
-	//   then every other one until the end
-	for (int i = id_loc + 3; tokens[i].t_type != SEMICOLON; i += 2) {
-		if (tokens[i].t_type != IDENTIFIER) {
-			error(line, SYNTAX_ERROR);
-			return;
-		}
-		else {
-			param[param_c++] = tokens[i];
-		}
-	}
-//	printf("PARAM C = %d\n", param_c);
-	// We build the constructor function.
-	// let ID => (param1, param2, ...) {
-	//   let newobj[param_c];
-	//   let newobj[0] = param1;
-	//   let newobj[1] = param2;
-	//   ...
-	//   ret &newobj;
-	// }
-	add_token_V(LET, make_data_str("let"));
-	tokens[t_curr++] = tokens[id_loc];
-	add_token_V(DEFFN, make_data_str("=>"));
-	add_token_V(LEFT_PAREN, make_data_str("("));
-	for (int i = 0; i < param_c; i++) {
-		tokens[t_curr++] = param[i];
-		if (i != param_c - 1) {
-			add_token_V(COMMA, make_data_str(","));
-		}
-	}
-	add_token_V(RIGHT_PAREN, make_data_str(")"));
-	add_token_V(LEFT_BRACE, make_data_str("{"));
-	add_token_V(LET, make_data_str("let"));
-	add_token_V(IDENTIFIER, make_data_str("newobj"));
-	add_token_V(EQUAL, make_data_str("="));
-	add_token_V(LEFT_BRACK, make_data_str("["));
-//	add_token_V(NUMBER, make_data_num(param_c));
-	for (int i = 0; i < param_c; i++) {
-		if (i != 0) {
-			add_token_V(COMMA, make_data_str(","));
-		}
-		tokens[t_curr++] = param[i];
-	}
-	add_token_V(RIGHT_BRACK, make_data_str("]"));
-	add_token_V(SEMICOLON, make_data_str(";"));
-	add_token_V(RET, make_data_str("ret"));
-	add_token_V(IDENTIFIER, make_data_str("newobj"));
-	add_token_V(SEMICOLON, make_data_str(";"));
-	add_token_V(RIGHT_BRACE, make_data_str("}"));
-	add_token_V(SEMICOLON, make_data_str(";"));
-
-
-//	printf("END OF CONSTRUCTOR\n");
-	// END OF CONSTRUCTOR
-	// ACCESSOR FUNCTIONS
-	// let IDENTIFIER_PARAMNAME => (objptr) {
-	//   ret *(objptr + PARAID);
-	// }
-	for (int i = 0; i < param_c; i++) {
-		add_token_V(LET, make_data_str("let"));
-		token orig = tokens[id_loc];
-		strcat(orig.t_data.string, "_");
-		strcat(orig.t_data.string, param[i].t_data.string);
-		tokens[t_curr++] = orig;
-		add_token_V(DEFFN, make_data_str("=>"));
-		add_token_V(LEFT_PAREN, make_data_str("("));
-		add_token_V(IDENTIFIER, make_data_str("obj"));
-		add_token_V(RIGHT_PAREN, make_data_str(")"));
-		add_token_V(LEFT_BRACE, make_data_str("{"));
-		add_token_V(RET, make_data_str("ret"));
-		add_token_V(IDENTIFIER, make_data_str("obj"));
-		add_token_V(LEFT_BRACK, make_data_str("["));
-		add_token_V(NUMBER, make_data_num(i));
-		add_token_V(RIGHT_BRACK, make_data_str("]"));
-		add_token_V(SEMICOLON, make_data_str(";"));
-		add_token_V(RIGHT_BRACE, make_data_str("}"));
-		add_token_V(SEMICOLON, make_data_str(";"));
-	}
-//	printf("END OF HANDLE STRUCT\n");
-//	printf("NEXT TOKEN TO HANDLE = %d\n", current);
-}
-
 // handle_obj_type() processes the next oBJ_TYPE
-void handle_obj_type() {
+static void handle_obj_type() {
 	while (peek() != '>' && !is_at_end()) {
 		if (peek() == '\n') line++;
 		advance();
@@ -276,7 +162,7 @@ void handle_obj_type() {
 }
 
 // handle_string() processes the next string
-void handle_string() {
+static void handle_string() {
 	while (peek() != '"' && !is_at_end()) {
 		if (peek() == '\n') line++;
 		advance();
@@ -303,7 +189,7 @@ void handle_string() {
 
 // identifier() processes the next identifier and also handles wendyScript 
 //   keywords
-void identifier() {
+static void identifier() {
 	while (is_alpha_numeric(peek())) advance();
 	
 	char text[current - start + 1];
@@ -324,7 +210,7 @@ void identifier() {
 //	else if (strcmp(text, "memset") == 0){ add_token(MEMSET); }
 	else if (strcmp(text, "for") == 0)	{ add_token(LOOP); }
 	else if (strcmp(text, "none") == 0)	{ add_token(NONE); }
-	
+	else if (strcmp(text, "in") == 0)	{ add_token(INOP); }
 /*	else if (strcmp(text, "Bool") == 0)	{ add_token(OBJ_TYPE); }
 	else if (strcmp(text, "String") == 0)	{ add_token(OBJ_TYPE); }
 	else if (strcmp(text, "Number") == 0)	{ add_token(OBJ_TYPE); }
@@ -339,7 +225,6 @@ void identifier() {
 	else if (strcmp(text, "req") == 0)	{ 
 		handle_req();
 	}
-	else if (strcmp(text, "assert") == 0) { add_token(ASSERT); }
 	else if (strcmp(text, "time") == 0) { add_token(TIME); }
 	else if (strcmp(text, "inc") == 0)	{ add_token(INC); }
 	else if (strcmp(text, "dec") == 0)	{ add_token(DEC); }
@@ -354,7 +239,7 @@ void identifier() {
 }
 
 // handle_number() processes the next number
-void handle_number() {
+static void handle_number() {
 	while (is_digit(peek())) advance();
 
 	// Look for a fractional part.
@@ -385,8 +270,8 @@ void handle_number() {
 }*/
 
 // scan_token() processes the next token 
-bool ignore_next = false;
-void scan_token() {
+static bool ignore_next = false;
+static void scan_token() {
 	char c = advance();	
 	switch(c) {
 		case '(': add_token(LEFT_PAREN); break;
@@ -434,8 +319,7 @@ void scan_token() {
 			}
 			break;
 			
-		case '*': add_token(match('/') ? B_COMMENT_END : 
-					match('=') ? ASSIGN_STAR : STAR); break;
+		case '*': add_token(match('=') ? ASSIGN_STAR : STAR); break;
 		case '!': add_token(match('=') ? NOT_EQUAL : NOT); break;
 		case '=': 
 			if (match('='))
@@ -472,7 +356,9 @@ void scan_token() {
 				add_token(ASSIGN_SLASH);
 			}
 			else if (match('*')) {
-				add_token(B_COMMENT_START);
+				while(!(match('*') && match('/'))) {
+					if(advance() == '\n') line++;
+				}
 			}
 			else {
 				add_token(SLASH);
@@ -503,6 +389,7 @@ void scan_token() {
 		// END SWITCH HERE
 	}
 }
+
 int scan_tokens(char* source_, token** destination, size_t* alloc_size) {
 	// allocate enough space for the max length of the source, probably not
 	//   needed but it's a good setup.
@@ -537,21 +424,15 @@ int scan_tokens(char* source_, token** destination, size_t* alloc_size) {
 //	free(tokens);
 //}
 
-void add_token(token_type type) {
+static void add_token(token_type type) {
 	char val[current - start + 1];
 	memcpy(val, &source[start], current - start);
 	val[current - start] = '\0';
 	add_token_V(type, make_data_str(val));
 }
 
-void add_token_V(token_type type, data val) {
-	if (t_curr != 0 && tokens[t_curr - 1].t_type == ELSE
-			&& type == IF) {
-
-		token new_t = { ELSEIF, line,make_data_str("else if") };
-		tokens[t_curr - 1] = new_t;
-	}
-	else if (type == NONE) { tokens[t_curr++] = none_token(); }
+static void add_token_V(token_type type, data val) {
+	if (type == NONE) { tokens[t_curr++] = none_token(); }
 	else if (type == TRUE) { tokens[t_curr++] = true_token(); }
 	else if (type == FALSE) { tokens[t_curr++] = false_token(); }
 	else {
@@ -580,12 +461,6 @@ void print_token_list(token* tokens, size_t size) {
 		else {
 			printf("{ %d - %d -> %s }\n", i, tokens[i].t_type, tokens[i].t_data.string);
 		}
-//		printf("%d\n", i);
-
-		
-	
 	}
-//	printf("EXIT LOOP");
 }
-
 

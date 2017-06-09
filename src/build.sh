@@ -8,9 +8,12 @@ make clean -s
 make -s
 echo Build Done.
 
-echo Copying Wendy Library Files
-cp -R wendy-lib ../bin/
-echo Copied
+#echo Compiling Wendy Library Files
+#for f in wendy-lib/*.w ; do
+#	../bin/wendy "$f" -c
+#	cp -R "${f%.w}.wc" ../bin/wendy-lib/
+#done
+#echo Compiled and Copied
 
 if [ "$1" != "-b" ]; then
 	echo Running Tests...

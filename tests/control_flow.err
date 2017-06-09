@@ -1,0 +1,11 @@
+[31mRuntime Error[0m at line [33m7 (7)[0m: Unexpected primary expression!
+==========================
+ Line Source
+    6 	}
+    7 [31m	else if (a > 10) {
+[0m    8 		ret "a is greater than 10";
+==========================
+
+===============
+Dump: Stack Trace
+===============

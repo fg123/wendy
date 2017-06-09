@@ -1,5 +1,6 @@
 #ifndef ERROR_H
 #define ERROR_H
+#include <stdbool.h>
 
 // errors.h includes all of the error messages in WendyScript
 
@@ -24,6 +25,7 @@
 
 // VM Errors:
 #define INVALID_OPCODE "VM Crash - Invalid OpCode."
+#define INVALID_HEADER "Invalid binary header!"
 
 // Preprocessor Messages:
 #define INCOMPLETE_LAMBDA "Incomplete lambda definition!"
@@ -40,7 +42,7 @@
 // Interpreter Messages:
 //   GENERAL ERRORS
 #define RESERVED_TOKEN "Reserved Token used for Identifier!"
-#define TOKEN_DECLARED "Identifier was already declared! Use 'set' to mutate!"
+#define TOKEN_DECLARED "Identifier was already declared!"
 #define SYNTAX_ERROR "Syntax Error!"
 #define TYPE_ERROR "Type Error!"
 #define INCOMPLETE_STATEMENT "Incomplete statement!"
@@ -134,4 +136,7 @@ void d_error(char* message);
 
 // free_error() frees the allocated space for the source
 void free_error();
+
+void reset_error_flag();
+bool get_error_flag();
 #endif

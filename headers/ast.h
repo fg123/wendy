@@ -5,6 +5,7 @@
 
 // AST.H declares the abstract syntax tree of WendyScript before it compiles
 //   to WendyScript Byte Code
+
 // WendyScript Syntax Grammar is defined as follows:
 //	expression_list	->	assignment | assignment "," expression_list
 //	expression      ->  assignment
@@ -39,7 +40,7 @@ typedef struct expr {
 			struct {	int					length;	
 						struct expr_list*	contents; }		list_expr;
 			struct {	struct expr_list*	parameters;
-						struct statement_list* body; }		func_expr;
+						struct statement*	body; }		    func_expr;
 			struct {	token				operator;
 						struct expr*		lvalue;
 						struct expr*		rvalue; }		assign_expr;
@@ -63,7 +64,8 @@ typedef struct statement {
 			struct {	token		name; 
 						token		parent;
 						expr_list*	instance_members;
-						expr_list*  static_members; }	struct_statement;
+						expr_list*  static_members; 
+						expr* init_fn; }				struct_statement;
 			struct {	expr*		condition; 
 						struct statement*	statement_true;
 						struct statement*	statement_false; }	if_statement;
@@ -79,59 +81,15 @@ typedef struct statement_list {
 	struct statement_list*	next;
 } statement_list;
 
-// is_at_end() checks if the parser is at the end
-static bool is_at_end();
-
-// match(count, ...) checks for a match of the token stream
-static bool fnmatch(int count, ...);
-
-// advance() proceeds to the next token
-static token advance();
-
-// peek() peeks the next token
-static token peek();
-
-// previous() returns the last token
-static token previous();
-
-// check(type) checks the next token
-static bool check(token_type type);
-
-// generate_ast(tokens, length) generates an ast based on the tokens/lengths
+// generate_ast(tokens, length) generates an ast based on the tokens/length
 statement_list* generate_ast(token* tokens, size_t length);
 
 // free_ast(ast) frees all the memory associated with the AST
 void free_ast(statement_list* ast);
 
 // prints the tree in post order
-void print_ast(statement_list* ast); 
+void print_ast(statement_list* ast);
 
-// traverse_ast(ast, a, b, c, d, order)
-void traverse_ast(statement_list* list, 
-		void (*a)(void*), void (*b)(void*), 
-		void (*c)(void*), void (*d)(void*), bool order);
-
-// Following Functions create expression node
-//   effects: will allocated memory, caller must free
-expr* make_lit_expr(token t);
-expr* make_bin_expr(expr* left, token op, expr* right);
-expr* make_una_expr(token op, expr* operand);
-expr* make_call_expr(expr* left, expr_list* arg_list);
-expr* make_list_expr(expr_list* list);
-expr* make_func_expr(expr_list* parameters, statement_list* body);
-expr* make_assign_expr(expr* left, expr* right, token op);
-expr* make_lvalue_expr(expr* left, token op, expr* right);
-
-// The following functions create, parse, and return the corresponding
-//   expression or statement.
-expr* parse_expression();
-
-statement* parse_statement();
-statement_list* parse_statement_list();
-
-
-
-
-
-
+// ast_error_flag()
+bool ast_error_flag();
 #endif

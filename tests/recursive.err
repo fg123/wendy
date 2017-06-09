@@ -1,128 +1,25 @@
- Statement List Item:
- (0x7fc51b001000) Let Statement (0x7fc51b001a00, 0x7fc51b00d200)
-  (0x7fc51b001a00) Literal Expression factorial
-  Function Expression
-    Expression List Item:
-    (0x7fc51b002000) Literal Expression x
-    Statement List Item:
-    (0x7fc51b002600) Let Statement (0x7fc51b003000, 0x7fc51b00b000)
-      (0x7fc51b003000) Literal Expression my_local_fac
-      Function Expression
-        Expression List Item:
-        (0x7fc51b003600) Literal Expression x
-        Statement List Item:
-        (0x7fc51b003c00) If Statement (0x7fc51b005200) T(0x7fc51b005800) F(0x7fc51b007200)
-          (0x7fc51b005200) Binary Expression (0x7fc51b004600, 0x7fc51b004c00)
-            (0x7fc51b004600) Literal Expression x
-            (0x7fc51b004c00) Literal Expression 1
-          (0x7fc51b005800) Block Statement (0x7fc51a5003f0)
-            Statement List Item:
-            (0x7fc51b006200) Operation Statement ret (0x7fc51b006c00)
-              (0x7fc51b006c00) Literal Expression 1
-          (0x7fc51b007200) Block Statement (0x7fc51a500400)
-            Statement List Item:
-            (0x7fc51b007c00) Operation Statement ret (0x7fc51b00aa00)
-              (0x7fc51b00aa00) Binary Expression (0x7fc51b008600, 0x7fc51b00a400)
-                (0x7fc51b008600) Literal Expression x
-                Call Expression
-                  (0x7fc51b008c00) Literal Expression my_local_fac
-                  Expression List Item:
-                  (0x7fc51b009e00) Binary Expression (0x7fc51b009200, 0x7fc51b009800)
-                    (0x7fc51b009200) Literal Expression x
-                    (0x7fc51b009800) Literal Expression 1
-    Statement List Item:
-    (0x7fc51b00b600) Operation Statement ret (0x7fc51b00cc00)
-      Call Expression
-        (0x7fc51b00c000) Literal Expression my_local_fac
-        Expression List Item:
-        (0x7fc51b00c600) Literal Expression x
- Statement List Item:
- (0x7fc51b00d800) Let Statement (0x7fc51b00e200, 0x7fc51b011c00)
-  (0x7fc51b00e200) Literal Expression my_compare
-  Function Expression
-    Expression List Item:
-    (0x7fc51b00e800) Literal Expression a
-    Expression List Item:
-    (0x7fc51b00ee00) Literal Expression b
-    Expression List Item:
-    (0x7fc51b00f400) Literal Expression op
-    Statement List Item:
-    (0x7fc51b00fa00) Operation Statement ret (0x7fc51b011600)
-      Call Expression
-        (0x7fc51b010400) Literal Expression op
-        Expression List Item:
-        (0x7fc51b010a00) Literal Expression a
-        Expression List Item:
-        (0x7fc51b011000) Literal Expression b
- Statement List Item:
- (0x7fc51b012200) Let Statement (0x7fc51b012c00, 0x7fc51b015a00)
-  (0x7fc51b012c00) Literal Expression greater_than
-  Function Expression
-    Expression List Item:
-    (0x7fc51b013200) Literal Expression a
-    Expression List Item:
-    (0x7fc51b013800) Literal Expression b
-    Statement List Item:
-    (0x7fc51b013e00) Operation Statement ret (0x7fc51b015400)
-      (0x7fc51b015400) Binary Expression (0x7fc51b014800, 0x7fc51b014e00)
-        (0x7fc51b014800) Literal Expression a
-        (0x7fc51b014e00) Literal Expression b
- Statement List Item:
- (0x7fc51b016000) Let Statement (0x7fc51b016a00, 0x7fc51b01f600)
-  (0x7fc51b016a00) Literal Expression power
-  Function Expression
-    Expression List Item:
-    (0x7fc51b017000) Literal Expression a
-    Expression List Item:
-    (0x7fc51b017600) Literal Expression b
-    Statement List Item:
-    (0x7fc51b017c00) If Statement (0x7fc51b019200) T(0x7fc51b019800) F(0x7fc51b01b200)
-      (0x7fc51b019200) Binary Expression (0x7fc51b018600, 0x7fc51b018c00)
-        (0x7fc51b018600) Literal Expression b
-        (0x7fc51b018c00) Literal Expression 1
-      (0x7fc51b019800) Block Statement (0x7fc51a500530)
-        Statement List Item:
-        (0x7fc51b01a200) Operation Statement ret (0x7fc51b01ac00)
-          (0x7fc51b01ac00) Literal Expression a
-      (0x7fc51b01b200) Block Statement (0x7fc51a500540)
-        Statement List Item:
-        (0x7fc51b01bc00) Operation Statement ret (0x7fc51b01f000)
-          (0x7fc51b01f000) Binary Expression (0x7fc51b01c600, 0x7fc51b01ea00)
-            (0x7fc51b01c600) Literal Expression a
-            Call Expression
-              (0x7fc51b01cc00) Literal Expression power
-              Expression List Item:
-              (0x7fc51b01d200) Literal Expression a
-              Expression List Item:
-              (0x7fc51b01e400) Binary Expression (0x7fc51b01d800, 0x7fc51b01de00)
-                (0x7fc51b01d800) Literal Expression b
-                (0x7fc51b01de00) Literal Expression 1
- Statement List Item:
- (0x7fc51b01fc00) Expression Statement (0x7fc51b021e00)
-  Call Expression
-    (0x7fc51b020600) Literal Expression my_compare
-    Expression List Item:
-    (0x7fc51b020c00) Literal Expression 21
-    Expression List Item:
-    (0x7fc51b021200) Literal Expression 20
-    Expression List Item:
-    (0x7fc51b021800) Literal Expression greater_than
- Statement List Item:
- (0x7fc51b022400) Expression Statement (0x7fc51b024600)
-  Call Expression
-    (0x7fc51b022e00) Literal Expression my_compare
-    Expression List Item:
-    (0x7fc51b023400) Literal Expression 3
-    Expression List Item:
-    (0x7fc51b023a00) Literal Expression 4
-    Expression List Item:
-    (0x7fc51b024000) Literal Expression power
- Statement List Item:
- (0x7fc51b024c00) Expression Statement (0x7fc51b026200)
-  Call Expression
-    (0x7fc51b025600) Literal Expression factorial
-    Expression List Item:
-    (0x7fc51b025c00) Literal Expression 5
 <true>
 81
-120
+[31mRuntime Error[0m at line [33m36 (24)[0m: x: Identifier was already declared!
+==========================
+ Line Source
+   35 
+
+==========================
+
+===============
+Dump: Stack Trace
+    0      [[34m> main()[0m -> 0: <none>]
+    1      [#R/A -> 0: <none>]
+    2      [factorial -> 4: <function>]
+    3      [my_compare -> 7: <function>]
+    4      [greater_than -> 10: <function>]
+    5      [power -> 13: <function>]
+    6      [[34m> function()[0m -> 0: <none>]
+    7      [#R/A -> 597: ]
+    8      [x -> 30: 5]
+    9      [my_local_fac -> 33: <function>]
+   10 FP-> [[34m> function()[0m -> 6]
+   11      [#R/A -> 180: ]
+   12      [x -> 30: 5]
+===============
