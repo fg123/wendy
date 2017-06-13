@@ -3,18 +3,17 @@
 
 // This file contains information that the majority of WendyScript modules use.
 #include <stdbool.h>
+#include <stdlib.h>
 
 // Main Information
 #define WENDY_VERSION "Wendy 2.0"
-#define INPUT_BUFFER_SIZE 2048
+#define INPUT_BUFFER_SIZE 256
 #define WENDY_VM_HEADER "WendyVM Bytecode"
 
 // Data/Token Information
 #define MAX_STRING_LEN 1024
 #define MAX_LIST_INIT_LEN 100
 #define MAX_STRUCT_META_LEN 100
-
-// CodeGenerator Information
 
 // Always have 1024 more bytes than we need in the allocation.
 #define CODEGEN_PAD_SIZE 512
@@ -42,4 +41,16 @@ typedef enum {
 void set_settings_flag(settings_flags flag);
 bool get_settings_flag(settings_flags flag);
 
+#define safe_malloc(size) safe_malloc_impl(size, __FILE__, __LINE__)
+#define safe_free(ptr) safe_free_impl(ptr, __FILE__, __LINE__)
+#define safe_calloc(num, size) safe_calloc_impl(num, size, __FILE__, __LINE__)
+#define safe_realloc(ptr, size) safe_realloc_impl(ptr, size, __FILE__, __LINE__)
+void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num);
+void* safe_malloc_impl(size_t size, char* filename, int line_num);
+void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num); 
+void safe_free_impl(void* ptr, char* filename, int line_num);
+
+void free_alloc();
+void check_leak();
+void safe_exit(int code);
 #endif

@@ -1,6 +1,5 @@
 #include "ast.h"
 #include "global.h"
-#include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include "token.h"
@@ -8,6 +7,7 @@
 #include "error.h"
 #include <string.h>
 #include "memory.h"
+#include "execpath.h"
 
 // Implementation of Wendy ByteCode Generator
 
@@ -22,7 +22,7 @@ int verify_header(uint8_t* bytecode) {
 		return strlen(WENDY_VM_HEADER) + 1;
 	}
 	else {
-		error(0, INVALID_HEADER); 
+		error_general(GENERAL_INVALID_HEADER); 
 	}
 	return 0;
 }
@@ -30,10 +30,7 @@ int verify_header(uint8_t* bytecode) {
 static void guarantee_size() {
 	if (size + CODEGEN_PAD_SIZE	> capacity) {
 		capacity *= 2;
-		uint8_t* re = realloc(bytecode, capacity * sizeof(uint8_t));
-		if (!re) {
-			w_error(REALLOC_ERROR);
-		}
+		uint8_t* re = safe_realloc(bytecode, capacity * sizeof(uint8_t));
 		bytecode = re;
 	}
 }
@@ -69,6 +66,10 @@ static void write_double_at(double a, int pos) {
 
 }
 
+static void write_integer(int a) {
+	write_address(a);
+}
+
 // writes the token to the bytestream, guaranteed to be a literal
 static void write_token(token t) {
 	bytecode[size++] = t.t_type;
@@ -99,7 +100,9 @@ static void codegen_lvalue_expr(expr* expression) {
 	if (expression->type == E_LITERAL) {
 		// Better be a identifier eh
 		if (expression->op.lit_expr.t_type != IDENTIFIER) {
-			error(expression->op.lit_expr.t_line, LVALUE_EXPECTED_IDENTIFIER);
+			error_lexer(expression->op.lit_expr.t_line,
+				expression->op.lit_expr.t_col,
+				CODEGEN_LVALUE_EXPECTED_IDENTIFIER);
 		}
 		write_opcode(WHERE);
 		write_string(expression->op.lit_expr.t_data.string);
@@ -110,7 +113,8 @@ static void codegen_lvalue_expr(expr* expression) {
 
 		if (expression->op.bin_expr.operator.t_type == DOT) {
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
-				error(expression->op.bin_expr.operator.t_line, SYNTAX_ERROR);
+				error_lexer(expression->line, expression->col,
+					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
 			}
 			expression->op.bin_expr.right->op.lit_expr.t_type = MEMBER;
 			write_opcode(OPUSH);
@@ -122,11 +126,12 @@ static void codegen_lvalue_expr(expr* expression) {
 			write_opcode(NTHPTR);
 		}
 		else {
-			error(0, INVALID_LVALUE); 
+			error_lexer(expression->line, expression->col, 
+					CODEGEN_INVALID_LVALUE_BINOP); 
 		}
 	}
 	else {
-		error(0, INVALID_LVALUE);
+		error_lexer(expression->line, expression->col, CODEGEN_INVALID_LVALUE);
 	}
 }
 
@@ -149,7 +154,7 @@ static opcode tok_to_opcode(token t) {
 		case EXPLODE:
 		case REQ:
 		default:
-			error(0, "TO BE IMPLEMENTED");
+			error_general(GENERAL_NOT_IMPLEMENTED, token_string[t.t_type]);
 	}
 	return 0;
 }
@@ -157,6 +162,8 @@ static opcode tok_to_opcode(token t) {
 static void codegen_statement(void* expre) {
 	if (!expre) return;
 	statement* state = (statement*) expre;
+	write_opcode(SRC);
+	write_integer(state->src_line);
 	if (state->type == S_LET) {
 		codegen_expr(state->op.let_statement.rvalue);
 		// Request Memory
@@ -186,6 +193,47 @@ static void codegen_statement(void* expre) {
 	else if (state->type == S_BLOCK) {
 		codegen_statement_list(state->op.block_statement);
 	}
+	else if (state->type == S_IMPORT) {
+		if (state->op.import_statement.t_type == STRING) {
+			// Already handled by the scanner class.
+			return;
+		}
+		// Has to be identifier now.
+		char* path = get_path();
+		long length = 0;
+		
+		uint8_t* buffer;
+		strcat(path, "wendy-lib/");
+		strcat(path, state->op.import_statement.t_data.string);
+		strcat(path, ".wc");
+		//printf("Attempting to open: %s\n", path);
+		FILE * f = fopen(path, "r");
+		if (f) {
+			fseek (f, 0, SEEK_END);
+			length = ftell (f);
+			fseek (f, 0, SEEK_SET);
+			buffer = safe_malloc(length); // + 1 for null terminator
+			fread (buffer, sizeof(uint8_t), length, f);
+			write_opcode(BADR);
+			int offset = size + sizeof(int) - strlen(WENDY_VM_HEADER) - 1;
+			write_integer(offset);
+			for (long i = verify_header(buffer); i < length; i++) {
+				if (i == length - 1 && buffer[i] == HALT) break;
+				bytecode[size++] = buffer[i];
+				guarantee_size();
+			}
+			write_opcode(BADR);
+			write_integer(-1 * offset);
+			safe_free(buffer);
+			fclose (f);
+		}
+		else {
+			error_lexer(state->op.import_statement.t_line, 
+						state->op.import_statement.t_col, 
+						CODEGEN_REQ_FILE_READ_ERR);
+		}
+		safe_free(path);
+	}
 	else if (state->type == S_STRUCT) {
 		int push_size = 2; // For Header and Name
 		char* struct_name = state->op.struct_statement.name.t_data.string;
@@ -209,7 +257,7 @@ static void codegen_statement(void* expre) {
 			write_string(state->op.struct_statement.parent.t_data.string);
 			write_opcode(ASSERT);
 			bytecode[size++] = STRUCT;
-			write_string(PARENT_NOT_STRUCT);
+			write_string(CODEGEN_PARENT_NOT_STRUCT);
 
 			write_opcode(READ); // Read Parent Element In
 			write_opcode(CHTYPE);  // Store Address of Struct Meta in Data Reg
@@ -224,7 +272,7 @@ static void codegen_statement(void* expre) {
 			expr* elem = curr->elem;
 			if (elem->type != E_LITERAL 
 				|| elem->op.lit_expr.t_type != IDENTIFIER) {
-				error(elem->op.lit_expr.t_line, SYNTAX_ERROR);
+				error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
 			}
 			write_opcode(OPUSH);
 			write_token(make_token(STRUCT_PARAM, elem->op.lit_expr.t_data));
@@ -236,7 +284,7 @@ static void codegen_statement(void* expre) {
 			expr* elem = curr->elem;
 			if (elem->type != E_LITERAL 
 				|| elem->op.lit_expr.t_type != IDENTIFIER) {
-				error(elem->op.lit_expr.t_line, SYNTAX_ERROR);
+				error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
 			}
 			write_opcode(OPUSH);
 			write_token(make_token(STRUCT_STATIC, elem->op.lit_expr.t_data));
@@ -358,7 +406,8 @@ static void codegen_expr(void* expre) {
 		if (expression->op.bin_expr.operator.t_type == DOT) {
 			codegen_expr(expression->op.bin_expr.left);
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
-				error(expression->op.bin_expr.operator.t_line, SYNTAX_ERROR);
+				error_lexer(expression->line, expression->col,
+					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
 			}
 			expression->op.bin_expr.right->op.lit_expr.t_type = MEMBER;
 			write_opcode(OPUSH);
@@ -479,7 +528,7 @@ static void codegen_expr(void* expre) {
 uint8_t* generate_code(statement_list* _ast) {
 	// reset
 	capacity = CODEGEN_START_SIZE;
-	bytecode = malloc(capacity * sizeof(uint8_t));
+	bytecode = safe_malloc(capacity * sizeof(uint8_t));
 	size = 0;
 	global_loop_id = 0;
 	write_string(WENDY_VM_HEADER);
@@ -522,6 +571,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 	fprintf(buffer, YEL WENDY_VM_HEADER);
 	fprintf(buffer, GRN "\n.code\n");
 	int maxlen = 12;
+	int baseaddr = 0;
 	for (unsigned int i = verify_header(bytecode);; i++) {
 		unsigned int start = i;
 		fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
@@ -558,6 +608,23 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 		else if (op == OREQ || op == PLIST) {
 			i++;
 			fprintf(buffer, "0x%X", bytecode[i]);
+		}
+		else if (op == BADR) {
+			void* loc = &bytecode[i + 1];
+			i += sizeof(int);
+			int offset = *((int*)loc);
+			if (offset < 0) {
+				fprintf(buffer, "-0x%X", -offset);
+			}
+			else {
+				fprintf(buffer, "0x%X", offset);
+			}
+			baseaddr += offset;
+		}
+		else if (op == SRC) {
+			void* loc = &bytecode[i + 1];
+			i += sizeof(address);
+			fprintf(buffer, "0x%X", *((address*)loc));
 		}
 		else if (op == JMP || op == JIF) {
 			void* loc = &bytecode[i + 1];

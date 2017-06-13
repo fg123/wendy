@@ -2,6 +2,7 @@
 #define CODEGEN_H
 
 #include "ast.h"
+#include <stdint.h>
 
 // codegen.h - Felix Guo
 // This module generates the bytecode that runs on the WendyVM, based on the
@@ -29,6 +30,7 @@
 // [size]        | uint8_t(1)
 // [address]     | uint32_t(4)
 // [number]      | uint8_t(1)
+// [int32]       | uint32_t(4)
 // =============================================================================
 // BYTE | OPCODE | PARAMETER | STACK CHANGE
 // > EXPLANATION
@@ -95,12 +97,14 @@
 // 0x22 | RBW    | [string]  | REQ-BIND-WRITE, requests 1, binds string 
 // 0x23 | CHTYPE | [toktype] | changes the type of the top of the stack
 // 0x24 | HALT   |           | halt instruction, end program
+// 0x25 | SRC    | [int32]   | store the src line number
+// 0x26 | BADR   | [int32]   | change the base address by the value given
 
 typedef enum opcode { 
 	OPUSH, OPOP, BIN, UNA, OCALL, ORET, BIND, OREQ, WHERE, OUT, OUTL, IN, PLIST, 
 	ORANGE, READ, WRITE, JMP, MADD, MSUB, JIF, FRM, END, LJMP, LBIND, OINC, 
 	ODEC, NTHPTR, MEMPTR, ASSERT, MPTR, DIN, DOUT, CLOSUR, RBIN, RBW, CHTYPE, 
-	HALT } 
+	HALT, SRC, BADR } 
 	opcode;
 
 static char* opcode_string[] = {
@@ -108,7 +112,7 @@ static char* opcode_string[] = {
 	"where", "out", "outl", "in", "plist", "range", "read", "write", "jmp", "madd", 
 	"msub", "jif", "frm", "end", "ljmp", "lbind", "inc", "dec", "nthptr",
 	"memptr", "assert", "mptr", "din", "dout", "closur", "rbin", "rbw", "chtype",
-	"halt"
+	"halt", "src", "badr"
 };
 
 // generate_code(ast) generates Wendy ByteCode based on the ast and 

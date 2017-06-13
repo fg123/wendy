@@ -23,31 +23,29 @@ let filter => (fn, list) {
 		ret filter(fn, list[1->list.size]);
 	};
 };
-/*
+
 let sort => (list) {
 	let insert => (elem, list) {
 		let result = [];
-		let i = 0;
 		let added = false;
-		loop (i < list.size) {
+		for i:0->list.size {
 			if (elem < list[i] and !added) {
-				set result = result + elem;
-				set added = true;
+				result += elem;
+				added = true;
 			};
-			set result = result + list[i];
+			result += list[i];
 			inc i;
 		};
 		if (!added) {
-			set result = result + elem;
+			result += elem;
 		};
 		ret result;
 	};
   	let result = [];
   	let i = 0;
-  	loop (i < list.size) {
-  		set result = insert(list[i], result);
+  	for (i < list.size) {
+  		result = insert(list[i], result);
     	inc i;
   	};
 	ret result;
 };
-*/

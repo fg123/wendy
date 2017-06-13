@@ -45,7 +45,9 @@ typedef struct expr {
 						struct expr*		lvalue;
 						struct expr*		rvalue; }		assign_expr;
 
-		} op;			
+		} op;
+	int col;
+	int line;
 } expr;
 
 typedef struct expr_list {
@@ -54,7 +56,8 @@ typedef struct expr_list {
 } expr_list;
 
 typedef struct statement { 
-	enum { S_EXPR, S_OPERATION, S_LET, S_STRUCT, S_IF, S_BLOCK, S_LOOP, S_SET } 
+	enum { S_EXPR, S_OPERATION, S_LET, S_STRUCT, S_IF, S_BLOCK, S_LOOP, S_SET, 
+		S_IMPORT } 
 		type;
 	union { expr*										expr_statement;
 			struct {	token		operator;
@@ -73,7 +76,9 @@ typedef struct statement {
 						expr*		condition;
 						struct statement*	statement_true;	} loop_statement;
 			struct statement_list*						block_statement;
+			token										import_statement;
 	} op;
+	int src_line;
 } statement;
 
 typedef struct statement_list {

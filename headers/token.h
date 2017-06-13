@@ -123,6 +123,7 @@ typedef union {
 typedef struct {	
 	token_type t_type;
 	int t_line;
+	int t_col;
 	data t_data;
 } token;
 
@@ -179,4 +180,7 @@ int precedence(token op);
 // is_numeric(tok) returns true if the token holds a numeric value and false
 //   otherwise.
 bool is_numeric(token tok);
+
+
+void set_make_token_param(int l, int c); 
 #endif

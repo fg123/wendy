@@ -1,6 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include "stack.h"
 #include "memory.h"
 #include "error.h"
 #include "execpath.h"
@@ -13,13 +11,12 @@
 #include "ast.h"
 #include "vm.h"
 #include "codegen.h"
+#include "source.h"
 
 #ifdef _WIN32
-
-/* Fake readline function */
 char* readline(char* prompt) {
   fputs(prompt, stdout);
-  char* cpy = malloc(INPUT_BUFFER_SIZE);
+  char* cpy = safe_malloc(INPUT_BUFFER_SIZE);
   fgets(cpy, INPUT_BUFFER_SIZE, stdin);
   return cpy;
 }
@@ -31,8 +28,6 @@ void add_history(char* prompt) {
 void clear_console() {
 	system("cls");
 }
-
-/* Otherwise include the editline headers */
 #else
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -58,7 +53,7 @@ void invalid_usage() {
 	printf("\nWendy will enter REPL mode if no parameters are supplied.\n");
 //	printf("\n-d file b1 b2 ...\n	Enables debugging mode, with an output file and an initial set of breakpoints.");
 
-	exit(1);
+	safe_exit(1);
 }
 
 void process_options(char** options, int len) {
@@ -107,24 +102,25 @@ void run(char* input_string) {
 	if(!ast_error_flag()) { 
 		uint8_t* bytecode = generate_code(ast);
 		vm_run(bytecode);
-		free(bytecode);
+		safe_free(bytecode);
 	}
 	free_ast(ast);
-	free(tokens);
+	safe_free(tokens);
 }
 
 int main(int argc, char** argv) {
 	init_memory();
 	if (argc == 1) {
+		init_source(0, "", 0, false);
 		clear_console();
 		printf("Welcome to %s created by: Felix Guo\n", WENDY_VERSION);
 		printf("Run `wendy -help` to get help. \nPress Ctrl+D (EOF) to exit REPL.\n");
 		char* path = get_path();
 		printf("Path: %s\n", path);
-		free(path);
+		safe_free(path);
 		char *input_buffer;
 		// ENTER REPL MODE
-		push_frame("main", 0);
+		push_frame("main", 0, 0);
 		while (1) {
 			input_buffer = readline("> ");
 			if(!input_buffer) {
@@ -133,9 +129,8 @@ int main(int argc, char** argv) {
 				return 0;
 			}
 			add_history(input_buffer);
-		//	init_error(input_buffer);
 			run(input_buffer);
-			free(input_buffer);
+			safe_free(input_buffer);
 		}
 		c_free_memory();
 		return 0;
@@ -154,7 +149,7 @@ int main(int argc, char** argv) {
 		FILE *file = fopen(argv[1], "r");
 		if (!file) {
 			printf("Error opening file to determine type.\n");
-			exit(1);
+			safe_exit(1);
 		}
 		// Compute File Size
 		fseek(file, 0, SEEK_END);
@@ -173,15 +168,9 @@ int main(int argc, char** argv) {
 		// File Pointer should be reset
 		uint8_t* bytecode_stream;
 		if (!is_compiled) {
+			init_source(file, argv[1], length, true);
 			// Text Source
-			char* buffer = malloc(sizeof(char) * (length + 1));
-			if (!buffer) {
-				printf("Error allocating buffer for source input!\n");
-				exit(1);
-			}
-			fread(buffer, sizeof(char), length, file);
-			buffer[length] = '\0';
-
+			char* buffer = get_source_buffer(); 
 			// Begin Processing the File
 			size_t alloc_size = 0;
 			token* tokens;
@@ -198,13 +187,31 @@ int main(int argc, char** argv) {
 			
 			// Generate Bytecode
 			bytecode_stream = generate_code(ast);
-			free(buffer);
-			free(tokens);
+			safe_free(tokens);
 			free_ast(ast);
 		}
 		else {
 			// Compiled Source
-			bytecode_stream = malloc(sizeof(uint8_t) * length);
+			char* search_name = safe_malloc(sizeof(char) * 
+					(strlen(argv[1]) + 1));
+			strcpy(search_name, argv[1]);
+			int i = strlen(search_name);
+			while (search_name[i] != '.') i--;
+			search_name[i + 1] = 0;
+			strcat(search_name, "w");
+			FILE* source_file = fopen(search_name, "r");
+			if (source_file) {	
+				fseek(source_file, 0, SEEK_END);
+				long length = ftell(source_file);
+				fseek (source_file, 0, SEEK_SET);
+				init_source(source_file, search_name, length, false);
+				fclose(source_file);
+			}
+			else {
+				init_source(0, "", 0, false);
+			}
+			safe_free(search_name);
+			bytecode_stream = safe_malloc(sizeof(uint8_t) * length);
 			fread(bytecode_stream, sizeof(uint8_t), length, file);
 		}
 		fclose(file);
@@ -218,7 +225,7 @@ int main(int argc, char** argv) {
 			}
 			else {
 				int new_file_length = file_name_length + 2;
-				char* compile_path = malloc(length * sizeof(char));
+				char* compile_path = safe_malloc(length * sizeof(char));
 				strcpy(compile_path, argv[1]);
 				strcat(compile_path, "c");
 				
@@ -230,18 +237,20 @@ int main(int argc, char** argv) {
 				else {
 					printf("Error opening compile file to write.\n");
 				}
-				if (compile_path) free(compile_path);
+				if (compile_path) safe_free(compile_path);
 			}
 		}
 		else {
-			push_frame("main", 0);
+			push_frame("main", 0, 0);
 			vm_run(bytecode_stream);
-			free(bytecode_stream);	
 			if (!last_printed_newline) {
 				printf("\n");
 			}
 		}
-	}	
+		safe_free(bytecode_stream);	
+	}
+	free_source();
 	c_free_memory();
+	check_leak();
 	return 0;
 }

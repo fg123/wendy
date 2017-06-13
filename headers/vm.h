@@ -2,6 +2,7 @@
 #define VM_H
 #include "token.h"
 #include "stdint.h"
+#include "memory.h"
 
 // vm_run(bytecode) runs the given bytecode.
 void vm_run(uint8_t* bytecode);
@@ -19,4 +20,7 @@ static token type_of(token a);
 
 // size_of(a) returns the size of the token a in a NUMBER token.
 static token size_of(token a);
+
+// get_instruction_pointer() returns the current instruction pointer.
+address get_instruction_pointer();
 #endif

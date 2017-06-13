@@ -25,6 +25,7 @@ typedef unsigned int address;
 typedef struct {
 	char id[MAX_IDENTIFIER_LEN + 1];
 	address val;
+	bool is_closure;
 } stack_entry;
 
 typedef struct mem_block mem_block;
@@ -55,8 +56,8 @@ void init_memory();
 // c_free_memory() deallocates the memory
 void c_free_memory();
 
-// check_memory() ensures all the pointers are within the memory space
-void check_memory();
+// check_memory(line) ensures all the pointers are within the memory space
+void check_memory(int line);
 
 // garbage_collect() collects unused memory and stores it in the linked list
 //   free_memory. Returns true if some memory was collected and false otherwise.
@@ -72,7 +73,7 @@ bool has_memory(int size);
 
 // pls_give_memory(size) requests memory from Wendy and returns the address
 //   of the requested block.
-address pls_give_memory(int size);
+address pls_give_memory(int size, int line);
 
 // here_u_go(a, size) returns memory to Wendy
 void here_u_go(address a, int size);
@@ -81,10 +82,10 @@ void here_u_go(address a, int size);
 extern address memory_pointer;
 
 // push_frame(name) creates a new stack frame (when starting a function call)
-void push_frame(char* name, address ret);
+void push_frame(char* name, address ret, int line);
 
 // push_auto_frame() creates an automatical local variable frame
-void push_auto_frame(address ret, char* type);
+void push_auto_frame(address ret, char* type, int line);
 
 // pop_frame(is_ret) ends a function call, pops the latest stack frame 
 //   (including automatically created local frames IF is_ret!
@@ -117,11 +118,11 @@ void replace_memory(token t, address a);
 
 // push_stack_entry(id, t) adds a new entry into the 
 // stack frame (eg variable declaration).
-void push_stack_entry(char* id, address val);
+void push_stack_entry(char* id, address val, int line);
 
 // copy_stack_entry(se) copies the given stack entry into the top of the call
-//   stack
-void copy_stack_entry(stack_entry se);
+//   stack, USE FOR CLOSURES
+void copy_stack_entry(stack_entry se, int line);
 
 // id_exist(id, search_main) returns true if id exists in the current stackframe 
 bool id_exist(char* id, bool search_main);
@@ -144,7 +145,7 @@ void print_call_stack(int maxlines);
 address get_stack_pos_of_id(char* id, int line);
 
 // push_arg(t) pushes a token t into the other end of memory
-void push_arg(token t);
+void push_arg(token t, int line);
 
 // pop_arg(line) returns the top token t at the other end of memory
 token pop_arg(int line);

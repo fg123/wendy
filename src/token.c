@@ -2,41 +2,67 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
 #include "global.h"
 #include "memory.h"
 
 bool last_printed_newline = false;
+static int line;
+static int col;
+
+void set_make_token_param(int l, int c) {
+	line = l;
+	col = c;
+}
 
 token none_token() {
-	return make_token(NONE, make_data_str("<none>"));
+	token t = make_token(NONE, make_data_str("<none>"));
+	t.t_line = line;
+	t.t_col = col;
+	return t;
 }
 
 token true_token() {
-	return make_token(TRUE, make_data_str("<true>"));
+	token t = make_token(TRUE, make_data_str("<true>"));
+	t.t_line = line;
+	t.t_col = col;
+	return t;
 }
 
 token false_token() {
-	return make_token(FALSE, make_data_str("<false>"));
+	token t =  make_token(FALSE, make_data_str("<false>"));
+	t.t_line = line;
+	t.t_col = col;
+	return t;
 }
 
 token time_token() {
-	return make_token(NUMBER, make_data_num(time(NULL)));
+	token t = make_token(NUMBER, make_data_num(time(NULL)));
+	t.t_line = line;
+	t.t_col = col;
+	return t;
 }
 
 token noneret_token() {
-	return make_token(NONERET, make_data_str("<noneret>"));
+	token t = make_token(NONERET, make_data_str("<noneret>"));
+	t.t_line = line;
+	t.t_col = col;
+	return t;
 }
 
 token empty_token() {
-	return make_token(EMPTY, make_data_str(""));
+	token t = make_token(EMPTY, make_data_str(""));
+	t.t_line = line;
+	t.t_col = col;
+	return t;
 }
 
 token range_token(int start, int end) {
 	token res = make_token(RANGE, make_data_str(""));
 	sprintf(res.t_data.string, "%d|%d", start, end);
+	res.t_line = line;
+	res.t_col = col;
 	return res;
 }
 
@@ -81,7 +107,7 @@ token list_header_token(int size) {
 }*/
 
 token make_token(token_type t, data d) {
-	token token_ = { t, 0, d };
+	token token_ = { t, 0, 0, d };
 	return token_;
 }
 
@@ -156,7 +182,7 @@ void print_token_inline(const token* t, FILE* buf) {
 	else if (t->t_type == NUMBER) {
 		size_t len = snprintf(0, 0, "%f", t->t_data.number);
 //		printf("length %d\n", len);
-		char* buffer = malloc(len + 1);
+		char* buffer = safe_malloc(len + 1);
 //		memset(buffer, 0, len + 1);
 		snprintf(buffer, len + 1, "%f", t->t_data.number);
 		// Start at end, if it's 0 we clip it, otherwise we stop
@@ -170,6 +196,7 @@ void print_token_inline(const token* t, FILE* buf) {
 		}
 			
 		fprintf(buf, "%s", buffer);
+		safe_free(buffer);
 	}
 	else if (t->t_type == ADDRESS) {
 		fprintf(buf, "0x%X", (int)t->t_data.number);

@@ -1,7 +1,6 @@
 #include "scanner.h"
 #include <stdbool.h>
 #include "error.h"
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <execpath.h>
@@ -15,6 +14,7 @@ static token* tokens;
 static size_t tokens_alloc_size;
 static size_t t_curr; // t_curr is used to keep track of addToken
 static size_t line;
+static size_t col;
 
 static void add_token(token_type type);
 static void add_token_V(token_type type, data val);
@@ -28,7 +28,7 @@ static bool is_at_end() {
 static bool match(char expected) {
 	if (is_at_end()) return false;
 	if (source[current] != expected) return false;
-
+	col++;
 	current++;
 	return true;
 }
@@ -42,6 +42,7 @@ static char peek() {
 // advance() returns the current character then moves onto the next one
 static char advance() {
 	current++;
+	col++;
 	return source[current - 1];
 }
 // peek_next() peeks at the character after the next or \0 if at end
@@ -67,72 +68,56 @@ static bool is_alpha_numeric(char c) {
 	return is_alpha(c) || is_digit(c);
 }
 
-// handle_req() processes when a file is "req"ed, this is called when we 
-//   encounter a req
-//   We first find the file and get the file's contents, then append it
-//   right after in the source code and increase the length as needed.
-static void handle_req() {
+// handle_import() imports the string contents of the given file, otherwise
+//   leaves it for code_gen
+static void handle_import() {
 	
+	add_token(REQ);	
 	// we scan a string
 	// t_curr points to space after REQ
-	int str_loc = t_curr;
-	while (peek() != '\n' && !is_at_end()) {
+	start = current;
+	while(!scan_token()) {
 		start = current;
-		scan_token();
 	}
-	// the last token should be a string now
-	if (is_at_end() || tokens[str_loc].t_type != STRING) {
-		error(line, SYNTAX_ERROR);
-		return;
-	}
-	t_curr--;
-	// consume the semicolon
-	advance();
 	
-	// We need path to the wendy libraries
-	char* path = get_path();
-	long length = 0;
-	
-	char* buffer;
-	strcat(path, "wendy-lib/");
-	strcat(path, tokens[str_loc].t_data.string);
-	FILE * f = fopen(path, "r");
-//	printf("Attempting to open %s\n", path);
-	if (f) {
-		fseek (f, 0, SEEK_END);
-		length = ftell (f);
-		fseek (f, 0, SEEK_SET);
-		buffer = malloc(length + 1); // + 1 for null terminator
-		if (buffer) {
-			fread (buffer, 1, length, f);
-			buffer[length] = '\0'; // fread doesn't add a null terminator!
-			int newlen = source_len + strlen(buffer);
-			char* tmp = realloc(source, newlen + 1);
-			size_t o_source_len = source_len;
-			if (tmp) {
-				source = tmp;
+	if (tokens[t_curr - 1].t_type == STRING) {
+		int str_loc = t_curr - 1;
+		char* path = tokens[str_loc].t_data.string;
+		long length = 0;
+		
+		char* buffer;
+		FILE * f = fopen(path, "r");
+		//printf("Attempting to open %s\n", path);
+		if (f) {
+			fseek (f, 0, SEEK_END);
+			length = ftell (f);
+			fseek (f, 0, SEEK_SET);
+			// + 2 for null terminator and newline
+			buffer = safe_malloc(length + 2);
+			buffer[0] = '\n';
+			if (buffer) {
+				fread(buffer + 1, 1, length, f);
+				buffer[length] = '\0'; // fread doesn't add a null terminator!
+				int newlen = source_len + strlen(buffer);
+				source = safe_realloc(source, newlen + 1);
+				size_t o_source_len = source_len;
 				source_len = newlen;
+				// at this point, we inset the buffer into the source
+				// current should be the next item, we move it down buffer bytes
+				//printf("old source: \n%s\n", source);
+				memmove(&source[current + strlen(buffer)], 
+						&source[current], o_source_len - current + 1);
+				memcpy(&source[current], buffer, strlen(buffer));
+				//printf("newsource: \n%s\n", source);
 			}
-			else {
-				printf("req: Realloc Error! \n");
-				exit(1);
-			}
-			// at this point, we inset the buffer into the source
-			// current should be the next item, we move it down buffer bytes
-//			printf("old source: \n%s\n", source);
-			memmove(&source[current + strlen(buffer)], 
-					&source[current], o_source_len - current + 1);
-			memcpy(&source[current], buffer, strlen(buffer));
-//			printf("newsource: \n%s\n", source);
+			safe_free(buffer);
+			fclose (f);
 		}
-		free(buffer);
-		fclose (f);
+		else {
+			error_lexer(line, col, SCAN_REQ_FILE_READ_ERR);
+		}
+		//safe_free(path);
 	}
-	else {
-		error(line, REQ_FILE_READ_ERR);
-	}
-
-	free(path);
 }
 
 // handle_obj_type() processes the next oBJ_TYPE
@@ -142,9 +127,8 @@ static void handle_obj_type() {
 		advance();
 	}
 
-	// Unterminated string.
 	if (is_at_end()) {
-		error(line, SYNTAX_ERROR);
+		error_lexer(line, col, SCAN_EXPECTED_TOKEN, ">");
 		return;
 	}
 
@@ -170,7 +154,7 @@ static void handle_string() {
 
 	// Unterminated string.
 	if (is_at_end()) {
-		error(line, UNTERMINATED_STRING);
+		error_lexer(line, col, SCAN_UNTERMINATED_STRING);
 		return;
 	}
 
@@ -222,8 +206,8 @@ static void identifier() {
 
 	else if (strcmp(text, "ret") == 0)	{ add_token(RET); }
 	else if (strcmp(text, "explode") == 0) { add_token(EXPLODE); }
-	else if (strcmp(text, "req") == 0)	{ 
-		handle_req();
+	else if (strcmp(text, "import") == 0)	{ 
+		handle_import();
 	}
 	else if (strcmp(text, "time") == 0) { add_token(TIME); }
 	else if (strcmp(text, "inc") == 0)	{ add_token(INC); }
@@ -257,21 +241,9 @@ static void handle_number() {
 	add_token_V(NUMBER, make_data_num(num));
 }
 
-// handle_accessor() processes a accessor after a ., eg list.size
-/*void handle_accessor() {
-	while (is_alpha(peek())) advance();
-
-	char text[current - start + 1];
-	memcpy(text, &source[start], current - start);
-	text[current - start] = '\0';
-//	printf("%s", text);
-	if (strcmp(text, ".size") == 0) { add_token(ACCESS_SIZE); }
-	else { error(line, UNRECOGNIZED_ACCESSOR); }
-}*/
-
-// scan_token() processes the next token 
 static bool ignore_next = false;
-static void scan_token() {
+// returns true if we sucessfully scanned, false if it was whitespace
+static bool scan_token() {
 	char c = advance();	
 	switch(c) {
 		case '(': add_token(LEFT_PAREN); break;
@@ -318,7 +290,6 @@ static void scan_token() {
 				add_token(HASH);
 			}
 			break;
-			
 		case '*': add_token(match('=') ? ASSIGN_STAR : STAR); break;
 		case '!': add_token(match('=') ? NOT_EQUAL : NOT); break;
 		case '=': 
@@ -351,6 +322,8 @@ static void scan_token() {
 			if (match('/')) {
 				// A comment goes until the end of the line.
 				while (peek() != '\n' && !is_at_end()) advance();
+				line++;
+				col = 1;
 			}
 			else if (match('=')) {
 				add_token(ASSIGN_SLASH);
@@ -368,11 +341,12 @@ static void scan_token() {
 		case '\r':
 		case '\t':
 			// Ignore whitespace. and commas
-			break;
+			return false;
 		case '\n':
 			if (!ignore_next) line++;
 			else ignore_next = false;
-			break;
+			col = 1;
+			return false;
 		case '"': handle_string(); break;
 		default:
 			if (is_digit(c)) {
@@ -382,47 +356,34 @@ static void scan_token() {
 				identifier();
 			}
 			else {
-				printf("Char is %d, %c\n", c, c);
-				error(line, UNEXPECTED_CHARACTER);
+				error_lexer(line, col, SCAN_UNEXPECTED_CHARACTER, c);
 			}
 			break;
 		// END SWITCH HERE
 	}
+	return true;
 }
 
 int scan_tokens(char* source_, token** destination, size_t* alloc_size) {
-	// allocate enough space for the max length of the source, probably not
-	//   needed but it's a good setup.
-
 	source_len = strlen(source_);
-	source = malloc(source_len + 1);
+	source = safe_malloc(source_len + 1);
 	strcpy(source, source_);
 
 	tokens_alloc_size = source_len;
-	tokens = (token*)malloc(tokens_alloc_size * sizeof(token));
+	tokens = safe_malloc(tokens_alloc_size * sizeof(token));
 	t_curr = 0;
 	current = 0; 
 	line = 1;
-
+	col = 1;
 	while (!is_at_end()) {
 		start = current;
 		scan_token();
 	}
-	// append end of file
-	//add_token_V(EOFILE, make_data_str("EOFILE"));
 	*destination = tokens;
 	*alloc_size = tokens_alloc_size;
-	//free(source);
-	init_error(source);
+	safe_free(source);
 	return t_curr;
 }
-
-//void copy_tokens(token** destination) {
-
-//	*destination = tokens;
-//	memcpy(destination, tokens, t_curr * sizeof(token));
-//	free(tokens);
-//}
 
 static void add_token(token_type type) {
 	char val[current - start + 1];
@@ -436,19 +397,12 @@ static void add_token_V(token_type type, data val) {
 	else if (type == TRUE) { tokens[t_curr++] = true_token(); }
 	else if (type == FALSE) { tokens[t_curr++] = false_token(); }
 	else {
-		token new_t = { type, line, val };
+		token new_t = { type, line, col, val };
 		tokens[t_curr++] = new_t;
 	}
 	if (t_curr == tokens_alloc_size) {
 		tokens_alloc_size += 200;
-		token* tmp = (token*)realloc(tokens, tokens_alloc_size * sizeof(token));
-		if (tmp) {
-			tokens = tmp;
-		}
-		else {
-			printf("You have been blessed by a realloc error. Good luck figuring this out!\n");
-			exit(1);
-		}
+		tokens = safe_realloc(tokens, tokens_alloc_size * sizeof(token));
 	}
 }
 
@@ -456,10 +410,12 @@ void print_token_list(token* tokens, size_t size) {
 	for(int i = 0; i < size; i++) {
 
 		if(tokens[i].t_type == NUMBER) {
-			printf("{ %d - %d -> %f }\n", i, tokens[i].t_type, tokens[i].t_data.number);
+			printf("{ %d - %d -> %f }\n", i, 
+				tokens[i].t_type, tokens[i].t_data.number);
 		}
 		else {
-			printf("{ %d - %d -> %s }\n", i, tokens[i].t_type, tokens[i].t_data.string);
+			printf("{ %d - %d -> %s }\n", i, 
+				tokens[i].t_type, tokens[i].t_data.string);
 		}
 	}
 }

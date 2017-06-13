@@ -29,7 +29,7 @@ void add_breakpoint(int line) {
 //	printf("Breakpoint at: %d\n", line);
 	if (breakpoint_exist(line) == -1) {
 		if (bp_count == BREAKPOINT_MAX) {
-			d_error(OUT_OF_BREAKPOINTS);					
+			error_general(OUT_OF_BREAKPOINTS);					
 		}
 		else {
 			breakpoints[bp_count++] = line;

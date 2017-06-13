@@ -13,60 +13,77 @@
 static address memory_register = 0;
 static address memory_register_A = 0;
 static data data_register; 
+static int line;
+static int base_address = 0;
+static address i = 0;
+
+address get_instruction_pointer() {
+	return i;
+}
 
 void vm_run(uint8_t* bytecode) {
 	// Verify Header
-	for (address i = verify_header(bytecode);; i++) {
+	for (i = verify_header(bytecode);; i++) {
 		reset_error_flag();
 		opcode op = bytecode[i];
 		if (op == OPUSH) {
 			i++;
 			token t = get_token(&bytecode[i], &i);
 			if (t.t_type == IDENTIFIER) {
-				t = *get_value_of_id(t.t_data.string, i);
+				if (strcmp(t.t_data.string, "time") == 0) {
+					t = time_token();
+				}
+				else {
+					t = *get_value_of_id(t.t_data.string, line);
+				}
 			}
 			else if (t.t_type == MEMBER) {
 				t.t_type = IDENTIFIER;
 			}
-			push_arg(t);
+			push_arg(t, line);
+		}
+		else if (op == SRC) {
+			void* ad = &bytecode[i + 1];
+			line = *((int*)ad);
+			i += sizeof(int);
 		}
 		else if (op == OPOP) {
-			token t = pop_arg(i);	
+			token t = pop_arg(line);	
 		}
 		else if (op == BIN) {
 			i++;
 
 			token operator = get_token(&bytecode[i], &i);
-			token b = pop_arg(i);
-			token a = pop_arg(i);
-			push_arg(eval_binop(operator, a, b));
+			token b = pop_arg(line);
+			token a = pop_arg(line);
+			push_arg(eval_binop(operator, a, b), line);
 		}
 		else if (op == RBIN) {
 			i++;
 			token operator = get_token(&bytecode[i], &i);
-			token a = pop_arg(i);
-			token b = pop_arg(i);
-			push_arg(eval_binop(operator, a, b));
+			token a = pop_arg(line);
+			token b = pop_arg(line);
+			push_arg(eval_binop(operator, a, b), line);
 		}
 		else if (op == UNA) {
 			i++;
 			token operator = get_token(&bytecode[i], &i);
-			token a = pop_arg(i);
-			push_arg(eval_uniop(operator, a));
+			token a = pop_arg(line);
+			push_arg(eval_uniop(operator, a), line);
 		}
 		else if (op == CHTYPE) {
 			i++;
-			token* t = top_arg(i);
+			token* t = top_arg(line);
 			t->t_type = bytecode[i];
 		}
 		else if (op == BIND) {
 			i++;
 			if (id_exist((char*)(bytecode + i), false)) {
-				error(i, TOKEN_DECLARED, 
-							(char*)(bytecode + i)); 
+				error_runtime(line, VM_VAR_DECLARED_ALREADY, 
+								(char*)(bytecode + i)); 
 			}
 			else {
-				push_stack_entry((char*)(bytecode + i), memory_register);	
+				push_stack_entry((char*)(bytecode + i), memory_register, line);	
 				i += strlen((char*)(bytecode + i));
 			}
 		}
@@ -82,23 +99,23 @@ void vm_run(uint8_t* bytecode) {
 			i--;
 		}
 		else if (op == DIN) {
-			token* t = top_arg(i);
+			token* t = top_arg(line);
 			data_register = t->t_data;
 		}
 		else if (op == DOUT) {
-			token* t = top_arg(i);
+			token* t = top_arg(line);
 			t->t_data = data_register;	
 		}
 		else if (op == LJMP) {
 			// LJMP Address LoopIndexString
 			void* ad = &bytecode[i + 1];
-			address end_of_loop = *((address*)ad);
+			address end_of_loop = base_address + *((address*)ad);
 			i += sizeof(address);
 			char* loop_index_string = (char*)(bytecode + (++i));
 			i += strlen((char*)(bytecode + i));
-			token loop_index_token = *(get_value_of_id(loop_index_string, i));
+			token loop_index_token = *(get_value_of_id(loop_index_string, line));
 			int index = loop_index_token.t_data.number;
-			token condition = *top_arg(i);
+			token condition = *top_arg(line);
 			bool jump = false;
 			if (condition.t_type == TRUE) {
 				// Do Nothing
@@ -134,7 +151,7 @@ void vm_run(uint8_t* bytecode) {
 			i += strlen((char*)(bytecode + i));
 			token loop_index_token = *(get_value_of_id(loop_index_string, i));
 			int index = loop_index_token.t_data.number;
-			token condition = pop_arg(i);
+			token condition = pop_arg(line);
 			token res = loop_index_token;
 			if (condition.t_type == LIST) {		
 				address lst = condition.t_data.number;
@@ -171,13 +188,13 @@ void vm_run(uint8_t* bytecode) {
 			i++;
 			char* c = (char*) (bytecode + i);
 			if (memory[memory_register].t_type != matching) {
-				error(i, c);
+				error_runtime(line, c);
 			}
 			i += strlen(c);
 		}
 		else if (op == FRM) {
 			// r/A doesn't matter, autoframes have no RA
-			push_auto_frame(i + 1, "automatic");
+			push_auto_frame(i + 1, "automatic", line);
 			push_mem_reg(memory_register);
 		}
 		else if (op == MPTR) {
@@ -189,52 +206,53 @@ void vm_run(uint8_t* bytecode) {
 		}  
 		else if (op == OREQ) {
 			// Memory Request Instruction
-			memory_register = pls_give_memory(bytecode[i + 1]);
+			memory_register = pls_give_memory(bytecode[i + 1], line);
 			i++;
 		}
 		else if (op == RBW) {
 			// REQUEST BIND AND WRITE
-			memory_register = pls_give_memory(1);
+			memory_register = pls_give_memory(1, line);
 			i++;
 			if (id_exist((char*)(bytecode + i), false)) {
-				error(i, TOKEN_DECLARED, 
-							(char*)(bytecode + i)); 
+				address a = get_stack_pos_of_id((char*)(bytecode + i), line);
+				if (!call_stack[a].is_closure) {
+					error_runtime(line, VM_VAR_DECLARED_ALREADY, 
+								(char*)(bytecode + i)); 
+				}
 			}
-			else {
-				push_stack_entry((char*)(bytecode + i), memory_register);	
-				i += strlen((char*)(bytecode + i));
-			}
-			memory[memory_register] = pop_arg(i);
+			push_stack_entry((char*)(bytecode + i), memory_register, line);	
+			i += strlen((char*)(bytecode + i));
+			memory[memory_register] = pop_arg(line);
 		}
 		else if (op == PLIST) {
 			i++;
 			int size = bytecode[i];
 			for (int j = memory_register + size - 1; 
 					j >= memory_register; j--) {
-				memory[j] = pop_arg(i);
+				memory[j] = pop_arg(line);
 			}
-			push_arg(make_token(LIST, make_data_num(memory_register)));
+			push_arg(make_token(LIST, make_data_num(memory_register)), line);
 		}
 		else if (op == NTHPTR) {
 			// Should be a list at the memory register.
 			token lst = memory[memory_register];
 			if (lst.t_type != LIST) {
-				error(i, NOT_A_LIST);	
+				error_runtime(line, VM_NOT_A_LIST);	
 			}
 			address lst_start = lst.t_data.number;
-			token in = pop_arg(1);
+			token in = pop_arg(line);
 			if (in.t_type != NUMBER) {
-				error(i, INVALID_LVALUE_LIST_SUBSCRIPT);
+				error_runtime(line, VM_INVALID_LVALUE_LIST_SUBSCRIPT);
 			}
 			int lst_size = memory[lst_start].t_data.number;
 			int index = in.t_data.number;
 			if (index >= lst_size) {
-				error(i, ARRAY_REF_OUT_RANGE);
+				error_runtime(line, VM_LIST_REF_OUT_RANGE);
 			}
 			memory_register = lst_start + index + 1;
 		}
 		else if (op == CLOSUR) {
-			push_arg(make_token(CLOSURE, make_data_num(create_closure())));
+			push_arg(make_token(CLOSURE, make_data_num(create_closure())), line);
 		}
 		else if (op == MEMPTR) {
 			// Member Pointer
@@ -242,9 +260,9 @@ void vm_run(uint8_t* bytecode) {
 			//   members.
 			// Either will be allowed to look through static parameters.
 			token t = memory[memory_register];
-			token e = pop_arg(i);
+			token e = pop_arg(line);
 			if (t.t_type != STRUCT && t.t_type != STRUCT_INSTANCE) {
-				error(i, NOT_A_STRUCT);
+				error_runtime(line, VM_NOT_A_STRUCT);
 			}
 			int params_passed = 0;
 			address metadata = (int)(t.t_data.number);
@@ -299,34 +317,38 @@ void vm_run(uint8_t* bytecode) {
 					struct_header = memory[struct_header + 1].t_data.number;
 				}
 				else {
-					error(i, MEMBER_NOT_EXIST);
+					error_runtime(line, VM_MEMBER_NOT_EXIST, e.t_data.string);
 				}
 			}
 		}
 		else if (op == JMP) {
 			void* ad = &bytecode[i + 1];
-			address addr = *((address*)ad);
+			address addr = base_address + *((address*)ad);
 			i = addr - 1;
 		}
 		else if (op == JIF) {
 			// Jump IF False Instruction
-			token top = pop_arg(i);
+			token top = pop_arg(line);
 
 			void* ad = &bytecode[i + 1];
-			address addr = *((address*)ad);
+			address addr = base_address + *((address*)ad);
 			i += sizeof(address);
 
 			if (top.t_type != TRUE && top.t_type != FALSE) {
-				error(i, COND_EVAL_NOT_BOOL);			
+				error_runtime(line, VM_COND_EVAL_NOT_BOOL);			
 			}
 			if (top.t_type == FALSE) {
 				i = addr - 1;
 			}
 		}
 		else if (op == OCALL) {
-			push_frame("function", i + 1);
+			char* function_disp = safe_malloc(128 * sizeof(char));
+			function_disp[0] = 0;
+			sprintf(function_disp, "function(0x%X)", i);
+			push_frame(function_disp, i + 1, line);
+			safe_free(function_disp);
 			push_mem_reg(memory_register);
-			token top = pop_arg(i);
+			token top = pop_arg(line);
 			if (top.t_type == STRUCT) {
 				address j = top.t_data.number;
 				top = memory[j + 3];
@@ -352,7 +374,7 @@ void vm_run(uint8_t* bytecode) {
 							}
 						}
 						int p_total_size = p_params + 1;
-						token *parent_instance = malloc(p_total_size * sizeof(token));
+						token *parent_instance = safe_malloc(p_total_size * sizeof(token));
 						parent_instance[0] = make_token(STRUCT_INSTANCE_HEAD,
 								make_data_num(p_mdata));
 						for (int p = 1; p < p_total_size; p++) {
@@ -361,13 +383,13 @@ void vm_run(uint8_t* bytecode) {
 						address parent_base_addr = 
 							push_memory_array(parent_instance, p_total_size);
 						base_instance_address = parent_base_addr;
-						free(parent_instance);
+						safe_free(parent_instance);
 					}
 				}		
 
 				int si_size = 0;
 				token* struct_instance = 
-					malloc(MAX_STRUCT_META_LEN * sizeof(token));
+					safe_malloc(MAX_STRUCT_META_LEN * sizeof(token));
 			
 				si_size = params + 1; // + 1 for the header
 				struct_instance[0] = make_token(STRUCT_INSTANCE_HEAD, 
@@ -385,14 +407,14 @@ void vm_run(uint8_t* bytecode) {
 				}
 				// Struct instance is done.
 				address a = push_memory_array(struct_instance, si_size);
-				free(struct_instance);
+				safe_free(struct_instance);
 				address b = push_memory(make_token(STRUCT_INSTANCE, 
 								make_data_num(a)));
 				memory_register_A = b;
 			}
 
 			if (top.t_type != FUNCTION && top.t_type != STRUCT_FUNCTION) {
-				error(i, FN_CALL_NOT_FN); 
+				error_runtime(line, VM_FN_CALL_NOT_FN); 
 			}
 			if (top.t_type == STRUCT_FUNCTION) {
 				token_type t;
@@ -402,38 +424,43 @@ void vm_run(uint8_t* bytecode) {
 				else {
 					t = STRUCT;
 				}
-				push_stack_entry("this", memory_register_A); 	
+				push_stack_entry("this", memory_register_A, line); 	
 			}
 			int loc = top.t_data.number;
-			address addr = memory[loc].t_data.number;
+			address addr = base_address + memory[loc].t_data.number;
 			i = addr - 1;
 			// push closure variables
 			address cloc = memory[loc + 1].t_data.number;
 			if (cloc != -1) {
 				size_t size = closure_list_sizes[cloc];
 				for (int i = 0; i < size; i++) {
-					copy_stack_entry(closure_list[cloc][i]);
+					copy_stack_entry(closure_list[cloc][i], line);
 					//printf("COPIED: %s\n", closure_list[cloc][i].id);
 				}
 			}
 		}
 		else if (op == READ) {
-			push_arg(memory[memory_register]);
+			push_arg(memory[memory_register], line);
 		}
 		else if (op == WRITE) {
-			memory[memory_register] = pop_arg(i);
+			memory[memory_register] = pop_arg(line);
 		}
 		else if (op == OUT) {
-			token t = pop_arg(i);
+			token t = pop_arg(line);
 			if (t.t_type != NONERET) {
 				print_token(&t);
 			}
 		}
 		else if (op == OUTL) {
-			token t = pop_arg(i);
+			token t = pop_arg(line);
 			if (t.t_type != NONERET) {
 				print_token_inline(&t, stdout);
 			}
+		}
+		else if (op == BADR) {
+			void* ad = &bytecode[i + 1];
+			base_address += *((int*)ad);
+			i += sizeof(int);
 		}
 		else if (op == IN) {
 			// Scan one line from the input.
@@ -462,26 +489,26 @@ void vm_run(uint8_t* bytecode) {
 			break;
 		}
 		else {
-			printf("Error at location %X\n", i);
-			error(0, INVALID_OPCODE);
+			error_runtime(line, VM_INVALID_OPCODE, op, i);
 		}
 		if (get_error_flag()) {
 			clear_arg_stack();
 			break;
 		}
 	}
-	free_error();
 }
 
 static token eval_binop(token op, token a, token b) {
 	//print_token(&op);
 	//print_token(&a);
 	//print_token(&b);
+	set_make_token_param(op.t_line, op.t_col);
 	if (op.t_type == LEFT_BRACK) {
 		// Array Reference, or String
 		// A must be a list/string, b must be a number.
 		if (a.t_type != LIST && a.t_type != STRING) {
-			error(a.t_line, NOT_A_LIST_OR_STRING);
+			error_runtime(line, VM_NOT_A_LIST_OR_STRING);
+			return none_token();
 		}
 		token list_header;
 		if (a.t_type == LIST) {
@@ -493,7 +520,7 @@ static token eval_binop(token op, token a, token b) {
 		// Pull list header reference from list object.
 		address id_address = a.t_data.number;
 		if (b.t_type != NUMBER && b.t_type != RANGE) {
-			error(b.t_line, INVALID_LIST_SUBSCRIPT);
+			error_runtime(line, VM_INVALID_LIST_SUBSCRIPT);
 			return none_token();
 		}
 //		printf("TDATA NUM IS %d\n", (int)(b.t_data.number));
@@ -501,13 +528,16 @@ static token eval_binop(token op, token a, token b) {
 			(b.t_type == RANGE && 
 			((range_start(b) > list_size || range_end(b) > list_size ||
 			 range_start(b) < 0 || range_end(b) < 0)))) {
-			error(b.t_line, ARRAY_REF_OUT_RANGE);
+			error_runtime(line, VM_LIST_REF_OUT_RANGE);
+			return none_token();
 		}
 
 		if (b.t_type == NUMBER) {
 			if (a.t_type == STRING) {
 				token c = make_token(STRING, make_data_str("0"));
 				c.t_data.string[0] = a.t_data.string[(int)floor(b.t_data.number)];
+				c.t_line = a.t_line;
+				c.t_col = a.t_col;
 				return c;
 			}
 			// Add 1 to offset because of the header.
@@ -529,27 +559,31 @@ static token eval_binop(token op, token a, token b) {
 					c.t_data.string[n++] = a.t_data.string[i];
 				}
 				c.t_data.string[n] = 0;
+				c.t_line = a.t_line;
+				c.t_col = a.t_col;
 				return c;
 			}
 
-		//	subarray_size++;	
 			address array_start = (int)(a.t_data.number);
-			token* new_a = malloc(subarray_size * sizeof(token));
+			token* new_a = safe_malloc(subarray_size * sizeof(token));
 			int n = 0;
 			for (int i = start; i != end; 
 				start < end ? i++ : i--) {
 				new_a[n++] = memory[array_start + i + 1];
 			}
 			address new_aa = push_memory_a(new_a, subarray_size);
-			free(new_a);
-			return make_token(LIST, make_data_num(new_aa));
+			safe_free(new_a);
+			token c = make_token(LIST, make_data_num(new_aa));
+			c.t_line = a.t_line;
+			c.t_col = a.t_col;
+			return c;
 		}
 	}
 	if (op.t_type == DOT) {
 		// Member Access! Supports two built in, size and type.
 		// Left side should be a token.
 		if (b.t_type != IDENTIFIER) {
-			error(b.t_line, MEMBER_NOT_IDEN);
+			error_runtime(line, VM_MEMBER_NOT_IDEN);
 			return false_token();
 		}
 		if (strcmp("size", b.t_data.string) == 0) {
@@ -615,41 +649,10 @@ static token eval_binop(token op, token a, token b) {
 					}
 				}
 			}
-			error(b.t_line, MEMBER_NOT_EXIST);
+			error_runtime(line, VM_MEMBER_NOT_EXIST);
 			return false_token();
 		}
 	}
-/*	if (op.t_type == TYPEOF) {
-		if (b.t_type != OBJ_TYPE && b.t_type != NONE) {
-			error(op.t_line, TYPE_ERROR); 
-		}
-		if (a.t_type == NUMBER) {
-			return (strcmp("Number", b.t_data.string) == 0) ?
-				true_token() : false_token();
-		}
-		else if (a.t_type == STRING) {
-			return (strcmp("String", b.t_data.string) == 0) ?
-				true_token() : false_token();
-		}
-		else if (a.t_type == ADDRESS) {
-			return (strcmp("Address", b.t_data.string) == 0) ?
-				true_token() : false_token();
-		}
-		else if (a.t_type == TRUE || a.t_type == FALSE) {
-			return (strcmp("Bool", b.t_data.string) == 0) ?
-				true_token() : false_token();
-		}
-		else if (a.t_type == LIST) {
-			return (strcmp("List", b.t_data.string) == 0) ?
-				true_token() : false_token();
-		}
-		else if (a.t_type == NONE) {
-			return b.t_type == NONE ? true_token() : false_token();
-		}
-		else {
-			return false_token();
-		}
-	}*/
 	bool has_address = (a.t_type == ADDRESS || b.t_type == ADDRESS);
 	if ((a.t_type == NUMBER || a.t_type == ADDRESS) && 
 		(b.t_type == NUMBER || b.t_type == ADDRESS)) {
@@ -681,16 +684,16 @@ static token eval_binop(token op, token a, token b) {
 				return make_token(has_address ? ADDRESS : NUMBER, 
 						make_data_num(a.t_data.number - b.t_data.number));
 			case STAR: 	
-				if (has_address) error(a.t_line, TYPE_ERROR, "*");
+				if (has_address) error_runtime(line, VM_TYPE_ERROR, "*");
 				return make_token(NUMBER, make_data_num(
 									a.t_data.number * b.t_data.number));
 			case SLASH:
 			case INTSLASH:
 			case PERCENT: 
-				if (has_address) error(a.t_line, TYPE_ERROR, "%");
+				if (has_address) error_runtime(line, VM_TYPE_ERROR, "%");
 				// check for division by zero error
 				if (b.t_data.number == 0) {
-					error(b.t_line, MATH_DISASTER); 
+					error_runtime(line, VM_MATH_DISASTER); 
 				} 
 				else {
 					if (op.t_type == PERCENT) {
@@ -700,7 +703,7 @@ static token eval_binop(token op, token a, token b) {
 
 						// check integer 
 						if (a_n != floor(a_n) || b_n != floor(b_n)) {
-							error(op.t_line, TYPE_ERROR, "/"); 
+							error_runtime(line, VM_TYPE_ERROR, "/"); 
 							return none_token();
 						}
 						else {
@@ -721,7 +724,8 @@ static token eval_binop(token op, token a, token b) {
 				}
 				break;
 			default: 
-				error(a.t_line, NUM_NUM_INVALID_OPERATOR, op.t_data.string);
+				error_runtime(line, VM_NUM_NUM_INVALID_OPERATOR, 
+					op.t_data.string);
 				break;
 		}
 	}
@@ -784,7 +788,7 @@ static token eval_binop(token op, token a, token b) {
 				break;
 				case PLUS: {
 					int new_size = size_a + size_b;
-					token* new_list = malloc(new_size * sizeof(token));
+					token* new_list = safe_malloc(new_size * sizeof(token));
 					int n = 0;
 					for (int i = 0; i < size_a; i++) {
 						new_list[n++] = memory[start_a + i + 1];
@@ -793,11 +797,11 @@ static token eval_binop(token op, token a, token b) {
 						new_list[n++] = memory[start_b + i + 1];
 					}
 					address new_adr = push_memory_a(new_list, new_size);
-					free(new_list);
+					safe_free(new_list);
 					return make_token(LIST, make_data_num(new_adr));
 				}	
 				break;
-				default: error(a.t_line, LIST_LIST_INVALID_OPERATOR, 
+				default: error_runtime(line, VM_LIST_LIST_INVALID_OPERATOR, 
 					op.t_data.string); break;
 			}
 		} // End A==List && B==List
@@ -807,17 +811,19 @@ static token eval_binop(token op, token a, token b) {
 				address start_a = a.t_data.number;
 				int size_a = memory[start_a].t_data.number;
 
-				token* new_list = malloc((size_a + 1) * sizeof(token));
+				token* new_list = safe_malloc((size_a + 1) * sizeof(token));
 				int n = 0;
 				for (int i = 0; i < size_a; i++) {
 					new_list[n++] = memory[start_a + i + 1];
 				}
 				new_list[n++] = b;
 				address new_adr = push_memory_a(new_list, size_a + 1);
-				free(new_list);
+				safe_free(new_list);
 				return make_token(LIST, make_data_num(new_adr));
 			}
-			else { error(a.t_line, INVALID_APPEND); }
+			else { 
+				error_runtime(line, VM_INVALID_APPEND); 
+			}
 		}
 		else if (b.t_type == LIST) {
 			address start_b = b.t_data.number;
@@ -826,14 +832,14 @@ static token eval_binop(token op, token a, token b) {
 			if (op.t_type == PLUS) {
 				// element + list
 
-				token* new_list = malloc((size_b + 1) * sizeof(token));
+				token* new_list = safe_malloc((size_b + 1) * sizeof(token));
 				int n = 0;
 				new_list[n++] = a;
 				for (int i = 0; i < size_b; i++) {
 					new_list[n++] = memory[start_b + i + 1];
 				}
 				address new_adr = push_memory_a(new_list, size_b + 1);
-				free(new_list);
+				safe_free(new_list);
 				return make_token(LIST, make_data_num(new_adr));
 			}
 			else if (op.t_type == IN) {
@@ -847,7 +853,7 @@ static token eval_binop(token op, token a, token b) {
 				}
 				return false_token();
 			}
-			else { error(a.t_line, INVALID_APPEND); }
+			else { error_runtime(line, VM_INVALID_APPEND); }
 		}
 	}
 	else if((a.t_type == STRING && b.t_type == STRING) ||
@@ -874,7 +880,8 @@ static token eval_binop(token op, token a, token b) {
 			return make_token(STRING, make_data_str(result));
 		}
 		else {
-			error(a.t_line, STRING_NUM_INVALID_OPERATOR, op.t_data.string);
+			error_runtime(line, VM_STRING_NUM_INVALID_OPERATOR, 
+				op.t_data.string);
 			return none_token();
 		}
 	}
@@ -888,12 +895,12 @@ static token eval_binop(token op, token a, token b) {
 				return (a.t_type == FALSE && b.t_type == FALSE) ?
 					false_token() : true_token();
 			default: 
-				error(a.t_line, TYPE_ERROR, op.t_data.string);
+				error_runtime(line, VM_TYPE_ERROR, op.t_data.string);
 				break;
 		}
 	}
 	else {
-		error(a.t_line, TYPE_ERROR, op.t_data.string);
+		error_runtime(line, VM_TYPE_ERROR, op.t_data.string);
 		return none_token();
 	}
 	return none_token();
@@ -939,6 +946,7 @@ static token type_of(token a) {
 }
 
 static token eval_uniop(token op, token a) {
+	set_make_token_param(op.t_line, op.t_col);
 	if (op.t_type == TILDE) {
 		// Create copy of object a, only applies to lists or 
 		// struct or struct instances
@@ -946,15 +954,14 @@ static token eval_uniop(token op, token a) {
 			// We make a copy of the list as pointed to A.
 			token list_header = memory[(int)a.t_data.number];
 			int list_size = list_header.t_data.number;
-			token* new_a = malloc((list_size) * sizeof(token));
+			token* new_a = safe_malloc((list_size) * sizeof(token));
 			int n = 0;
 			address array_start = a.t_data.number;
-//			printf("listtsize %d", list_size);
 			for (int i = 0; i < list_size; i++) {
 				new_a[n++] = memory[array_start + i + 1];
 			}
 			address new_l_loc = push_memory_a(new_a, list_size);
-			free(new_a);
+			safe_free(new_a);
 			return make_token(LIST, make_data_num(new_l_loc));
 		}
 		else if (a.t_type == STRUCT || a.t_type == STRUCT_INSTANCE) {
@@ -976,12 +983,12 @@ static token eval_uniop(token op, token a) {
 				size = actual_size;
 			}
 			size++; // for the header itself
-			token* copy = malloc(size * sizeof(token));
+			token* copy = safe_malloc(size * sizeof(token));
 			for (int i = 0; i < size; i++) {
 				copy[i] = memory[copy_start + i];
 			}
 			address addr = push_memory_array(copy, size);
-			free(copy);
+			safe_free(copy);
 			return a.t_type == STRUCT ? make_token(STRUCT, make_data_num(addr))
 				: make_token(STRUCT_INSTANCE, make_data_num(addr));
 		}
@@ -992,7 +999,7 @@ static token eval_uniop(token op, token a) {
 	}
 	else if (op.t_type == MINUS) {
 		if (a.t_type != NUMBER) {
-			error(a.t_line, INVALID_NEGATE);
+			error_runtime(line, VM_INVALID_NEGATE);
 			return none_token();
 		}
 		token res = make_token(NUMBER, make_data_num(-1 * a.t_data.number));
@@ -1000,7 +1007,7 @@ static token eval_uniop(token op, token a) {
 	}	
 	else if (op.t_type == NOT) {
 		if (a.t_type != TRUE &&  a.t_type != FALSE) {
-			error(a.t_line, INVALID_NEGATE);
+			error_runtime(line, VM_INVALID_NEGATE);
 			return none_token();
 		}
 		return a.t_type == TRUE ? false_token() : true_token();	

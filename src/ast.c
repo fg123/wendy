@@ -3,10 +3,15 @@
 #include "error.h"
 #include <stdbool.h>
 #include <stdarg.h>
-#include <stdlib.h>
 #include <string.h>
+#include "global.h"
 
 #define match(...) fnmatch(sizeof((token_type []) {__VA_ARGS__}) / sizeof(token_type), __VA_ARGS__)
+
+// Wrapping SafeFree from global for use in a function pointer.
+void ast_safe_free(void* ptr) {
+	safe_free(ptr);
+}
 
 static token* tokens = 0;
 static size_t length = 0;
@@ -66,7 +71,8 @@ void print_ast(statement_list* ast) {
 
 void free_ast(statement_list* ast) {
 	pre_order = false;
-	traverse_statement_list(ast, free, free, free, free);
+	traverse_statement_list(ast, 
+		ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
 }
 
 bool ast_error_flag() {
@@ -114,7 +120,9 @@ static void consume(token_type t) {
 		advance();
 	}
 	else {
-		error(peek().t_line, EXPECTED_TOKEN, token_string[t]);
+		token t = previous();
+		error_lexer(t.t_line, t.t_col, AST_EXPECTED_TOKEN, 
+			token_string[t.t_type]);
 		advance();
 		error_thrown = true;
 		return;
@@ -122,7 +130,7 @@ static void consume(token_type t) {
 }
 
 static expr_list* identifier_list() {
-	expr_list* list = malloc(sizeof(expr_list));
+	expr_list* list = safe_malloc(sizeof(expr_list));
 	list->next = 0;
 	expr** curr = &list->elem;
 	expr_list* curr_list = list;
@@ -130,14 +138,15 @@ static expr_list* identifier_list() {
 		if (match(IDENTIFIER)) {
 			*curr = make_lit_expr(previous());
 			if (match(COMMA)) {
-				curr_list->next = malloc(sizeof(expr_list));
+				curr_list->next = safe_malloc(sizeof(expr_list));
 				curr_list = curr_list->next;
 				curr_list->next = 0;
 				curr = &curr_list->elem;
 			} else break;	
 		}
 		else {
-			error(previous().t_line, EXPECTED_IDENTIFIER);
+			token t = previous();
+			error_lexer(t.t_line, t.t_col, AST_EXPECTED_IDENTIFIER);
 			error_thrown = true;
 		}
 	}
@@ -146,14 +155,14 @@ static expr_list* identifier_list() {
 
 static expr_list* expression_list(token_type end_delimiter) {
 	if (peek().t_type == end_delimiter) return 0;	
-	expr_list* list = malloc(sizeof(expr_list));
+	expr_list* list = safe_malloc(sizeof(expr_list));
 	list->next = 0;
 	expr** curr = &list->elem;
 	expr_list* curr_list = list;
 	while (1) {
 		*curr = expression();
 		if (match(COMMA)) {
-			curr_list->next = malloc(sizeof(expr_list));
+			curr_list->next = safe_malloc(sizeof(expr_list));
 			curr_list = curr_list->next;
 			curr_list->next = 0;
 			curr = &curr_list->elem;
@@ -161,7 +170,8 @@ static expr_list* expression_list(token_type end_delimiter) {
 	}
 	if (error_thrown) {
 		// Rollback
-		traverse_expr_list(list, free, free, free, free);
+		traverse_expr_list(list, 
+			ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
 		return 0;
 	}
 	else {
@@ -170,16 +180,8 @@ static expr_list* expression_list(token_type end_delimiter) {
 }
 
 static expr* lvalue() {
-	// If call expression() it will infinite loop.
 	expr* exp = or();
 	token last = previous();
-	/*if (last.t_type == RIGHT_BRACK) {
-		// lvalue ended with RIGHT_BRACK, we look for the rightmost LEFT_BRACK
-		bool has_brack = process_array_lvalue(exp);
-		if (!has_brack) {
-			error(last.t_line, INVALID_LVALUE);
-		}
-	}*/
 	return exp;
 }
 
@@ -206,7 +208,8 @@ static expr* primary() {
 		return make_func_expr(list, fn_body);
 	}
 	else {
-		error(peek().t_line, UNEXPECTED_PRIMARY);
+		token t = previous();
+		error_lexer(t.t_line, t.t_col, AST_EXPECTED_PRIMARY);
 		advance();
 		error_thrown = true;
 		return 0;
@@ -324,7 +327,8 @@ static expr* expression() {
 	expr* res = assignment();
 	if (error_thrown) {
 		// Rollback
-		traverse_expr(res, free, free, free, free);
+		traverse_expr(res, 
+			ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
 		return 0;
 	}
 	else {
@@ -334,7 +338,8 @@ static expr* expression() {
 
 static statement* parse_statement() {
 	token first = advance();
-	statement* sm = malloc(sizeof(statement));
+	statement* sm = safe_malloc(sizeof(statement));
+	sm->src_line = first.t_line;
 	switch (first.t_type) {
 		case LEFT_BRACE: {
 			statement_list* sl = parse_statement_list();
@@ -387,10 +392,11 @@ static statement* parse_statement() {
 				condition = expression();
 				if (index_var->type != E_LITERAL || 
 						index_var->op.lit_expr.t_type != IDENTIFIER) {
-					error(peek().t_line, EXPECTED_IDENTIFIER_LOOP);
+					token t = previous();
+					error_lexer(t.t_line, t.t_col, AST_EXPECTED_IDENTIFIER_LOOP);
 				}
 				a_index = index_var->op.lit_expr;
-				free(index_var);
+				safe_free(index_var);
 			}
 			else {
 				condition = index_var;
@@ -406,13 +412,15 @@ static statement* parse_statement() {
 		}
 		case STRUCT: {
 			if (!match(IDENTIFIER)) {
-				error(first.t_line, SYNTAX_ERROR, "struct");	
+				error_lexer(first.t_line, first.t_col, 
+					AST_STRUCT_NAME_IDENTIFIER);	
 			}
 			token name = previous();
 			token parent = empty_token();
 			if (match(COLON)) {
 				if (!match(IDENTIFIER)) {
-					error(first.t_line, SYNTAX_ERROR, "struct");			
+					error_lexer(first.t_line, first.t_col, 
+						AST_STRUCT_PARENT_IDENTIFIER);			
 				}
 				parent = previous();
 			}
@@ -434,15 +442,15 @@ static statement* parse_statement() {
 				}
 			}
 			// Default Initiation Function
-			statement_list* init_fn = malloc(sizeof(statement_list));
+			statement_list* init_fn = safe_malloc(sizeof(statement_list));
 			statement_list* curr = init_fn;
 			statement_list* prev = 0;
 
 			expr_list* tmp_ins = instance_members;
 			while (tmp_ins) {
-				curr->elem = malloc(sizeof(statement));
+				curr->elem = safe_malloc(sizeof(statement));
 				curr->elem->type = S_EXPR;
-				curr->elem->op.expr_statement = malloc(sizeof(expr));
+				curr->elem->op.expr_statement = safe_malloc(sizeof(expr));
 				curr->elem->op.expr_statement->type = E_ASSIGN;
 				expr* ass_expr = curr->elem->op.expr_statement;
 				ass_expr->op.assign_expr.operator = 
@@ -459,12 +467,12 @@ static statement* parse_statement() {
 				
 				if (prev) prev->next = curr;
 				prev = curr;
-				curr = malloc(sizeof(statement_list));
+				curr = safe_malloc(sizeof(statement_list));
 				
 				tmp_ins = tmp_ins->next;
 			}
 			// Return This Operation
-			curr->elem = malloc(sizeof(statement));
+			curr->elem = safe_malloc(sizeof(statement));
 			if(prev) prev->next = curr;
 			curr->next = 0;
 			curr->elem->type = S_OPERATION;
@@ -480,7 +488,7 @@ static statement* parse_statement() {
 				parameters = identifier_list();
 				curr_index = saved_before_pop;
 			}
-			statement* function_body = malloc(sizeof(statement));
+			statement* function_body = safe_malloc(sizeof(statement));
 			function_body->type = S_BLOCK;
 			function_body->op.block_statement = init_fn;
 			// init_fn is now the list of statements, to make it a function
@@ -498,12 +506,22 @@ static statement* parse_statement() {
 		case DEC:
 		case INPUT:
 		case EXPLODE:
-		case AT:
-		case REQ:
-			{
+		case AT:	{
 			sm->type = S_OPERATION;
 			sm->op.operation_statement.operator = first;
 			sm->op.operation_statement.operand = expression();
+			break;
+		}
+		case REQ: {
+			sm->type = S_IMPORT;
+			if (match(IDENTIFIER, STRING)) {
+				// Don't actually need to do anything if it's a string, but we
+				//   delegate that task to codegen to decide.
+				sm->op.import_statement = previous();
+			}
+			else {
+				error_lexer(first.t_line, first.t_col, AST_UNRECOGNIZED_IMPORT);
+			}
 			break;
 		}
 		case RET: {
@@ -528,21 +546,22 @@ static statement* parse_statement() {
 	match(SEMICOLON);
 	if (error_thrown) {
 		// Rollback
-		traverse_statement(sm, free, free, free, free);
+		traverse_statement(sm, 
+			ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
 		return 0;
 	}
 	return sm;
 }
 
 static statement_list* parse_statement_list() {
-	statement_list* ast = malloc(sizeof(statement_list));
+	statement_list* ast = safe_malloc(sizeof(statement_list));
 	ast->next = 0;
 	statement** curr = &ast->elem;
 	statement_list* curr_ast = ast;
 	while (true) {
 		*curr = parse_statement();
 		if (!is_at_end() && peek().t_type != RIGHT_BRACE) {
-			curr_ast->next = malloc(sizeof(statement_list));
+			curr_ast->next = safe_malloc(sizeof(statement_list));
 			curr_ast = curr_ast->next;
 			curr_ast->next = 0;
 			curr = &curr_ast->elem;
@@ -550,7 +569,8 @@ static statement_list* parse_statement_list() {
 	}
 	if (error_thrown) {
 		// Rollback
-		traverse_statement_list(ast, free, free, free, free);
+		traverse_statement_list(ast, 
+			ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
 		return 0;
 	}
 	else {
@@ -604,6 +624,9 @@ static void traverse_statement(statement* state,
 	else if (state->type == S_LOOP) {
 		traverse_expr(state->op.loop_statement.condition, a, b, c, d);
 		traverse_statement(state->op.loop_statement.statement_true, a, b, c, d);
+	}
+	else if (state->type == S_IMPORT) {
+		// Do nothing.
 	}
 	else {
 		printf("Traverse Statement: Unknown Type\n");
@@ -742,6 +765,9 @@ static void print_s(void* s) {
 	else if (state->type == S_LOOP) {
 		printf("Loop Statement\n");
 	}
+	else if (state->type == S_IMPORT) {
+		printf("Import Statement\n");
+	}
 	else {
 		printf("Traverse Statement: Unknown Type\n");
 	}
@@ -760,43 +786,55 @@ static void traverse_ast(statement_list* list,
 }
  
 static expr* make_lit_expr(token t) {
-	expr* node = malloc(sizeof(expr));
+	expr* node = safe_malloc(sizeof(expr));
 	node->type = E_LITERAL;
 	node->op.lit_expr = t;
+	node->line = t.t_line;
+	node->col = t.t_col;
 	return node;
 }
 static expr* make_lvalue_expr(expr* left, token op, expr* right) {
-	expr* node = malloc(sizeof(expr));
+	expr* node = safe_malloc(sizeof(expr));
 	node->type = E_BIN_LVALUE;
 	node->op.bin_expr.operator = op;
 	node->op.bin_expr.left = left;
 	node->op.bin_expr.right = right;
+	node->line = op.t_line;
+	node->col = op.t_col;
 	return node;
 }
 static expr* make_bin_expr(expr* left, token op, expr* right) {
-	expr* node = malloc(sizeof(expr));
+	expr* node = safe_malloc(sizeof(expr));
 	node->type = E_BINARY;
 	node->op.bin_expr.operator = op;
 	node->op.bin_expr.left = left;
 	node->op.bin_expr.right = right;
+	node->line = op.t_line;
+	node->col = op.t_col;
 	return node;
 }
 static expr* make_una_expr(token op, expr* operand) {
-	expr* node = malloc(sizeof(expr));
+	expr* node = safe_malloc(sizeof(expr));
 	node->type = E_UNARY;
 	node->op.una_expr.operator = op;
 	node->op.una_expr.operand = operand;
+	node->line = op.t_line;
+	node->col = op.t_col;
 	return node;
 }
 static expr* make_call_expr(expr* left, expr_list* arg_list) {
-	expr* node = malloc(sizeof(expr));
+	token t = tokens[curr_index];
+	expr* node = safe_malloc(sizeof(expr));
 	node->type = E_CALL;
 	node->op.call_expr.function = left;
 	node->op.call_expr.arguments = arg_list;
+	node->line = t.t_line;
+	node->col = t.t_col;
 	return node;
 }
 static expr* make_list_expr(expr_list* list) {
-	expr* node = malloc(sizeof(expr));
+	token t = tokens[curr_index];
+	expr* node = safe_malloc(sizeof(expr));
 	node->type = E_LIST;
 	int size = 0;
 	expr_list* start = list;
@@ -806,18 +844,23 @@ static expr* make_list_expr(expr_list* list) {
 	}
 	node->op.list_expr.length = size;
 	node->op.list_expr.contents = list;
+	node->line = t.t_line;
+	node->col = t.t_col;
 	return node;
 }
 static expr* make_assign_expr(expr* left, expr* right, token op) {
-	expr* node = malloc(sizeof(expr));
+	expr* node = safe_malloc(sizeof(expr));
 	node->type = E_ASSIGN;
 	node->op.assign_expr.lvalue = left;
 	node->op.assign_expr.rvalue = right;
 	node->op.assign_expr.operator = op;
+	node->line = op.t_line;
+	node->col = op.t_col;
 	return node;
 }
 static expr* make_func_expr(expr_list* parameters, statement* body) {
-	expr* node = malloc(sizeof(expr));
+	token t = tokens[curr_index];
+	expr* node = safe_malloc(sizeof(expr));
 	node->type = E_FUNCTION;
 
 	// Reverse Parameters
@@ -834,6 +877,8 @@ static expr* make_func_expr(expr_list* parameters, statement* body) {
 	parameters = prev;
 	node->op.func_expr.parameters = parameters;
 	node->op.func_expr.body = body;
+	node->line = t.t_line;
+	node->col = t.t_col;
 	return node;
 }
 
