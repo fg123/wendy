@@ -1,0 +1,25 @@
+<true>
+81
+[31mRuntime Error[0m at line [33m36 (24)[0m: x: Identifier was already declared!
+==========================
+ Line Source
+   35 
+
+==========================
+
+===============
+Dump: Stack Trace
+    0      [[34m> main()[0m -> 0: <none>]
+    1      [#R/A -> 0: <none>]
+    2      [factorial -> 4: <function>]
+    3      [my_compare -> 7: <function>]
+    4      [greater_than -> 10: <function>]
+    5      [power -> 13: <function>]
+    6      [[34m> function()[0m -> 0: <none>]
+    7      [#R/A -> 597: ]
+    8      [x -> 30: 5]
+    9      [my_local_fac -> 33: <function>]
+   10 FP-> [[34m> function()[0m -> 6]
+   11      [#R/A -> 180: ]
+   12      [x -> 30: 5]
+===============

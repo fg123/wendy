@@ -7,4 +7,6 @@
 *.tmp
 /bin
 /build
-
+.DS_STORE
+*.wc
+.vscode

@@ -2,15 +2,17 @@
 #define SCANNER_H
 
 #include "token.h"
-#include <stdlib.h>
 
-// scanner.h provides tools to convert a code string into a list of tokens.
+// scanner.h - Felix Guo
+// This module tokenizes a string of text input and converts it to a list of
+//   tokens, which are passed into [ast] to create a syntax tree.
+
 
 // scan_tokens(source) creates a list of tokens from the source
 int scan_tokens(char* source_, token** destination, size_t* alloc_size);
 
 // scan_token() processes the next token
-static void scan_token();
+static bool scan_token();
 
 // add_token(type) just adds the given token 
 //static void add_token(token_type type);

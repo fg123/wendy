@@ -4,78 +4,95 @@
 #include <stdlib.h>
 #include "memory.h"
 #include <stdarg.h>
+#include <stdbool.h>
+#include "source.h"
+#include "vm.h"
 
-static char* source; 
+static bool error_flag = false;
 
-void init_error(char* src) {
-	source = src;
+void reset_error_flag() {
+	error_flag = false;
 }
 
-void free_error() {
-	if (source) {
-		free(source);	
+bool get_error_flag() {
+	return error_flag;
+}
+
+// Error Functions:
+char* error_message(char* message, va_list args) {
+	char* result;
+	vasprintf(&result, message, args);
+	return result;
+}
+
+void error_general(char* message, ...) {
+	va_list args;
+	va_start(args, message);
+
+	char* msg = error_message(message, args); 
+	printf(RED "Fatal Error: " RESET "%s\n", msg);
+
+	// Cannot be safe, because vasprintf uses malloc! 
+	free(msg);
+	if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
+		safe_exit(1);
 	}
 }
 
-// error handling functions
-void w_error(char* message) {
-	printf(RED "Wendy Error: " RESET "%s\n", message);
-	fflush(stdout);
-	exit(1);
+void error_lexer(int line, int col, char* message, ...) {
+	va_list args;
+	va_start(args, message);
+
+	char* msg = error_message(message, args);
+	printf(RED "Parser Error" RESET " on line " YEL "%d" RESET ": %s\n", 
+		line, msg);
+	
+	if (has_source()) {
+		printf("==========================\n%5s %s (%s)\n", "Line", "Source",
+			get_source_name());
+		printf("%5d " RED "%s\n" RESET, line, get_source_line(line));
+		printf("      %*c^\n", col, ' ');
+	}
+
+	free(msg);
+	if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
+		safe_exit(1);
+	}
 }
 
-void d_error(char* message) {
-	printf(RED "Wendy Debugger Error: " RESET "%s\n", message);
-	fflush(stdout);
-	exit(1);
-}
+void error_runtime(int line, char* message, ...) {
+	va_list args;
+	va_start(args, message);
 
-void error(int line, char* message, ...) {
-	va_list a_list;
-	va_start(a_list, message);
-	char* additional = va_arg(a_list, char*);
-	if (line != 0) {
-		printf(RED "Runtime Error" RESET " at line " YEL "%d" RESET, line);
-	}
-	else {
-		printf(RED "Runtime Error" RESET);
-	}
-	if (additional && line != 0) {
-		printf(": %s: %s\n", additional, message);
-	}
-	else {
-		printf(": %s\n", message);
-	}
-	printf("==========================\n%5s %s\n", "Line", "Source");
-	// find the line from the file
-	int curr_line = 0;
-	size_t charindex = 0;
-	size_t line_start = 0;
-//	printf("%s\n", source);
-	while (source[charindex]) {
-		if (source[charindex] == '\n' || !source[charindex + 1]) {
-			curr_line++;
-			if (!source[charindex + 1]) charindex++;	
-			if (curr_line >= line - 1 && curr_line <= line + 1) {	
-				char line_to_print[charindex - line_start + 1];
-				memcpy(line_to_print, &source[line_start], charindex - line_start);
-				line_to_print[charindex - line_start] = 0;
-				if (curr_line == line) {
-					printf("%5d " RED "%s\n" RESET, curr_line, line_to_print);
-				}
-				else {
-					printf("%5d %s\n", curr_line, line_to_print);
-				}
-				if (curr_line == line + 1) {
-					break;
-				}
-			}				
-			line_start = charindex + 1;
+	char* msg = error_message(message, args);
+	printf(RED "Runtime Error" RESET " on line " YEL "%d" RESET" (" YEL "0x%X"
+		RESET "): %s\n", line, get_instruction_pointer(), msg);
+	
+	if (has_source()) {
+		if (!is_source_accurate()) {
+			printf(YEL "Note: " RESET "Source was automatically loaded "
+			"and may not reflect the actual source of the compiled code.\n");
 		}
-		charindex++;
+		printf("==========================\n%5s %s (%s)\n", "Line", "Source",
+			get_source_name());
+		int start_line = (line - 2 > 0) ? (line - 2) : 1;
+		int end_line = start_line + 5;
+		for (int i = start_line; i < end_line; i++) {
+			if (is_valid_line_num(i)) {
+				if (i == line) {
+					printf("%5d " RED "%s\n" RESET, i, get_source_line(i));
+				}
+				else {	
+					printf("%5d %s\n" RESET, i, get_source_line(i));
+				}
+			}
+		}
+		printf("==========================\n");
 	}
-	printf("==========================\n");
-	print_call_stack();
+	free(msg);
+	print_call_stack(20);
 	fflush(stdout);
-	exit(1);
+	if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
+		safe_exit(1);
+	}
 }

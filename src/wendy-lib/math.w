@@ -5,7 +5,6 @@
 
 let factorial => (x)  {
 	if(x < 1) {
-		err "factorial: input must be greater than 0";
 		ret;
 	}
 	else if(x > 1) {
@@ -40,9 +39,9 @@ let root => (num, rt) {
 	let ans = 1;
 	let x = next_it(ans, rt, num);
 
-	loop (ans != x) {
-		set ans = x;
-		set x = next_it(ans, rt, num);
+	for (ans != x) {
+		ans = x;
+		x = next_it(ans, rt, num);
 	};
 	ret x;
 };

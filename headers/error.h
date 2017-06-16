@@ -1,80 +1,88 @@
 #ifndef ERROR_H
 #define ERROR_H
+#include <stdbool.h>
+#include "token.h"
 
 // errors.h includes all of the error messages in WendyScript
+// There are different types of error messages. All error message display calls
+//   can be provided with a formatted string and arguments, like printf.
+// 
+// General Error: error_general(message) -> All
+//   No source displayed, allocation errors, etc.
+// 
+// Scanner/Parser Error: error_lexer(message) -> Scanner / AST
+//   Source displayed with column and line number.
+// 
+// Runtime Error: error_runtime(message) -> VM 
+//   Source displayed with line number, and stack frame as well.
 
-// Wendy Messages:
-#define INVALID_P_FILE "Invalid preprocessed file!"
-#define REALLOC_ERROR "Internal Error: realloc failed."
+void error_general(char* message, ...);
+
+void error_lexer(int line, int col, char* message, ...);
+
+void error_runtime(int line, char* message, ...);
+
+// General Messages:
+#define GENERAL_INVALID_HEADER "Invalid bytecode header!"
+#define GENERAL_NOT_IMPLEMENTED "%s is not implemented yet!" 
 
 // Scanner Messages:
-#define UNTERMINATED_STRING "Unterminated string!"
-#define UNEXPECTED_CHARACTER "Unexpected character!"
-#define REQ_FILE_READ_ERR "req: File read error."
+#define SCAN_EXPECTED_TOKEN "Syntax error! Expected token %s was not found."
+#define SCAN_UNTERMINATED_STRING "Unterminated string! End string literal with `\"`."
+#define SCAN_UNEXPECTED_CHARACTER "Unexpected character `%c`!"
+#define SCAN_REQ_FILE_READ_ERR "File read error when trying to import."
 
-// Preprocessor Messages:
-#define INCOMPLETE_LAMBDA "Incomplete lambda definition!"
-#define INCOMPLETE_IF "Incomplete if statement!"
-#define INCOMPLETE_STATEMENT_LIST "Incomplete statement list!"
-#define INCOMPLETE_FN_CALL "Incomplete/invalid function call!"
-#define DEBUG_DIRECTIVE "Debug directive syntax error."
-#define DEBUG_NOT_SET "Debug directive without debug output file!"
+// AST Messages:
+#define AST_EXPECTED_TOKEN SCAN_EXPECTED_TOKEN
+#define AST_EXPECTED_IDENTIFIER "Expected identifier in identifier list!"
+#define AST_EXPECTED_PRIMARY "Expected primary expression!"
+#define AST_EXPECTED_IDENTIFIER_LOOP "Expected identifier in place of loop variable."
+#define AST_STRUCT_NAME_IDENTIFIER "Struct name must be an identifier!"
+#define AST_STRUCT_PARENT_IDENTIFIER "Struct parent delegation must be an identifier!"
+#define AST_UNRECOGNIZED_IMPORT "Unrecognized import, expected an identifier!"
+
+// CodeGen Messages:
+#define CODEGEN_LVALUE_EXPECTED_IDENTIFIER "Expected identifier in lvalue expression."
+#define CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL \
+	"Right parameter of member access binary operator must be a LITERAL expression."
+#define CODEGEN_INVALID_LVALUE_BINOP \
+	"Invalid binary operator in lvalue expression."
+#define CODEGEN_INVALID_LVALUE \
+	"Invalid lbalue expression!"
+#define CODEGEN_EXPECTED_IDENTIFIER AST_EXPECTED_IDENTIFIER
+#define CODEGEN_PARENT_NOT_STRUCT "Parent to be inherited from is not a struct!"
+#define CODEGEN_REQ_FILE_READ_ERR SCAN_REQ_FILE_READ_ERR
 
 // Debugger Messages:
 #define OUT_OF_BREAKPOINTS "Breakpoint limit reached! You cannot create more breakpoints!"
 
-// Interpreter Messages:
-//   GENERAL ERRORS
-#define RESERVED_TOKEN "Reserved Token used for Identifier!"
-#define TOKEN_DECLARED "Identifier was already declared! Use 'set' to mutate!"
-#define SYNTAX_ERROR "Syntax Error!"
-#define TYPE_ERROR "Type Error!"
-#define INCOMPLETE_STATEMENT "Incomplete statement!"
-#define UNEXPECTED_TOKEN "Unexpected token!"
-#define COND_EVAL_NOT_BOOL "Condition must evaluate to true or false."
-#define EXPECTED_END_OF_LINE "Expected end of line!"
-#define NOT_A_LIST "Setting nth item of identifier must be List."
-#define NOT_A_LIST_OR_STRING "Getting nth item of identifier must be List or String."
-#define ID_NOT_FOUND "Identifier not found. Did you declare it?"
-#define TYPE_INVALID_TOKEN "Invalid token for type access."
-#define ASSERT_FAIL "Assertion failed!"
-#define EXPECTED_UNARY "Expected unary operator."
+// MEMORY ERRORS
+#define MEMORY_REF_ERROR "Reference to memory out of range!"
+#define MEMORY_STACK_OVERFLOW "Internal stack overflow!"
+#define MEMORY_OVERFLOW "Out of memory!"
+#define MEMORY_STACK_UNDERFLOW "Internal stack underflow! Did you call a function with less arguments than required?"
+#define MEMORY_ID_NOT_FOUND "Identifier '%s' not found! Did you declare it?"
 
-#define FN_CALL_NOT_FN "Function call on identifier that is not a Function!"
-//   EVAL_IDENTIFIER ERRORS
-#define INVALID_IDENTIFIER "Invalid identifier. Syntax error." 
-#define INVALID_DEREFERENCE "Dereferencee must be Number or Address!"
-
-//   LIST ERRORS
-#define INVALID_LIST_SUBSCRIPT "List index must be a number or a range!"
-#define ARRAY_REF_OUT_RANGE "Array subscript is out of range!"
-
-//   MEMBER ERRORS
-#define NOT_A_STRUCT "Can only access member of a struct or a struct instance!"
-#define MEMBER_NOT_IDEN "Tried to access invalid member!"
-#define MEMBER_NOT_EXIST "Requested member does not exist in class."
-
-//   STRUCT ERRORS
-#define PARENT_NOT_STRUCT "Parent is not a struct!"
-#define INIT_NOT_FN "Overwritten struct init member not a function!"
-
-//   MATH ERRORS
-#define INVALID_NEGATE "Negation operand must be a Number."  
-#define NUM_NUM_INVALID_OPERATOR "Invalid operator between two Numbers."
-#define LIST_LIST_INVALID_OPERATOR "Invalid operator between two Lists."
-#define INVALID_APPEND "Invalid operator between List and Element."
-#define STRING_NUM_INVALID_OPERATOR "Invalid operator between String and Number."
-#define EVAL_STACK_EMPTY "Evaluation error: stack empty!"
-#define MATH_DISASTER "Division by 0!"
-#define PAREN_MISMATCH "Mismatched Parentheses!"
-
-//   MEMORY ERRORS
-#define MEMORY_REF_ERROR "Reference to Memory Out of Range!"
-#define STACK_OVERFLOW "Call Stack Overflow!"
-#define MEMORY_OVERFLOW "Out of memory!" 
-#define FUNCTION_CALL_MISMATCH "Invalid number of parameters in function call!"
-
-#define UNKNOWN_TOKEN "Unknown Token!"
+// VM Errors:
+#define VM_INVALID_OPCODE "Invalid opcode encountered (0x%X at 0x%X)."
+#define VM_VAR_DECLARED_ALREADY "Identifier '%s' was already declared!"
+#define VM_NOT_A_LIST "Setting nth item of identifier must be List."
+#define VM_INVALID_LVALUE_LIST_SUBSCRIPT "List index must be a number!"
+#define VM_LIST_REF_OUT_RANGE "List subscript is out of range!"
+#define VM_NOT_A_STRUCT "You can only access member of a struct or a struct instance!"
+#define VM_MEMBER_NOT_EXIST "Member '%s' does not exist in struct."
+#define VM_COND_EVAL_NOT_BOOL "Condition must evaluate to true or false."
+#define VM_FN_CALL_NOT_FN "Initiated function call but did not find function to call."
+#define VM_NOT_A_LIST_OR_STRING "You can only access the nth item of a list or a string."
+#define VM_INVALID_LIST_SUBSCRIPT "List index must be a number or a range!"
+#define VM_MEMBER_NOT_IDEN "Tried to access invalid member!"
+#define VM_MATH_DISASTER "Division by 0!"
+#define VM_TYPE_ERROR "Type error on operator '%s'!"
+#define VM_NUM_NUM_INVALID_OPERATOR "Invalid operator '%s' between two numbers."
+#define VM_LIST_LIST_INVALID_OPERATOR "Invalid operator '%s' between two lists."
+#define VM_INVALID_APPEND "Invalid operator '%s' between list and element."
+#define VM_STRING_NUM_INVALID_OPERATOR "Invalid operator '%s' between string and number."
+#define VM_INVALID_NEGATE "Negation operand must be a number."  
 
 // Colors
 #ifdef _WIN32
@@ -119,4 +127,7 @@ void d_error(char* message);
 
 // free_error() frees the allocated space for the source
 void free_error();
+
+void reset_error_flag();
+bool get_error_flag();
 #endif

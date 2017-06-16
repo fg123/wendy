@@ -1,0 +1,11 @@
+[31mRuntime Error[0m at line [33m53 (35)[0m: loop: Identifier not found. Did you declare it?
+==========================
+ Line Source
+==========================
+
+===============
+Dump: Stack Trace
+    0 FP-> [[34m> main()[0m -> 0]
+    1      [#R/A -> 0: <none>]
+    2      [x -> 2: 5]
+===============

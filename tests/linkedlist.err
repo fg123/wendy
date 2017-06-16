@@ -1,0 +1,11 @@
+[31mRuntime Error[0m at line [33m13 (d)[0m: IDENTIFIER: Expected token!
+==========================
+ Line Source
+   12 };
+   13 [31m
+[0m   14 let for => (list, fn) {
+==========================
+
+===============
+Dump: Stack Trace
+===============

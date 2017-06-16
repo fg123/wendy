@@ -1,6 +1,0 @@
-WendyScript Pre-Processor Dump: Scanned Tokens
-
-       1: <struct> point => (x, y); 
-      10: let a = point (10, 40); 
-      20: a . x; 
-      24: a . y;

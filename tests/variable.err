@@ -1,0 +1,11 @@
+[31mRuntime Error[0m at line [33m8 (8)[0m: Unexpected primary expression!
+==========================
+ Line Source
+    7 let f = d + e;
+    8 [31mset f = f + f;
+[0m    9 f;
+==========================
+
+===============
+Dump: Stack Trace
+===============

@@ -3,7 +3,11 @@
 
 #include <stdbool.h>
 #include <stdio.h>
-#include "macros.h"
+#include "global.h"
+
+// token.h - Felix Guo
+// This module provides utilities for creating and manipulating tokens for the
+//   [scanner].
 
 bool last_printed_newline;
 
@@ -20,6 +24,11 @@ bool last_printed_newline;
 	OP(DOT) \
 	OP(MINUS) \
 	OP(PLUS) \
+	OP(ASSIGN_PLUS)\
+	OP(ASSIGN_MINUS)\
+	OP(ASSIGN_STAR)\
+	OP(ASSIGN_SLASH)\
+	OP(ASSIGN_INTSLASH)\
 	OP(SEMICOLON) \
 	OP(SLASH) \
 	OP(STAR) \
@@ -46,6 +55,7 @@ bool last_printed_newline;
 	OP(B_COMMENT_START) \
 	OP(B_COMMENT_END) \
 	OP(IDENTIFIER) \
+	OP(MEMBER) \
 	OP(STRING) \
 	OP(NUMBER) \
 	OP(ADDRESS) \
@@ -58,6 +68,7 @@ bool last_printed_newline;
 	OP(AND) \
 	OP(OR) \
 	OP(IF) \
+	OP(INOP) \
 	OP(ELSE) \
 	OP(ELSEIF) \
 	OP(TRUE) \
@@ -76,7 +87,6 @@ bool last_printed_newline;
 	OP(REQ) \
 	OP(EXPLODE) \
 	OP(TIME) \
-	OP(ASSERT) \
 	OP(STRUCT_HEADER) \
 	OP(STRUCT_NAME) \
 	OP(STRUCT_METADATA) \
@@ -86,6 +96,7 @@ bool last_printed_newline;
 	OP(STRUCT_INSTANCE_HEAD) \
 	OP(STRUCT_PARENT) \
 	OP(STRUCT_BASE_INSTANCE) \
+	OP(STRUCT_FUNCTION) \
 	OP(NONE) \
 	OP(NONERET) \
 	OP(CALL) \
@@ -112,6 +123,7 @@ typedef union {
 typedef struct {	
 	token_type t_type;
 	int t_line;
+	int t_col;
 	data t_data;
 } token;
 
@@ -136,6 +148,9 @@ token true_token();
 // time_token() returns the current time in a number token
 token time_token();
 
+// empty_token() returns an empty token
+token empty_token();
+
 // noneret_token() returns a new noneret_token
 token noneret_token();
 
@@ -158,4 +173,14 @@ void print_token_inline(const token* t, FILE* buf);
 
 // token_equal(a, b) returns true if both tokens are equal and false otherwise
 bool token_equal(token* a, token* b);
+
+// precedence(op) returns the precedece of the operator
+int precedence(token op);
+
+// is_numeric(tok) returns true if the token holds a numeric value and false
+//   otherwise.
+bool is_numeric(token tok);
+
+
+void set_make_token_param(int l, int c); 
 #endif
