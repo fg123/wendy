@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
 			}
 			add_history(input_buffer);
 			run(input_buffer);
-			safe_free(input_buffer);
+			free(input_buffer);
 		}
 		c_free_memory();
 		return 0;
