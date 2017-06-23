@@ -9,7 +9,8 @@ make -s
 echo Build Done.
 
 echo Compiling Wendy Library Files
-rm ../bin/wendy-lib/*
+mkdir -p ../bin/wendy-lib
+rm -f ../bin/wendy-lib/*
 for f in wendy-lib/*.w ; do
 	../bin/wendy "$f" -c
 	cp -R "${f%.w}.wc" ../bin/wendy-lib/
