@@ -1,11 +1,5 @@
-[31mRuntime Error[0m at line [33m8 (8)[0m: Unexpected primary expression!
+[31mParser Error[0m on line [33m7[0m: Expected primary expression!
 ==========================
- Line Source
-    7 let f = d + e;
-    8 [31mset f = f + f;
-[0m    9 f;
-==========================
-
-===============
-Dump: Stack Trace
-===============
+ Line Source (../tests/variable.in)
+    7 [31mlet f = d + e;
+[0m                     ^

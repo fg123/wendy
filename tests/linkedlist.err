@@ -1,11 +1,5 @@
-[31mRuntime Error[0m at line [33m13 (d)[0m: IDENTIFIER: Expected token!
+[31mParser Error[0m on line [33m3[0m: Expected primary expression!
 ==========================
- Line Source
-   12 };
-   13 [31m
-[0m   14 let for => (list, fn) {
-==========================
-
-===============
-Dump: Stack Trace
-===============
+ Line Source (../tests/linkedlist.in)
+    3 [31mlet mylist = [1..10];
+[0m                       ^

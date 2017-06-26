@@ -1,11 +1,5 @@
-[31mRuntime Error[0m at line [33m15 (f)[0m: Unexpected primary expression!
+[31mParser Error[0m on line [33m14[0m: Expected primary expression!
 ==========================
- Line Source
-   14 // Testing Function Reassignment
-   15 [31mset add1 = 10;
-[0m   16 add1;
-==========================
-
-===============
-Dump: Stack Trace
-===============
+ Line Source (../tests/function.in)
+   14 [31m// Testing Function Reassignment
+[0m                ^

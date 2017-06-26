@@ -1,6 +1,6 @@
-[31mRuntime Error[0m at line [33m53 (35)[0m: loop: Identifier not found. Did you declare it?
+[31mRuntime Error[0m on line [33m60[0m ([33m0x3C[0m): Identifier 'loop' not found! Did you declare it?
 ==========================
- Line Source
+ Line Source (../tests/loop.in)
 ==========================
 
 ===============

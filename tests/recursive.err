@@ -1,10 +1,8 @@
 <true>
 81
-[31mRuntime Error[0m at line [33m36 (24)[0m: x: Identifier was already declared!
+[31mRuntime Error[0m on line [33m141[0m ([33m0x8D[0m): Identifier 'my_local_fac' not found! Did you declare it?
 ==========================
- Line Source
-   35 
-
+ Line Source (../tests/recursive.in)
 ==========================
 
 ===============
@@ -15,11 +13,12 @@ Dump: Stack Trace
     3      [my_compare -> 7: <function>]
     4      [greater_than -> 10: <function>]
     5      [power -> 13: <function>]
-    6      [[34m> function()[0m -> 0: <none>]
-    7      [#R/A -> 597: ]
+    6      [[34m> function(0x298)()[0m -> 0: <none>]
+    7      [#R/A -> 665: ]
     8      [x -> 30: 5]
     9      [my_local_fac -> 33: <function>]
-   10 FP-> [[34m> function()[0m -> 6]
-   11      [#R/A -> 180: ]
+   10 FP-> [[34m> function(0xD8)()[0m -> 6]
+   11      [#R/A -> 217: ]
    12      [x -> 30: 5]
+   13      [x -> 34: 5]
 ===============
