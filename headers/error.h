@@ -48,7 +48,7 @@ void error_runtime(int line, char* message, ...);
 #define CODEGEN_INVALID_LVALUE_BINOP \
 	"Invalid binary operator in lvalue expression."
 #define CODEGEN_INVALID_LVALUE \
-	"Invalid lbalue expression!"
+	"Invalid lvalue expression!"
 #define CODEGEN_EXPECTED_IDENTIFIER AST_EXPECTED_IDENTIFIER
 #define CODEGEN_PARENT_NOT_STRUCT "Parent to be inherited from is not a struct!"
 #define CODEGEN_REQ_FILE_READ_ERR SCAN_REQ_FILE_READ_ERR
