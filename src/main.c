@@ -44,12 +44,13 @@ void clear_console() {
 
 void invalid_usage() {
 	printf("usage: wendy [file] [-help] [-nogc] [-c] [-ast] [-disassemble] "/*[-d file b1 b2 ...]*/"\n\n");
-	printf("    file         : is either a compiled WendyScript file, or a raw source file.\n");
-	printf("    -help        : shows this message.\n");
-	printf("    -no-gc       : disables garbage-collection.\n");
-	printf("    -c           : compiles the given file but does not run.\n");
-	printf("    -ast         : prints out the constructed AST.\n");
-	printf("    -disassemble : prints out the disassembled bytecode.\n");
+	printf("    file            : is either a compiled WendyScript file, or a raw source file.\n");
+	printf("    -h, --help      : shows this message.\n");
+	printf("    --nogc          : disables garbage-collection.\n");
+	printf("    -c, --compile   : compiles the given file but does not run.\n");
+	printf("    --ast           : prints out the constructed AST.\n");
+	printf("    --toklst        : prints out the parsed tokens.\n");
+	printf("    --disassemble   : prints out the disassembled bytecode.\n");
 	printf("\nWendy will enter REPL mode if no parameters are supplied.\n");
 //	printf("\n-d file b1 b2 ...\n	Enables debugging mode, with an output file and an initial set of breakpoints.");
 
@@ -58,7 +59,8 @@ void invalid_usage() {
 
 void process_options(char** options, int len) {
 	for (int i = 0; i < len; i++) {
-		if (strcmp("-c", options[i]) == 0) {
+		if (strcmp("-c", options[i]) == 0 
+		||  strcmp("--compile", options[i]) == 0) {
 			set_settings_flag(SETTINGS_COMPILE);
 		}
 		/*else if (strcmp("-d", options[i]) == 0) {
@@ -71,13 +73,16 @@ void process_options(char** options, int len) {
 				add_breakpoint(atoi(options[i]));
 			}
 		}*/	
-		else if (strcmp("-nogc", options[i]) == 0) {
+		else if (strcmp("--nogc", options[i]) == 0) {
 			set_settings_flag(SETTINGS_NOGC);
 		}
-		else if (strcmp("-ast", options[i]) == 0) {
+		else if (strcmp("--ast", options[i]) == 0) {
 			set_settings_flag(SETTINGS_ASTPRINT);
 		}
-		else if (strcmp("-disassemble", options[i]) == 0) {
+		else if (strcmp("--toklst", options[i]) == 0) {
+			set_settings_flag(SETTINGS_TOKEN_LIST_PRINT);
+		}
+		else if (strcmp("--disassemble", options[i]) == 0) {
 			set_settings_flag(SETTINGS_DISASSEMBLE);
 		}
 		else {
@@ -139,7 +144,7 @@ int main(int argc, char** argv) {
 	if (argc != 2) {
 		process_options(&argv[2], argc - 2);
 	}
-	if (argc == 2 && strcmp(argv[1], "-help") == 0) {
+	if (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
 		invalid_usage();
 	}
 	else if (argc >= 2) {
@@ -178,6 +183,9 @@ int main(int argc, char** argv) {
 
 			// Scanning and Tokenizing
 			tokens_count = scan_tokens(buffer, &tokens, &alloc_size);
+			if (get_settings_flag(SETTINGS_TOKEN_LIST_PRINT)) {
+				print_token_list(tokens, tokens_count);
+			}
 
 			// Build AST
 			statement_list* ast = generate_ast(tokens, tokens_count);

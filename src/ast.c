@@ -375,7 +375,7 @@ static statement* parse_statement() {
 			expr* condition = expression();
 			statement* run_if_true = parse_statement();
 			statement* run_if_false = 0;
-			if (match(ELSE)) {
+			if (match(ELSE) || match(COLON)) {
 				run_if_false = parse_statement();
 			}	
 			sm->type = S_IF;

@@ -252,7 +252,9 @@ static bool scan_token() {
 		case ']': add_token(RIGHT_BRACK); break;
 		case '{': add_token(LEFT_BRACE); break;
 		case '}': add_token(RIGHT_BRACE); break;
-		case '&': add_token(AMPERSAND); break;
+		case '&': add_token(AND); break;
+		case '|': add_token(OR); break;
+		case '?': add_token(IF); break;
 		case '~': add_token(TILDE); break;
 		case ',': add_token(COMMA); break;
 		case '.': add_token(DOT); break;
@@ -265,6 +267,9 @@ static bool scan_token() {
 			else if (match('=')) {
 				add_token(ASSIGN_MINUS);
 			}
+			else if (match('-')) {
+				add_token(DEC);
+			}
 			else if (match('>')) {
 				add_token(RANGE_OP);
 			}
@@ -272,7 +277,17 @@ static bool scan_token() {
 				add_token(MINUS); 
 			}
 			break;
-		case '+': add_token(match('=') ? ASSIGN_PLUS : PLUS); break;
+		case '+': 
+			if (match('=')) {
+				add_token(ASSIGN_PLUS);
+			}
+			else if (match('+')) {
+				add_token(INC);
+			}
+			else {
+				add_token(PLUS);
+			}
+			break;
 		case '\\': add_token(match('=') ? ASSIGN_INTSLASH : INTSLASH); break;
 		case '%': add_token(PERCENT); break;
 		case '@': add_token(AT); break;
@@ -287,7 +302,7 @@ static bool scan_token() {
 				ignore_next = true;
 			}
 			else {
-				add_token(HASH);
+				add_token(LOOP);
 			}
 			break;
 		case '*': add_token(match('=') ? ASSIGN_STAR : STAR); break;
@@ -313,17 +328,33 @@ static bool scan_token() {
 			else if (is_alpha(peek())) {
 				handle_obj_type();
 			}
+			else if (match('<')) {
+				add_token(LET);
+			}
 			else {
 				add_token(LESS);
 			}
 			break;
-		case '>': add_token(match('=') ? GREATER_EQUAL : GREATER); break;
+		case '>': 
+			if (match('=')) {
+				add_token(GREATER_EQUAL);
+			}
+			else if (match('>')) {
+				add_token(INPUT);
+			}
+			else {
+				add_token(GREATER);
+			}
+			break;	
 		case '/':
 			if (match('/')) {
 				// A comment goes until the end of the line.
 				while (peek() != '\n' && !is_at_end()) advance();
 				line++;
 				col = 1;
+			}
+			else if (match('>')) {
+				add_token(RET);
 			}
 			else if (match('=')) {
 				add_token(ASSIGN_SLASH);
@@ -409,13 +440,13 @@ static void add_token_V(token_type type, data val) {
 void print_token_list(token* tokens, size_t size) {
 	for(int i = 0; i < size; i++) {
 
-		if(tokens[i].t_type == NUMBER) {
-			printf("{ %d - %d -> %f }\n", i, 
-				tokens[i].t_type, tokens[i].t_data.number);
+		if(is_numeric(tokens[i])) {
+			printf("%d - %s -> %f\n", i, 
+				token_string[tokens[i].t_type], tokens[i].t_data.number);
 		}
 		else {
-			printf("{ %d - %d -> %s }\n", i, 
-				tokens[i].t_type, tokens[i].t_data.string);
+			printf("%d - %s -> %s\n", i, 
+				token_string[tokens[i].t_type], tokens[i].t_data.string);
 		}
 	}
 }
