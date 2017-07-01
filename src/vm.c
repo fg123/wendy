@@ -580,7 +580,7 @@ static token eval_binop(token op, token a, token b) {
 		}
 	}
 	if (op.t_type == DOT) {
-		// Member Access! Supports two built in, size and type.
+		// Member Access! Supports two built in, size and type, value.
 		// Left side should be a token.
 		if (b.t_type != IDENTIFIER) {
 			error_runtime(line, VM_MEMBER_NOT_IDEN);
@@ -591,6 +591,9 @@ static token eval_binop(token op, token a, token b) {
 		}
 		else if (strcmp("type", b.t_data.string) == 0) {
 			return type_of(a);
+		}
+		else if (strcmp("value", b.t_data.string) == 0) {
+			return value_of(a);
 		}
 		else {
 			// Regular Member, Must be either struct or a struct instance.
@@ -904,6 +907,15 @@ static token eval_binop(token op, token a, token b) {
 		return none_token();
 	}
 	return none_token();
+}
+
+static token value_of(token a) {
+	if (a.t_type == STRING && strlen(a.t_data.string) == 1) {
+		return make_token(NUMBER, make_data_num(a.t_data.string[0]));
+	}
+	else {
+		return a;	
+	}
 }
 
 static token size_of(token a) {
