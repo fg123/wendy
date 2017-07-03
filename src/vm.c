@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "global.h"
+#include <limits.h>
 
 static address memory_register = 0;
 static address memory_register_A = 0;
@@ -592,8 +593,11 @@ static token eval_binop(token op, token a, token b) {
 		else if (strcmp("type", b.t_data.string) == 0) {
 			return type_of(a);
 		}
-		else if (strcmp("value", b.t_data.string) == 0) {
+		else if (strcmp("val", b.t_data.string) == 0) {
 			return value_of(a);
+		}
+		else if (strcmp("char", b.t_data.string) == 0) {
+			return char_of(a);
 		}
 		else {
 			// Regular Member, Must be either struct or a struct instance.
@@ -915,6 +919,18 @@ static token value_of(token a) {
 	}
 	else {
 		return a;	
+	}
+}
+
+static token char_of(token a) {
+	if (a.t_type == NUMBER && a.t_data.number >= CHAR_MIN 
+		&& a.t_data.number <= CHAR_MAX) {
+		token res = make_token(STRING, make_data_str(" "));
+		res.t_data.string[0] = (char)a.t_data.number;
+		return res;
+	}
+	else {
+		return a;
 	}
 }
 

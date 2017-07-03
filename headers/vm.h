@@ -24,6 +24,9 @@ static token size_of(token a);
 // value_of(a) returns the value of the token a in a NUMBER token
 static token value_of(token a);
 
+// char_of(a) returns the value of the token a in a STRING token
+static token char_of(token a);
+
 // get_instruction_pointer() returns the current instruction pointer.
 address get_instruction_pointer();
 #endif
