@@ -1,11 +1,11 @@
 # WendyScript C Compiler and VM
 ## Language and Compiler created by Felix Guo
 
-The syntax for WendyScript can be found at [felixguo.me](http://felixguo.me/wendy).
+The syntax for WendyScript can be found at [felixguo.me/wendy](http://felixguo.me/wendy).
 
 The repository is a WendyScript compiler and VM written in C. 
 
-This can be built by using the build.sh file found in the /src folder.
+This can be built by using the build.sh file.
 
 > ./build.sh
 
