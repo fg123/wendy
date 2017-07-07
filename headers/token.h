@@ -162,9 +162,6 @@ token range_token(int start, int end);
 int range_start(token r);
 int range_end(token r);
 
-// get_array_size(t) returns the size of the array given t is an array header.
-//int get_array_size(token t);
-
 // print_token(t) prints the value of the token to the string
 void print_token(const token* t);
 
@@ -181,6 +178,7 @@ int precedence(token op);
 //   otherwise.
 bool is_numeric(token tok);
 
-
+// set_make_token_param(l, c) sets the line and column of the current state of
+//   the scanner
 void set_make_token_param(int l, int c); 
 #endif
