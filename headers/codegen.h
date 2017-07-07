@@ -37,15 +37,15 @@
 // =============================================================================
 // 0x00 | PUSH   | [token]   | (...) -> (...) [token]
 // 0x01 | POP    |           | (...) [token] -> (...)
-// 0x02 | BIN	 | [optoken] | (...) (a) (b) -> (...) (a OP b)
-// 0x03 | UNA	 | [optoken] | (...) (a) -> (...) (OP a)
-// 0x04 | CALL	 |           | (...) [address] -> (...)
-//	 `- moves the instruction pointer to the given address with new callstack
-// 0x05 | RET	 |           | 
+// 0x02 | BIN    | [optoken] | (...) (a) (b) -> (...) (a OP b)
+// 0x03 | UNA    | [optoken] | (...) (a) -> (...) (OP a)
+// 0x04 | CALL   |           | (...) [address] -> (...)
+//   `- moves the instruction pointer to the given address with new callstack
+// 0x05 | RET    |           | 
 //   `- moves instruction pointer back to caller
-// 0x06 | BIND	 | [string]  | 
+// 0x06 | BIND   | [string]  | 
 //   `- binds the identifier to the $MR
-// 0x07 | REQ	 | [size]    | 
+// 0x07 | REQ    | [size]    | 
 //   `- requests memory and stores pointer in $MR
 // 0x08 | WHERE  | [string]  | 
 //   `- get memory location of the identifier and stores in $MR
@@ -68,7 +68,7 @@
 // 0x12 | FRM    |           |
 //   `- creates a local variable stack frame
 // 0x13 | END    |           | 
-//	 `- pops a local variable stack frame
+//   `- pops a local variable stack frame
 // 0x14 | LJMP   | [address] | given loop index var name, performs check if 
 //                 [string]  |   loop is done, if it is jump to the address
 // 0x15 | LBIND  | [string]  | first is userindexvar, second is loop index var
@@ -79,8 +79,8 @@
 //                               off top of the stack and puts an address in the
 //                               memory register
 // 0x19 | MEMPTR |           | struct/structinstance at mem_register and a 
-//								 member id at top of stack and puts an address 
-//								 in the memory register
+//                               member id at top of stack and puts an address 
+//                               in the memory register
 // 0x1A | ASSERT | [toktype] | verifies that the type at the memory register is
 //                 [string]  |   what it should be, prints error if not
 // 0x1B | MPTR   |           | sets memory_register to number of the item at
@@ -99,19 +99,19 @@
 // 0x24 | BADR   | [int32]   | change the base address by the value given
 
 typedef enum opcode { 
-	OP_PUSH, OP_POP, OP_BIN, OP_UNA, OP_CALL, OP_RET, OP_BIND, OP_REQ, OP_WHERE, 
-	OP_OUT, OP_OUTL, OP_IN, OP_PLIST, OP_RANGE, OP_READ, OP_WRITE, OP_JMP, 
-	OP_JIF, OP_FRM, OP_END, OP_LJMP, OP_LBIND, OP_INC, OP_DEC, OP_NTHPTR, 
-	OP_MEMPTR, OP_ASSERT, OP_MPTR, OP_DIN, OP_DOUT, OP_CLOSUR, OP_RBIN, 
-	OP_RBW, OP_CHTYPE, OP_HALT, OP_SRC, OP_BADR } 
-	opcode;
+    OP_PUSH, OP_POP, OP_BIN, OP_UNA, OP_CALL, OP_RET, OP_BIND, OP_REQ, OP_WHERE, 
+    OP_OUT, OP_OUTL, OP_IN, OP_PLIST, OP_RANGE, OP_READ, OP_WRITE, OP_JMP, 
+    OP_JIF, OP_FRM, OP_END, OP_LJMP, OP_LBIND, OP_INC, OP_DEC, OP_NTHPTR, 
+    OP_MEMPTR, OP_ASSERT, OP_MPTR, OP_DIN, OP_DOUT, OP_CLOSUR, OP_RBIN, 
+    OP_RBW, OP_CHTYPE, OP_HALT, OP_SRC, OP_BADR } 
+    opcode;
 
 static char* opcode_string[] = {
-	"push", "pop", "bin", "una", "call", "ret", "bind", "req", 
-	"where", "out", "outl", "in", "plist", "range", "read", "write", "jmp", 
-	"jif", "frm", "end", "ljmp", "lbind", "inc", "dec", "nthptr",
-	"memptr", "assert", "mptr", "din", "dout", "closur", "rbin", "rbw", "chtype",
-	"halt", "src", "badr"
+    "push", "pop", "bin", "una", "call", "ret", "bind", "req", 
+    "where", "out", "outl", "in", "plist", "range", "read", "write", "jmp", 
+    "jif", "frm", "end", "ljmp", "lbind", "inc", "dec", "nthptr",
+    "memptr", "assert", "mptr", "din", "dout", "closur", "rbin", "rbw", "chtype",
+    "halt", "src", "badr"
 };
 
 // generate_code(ast) generates Wendy ByteCode based on the ast and 

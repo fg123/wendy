@@ -36,12 +36,12 @@
 #define SETTINGS_COUNT 6
 
 typedef enum {
-	SETTINGS_COMPILE = 0, 
-	SETTINGS_NOGC = 1, 
-	SETTINGS_ASTPRINT = 2,
-	SETTINGS_DISASSEMBLE = 3,
-	SETTINGS_STRICT_ERROR = 4,
-	SETTINGS_TOKEN_LIST_PRINT = 5 } settings_flags; 
+    SETTINGS_COMPILE = 0, 
+    SETTINGS_NOGC = 1, 
+    SETTINGS_ASTPRINT = 2,
+    SETTINGS_DISASSEMBLE = 3,
+    SETTINGS_STRICT_ERROR = 4,
+    SETTINGS_TOKEN_LIST_PRINT = 5 } settings_flags; 
 
 void set_settings_flag(settings_flags flag);
 bool get_settings_flag(settings_flags flag);

@@ -45,11 +45,11 @@ void error_runtime(int line, char* message, ...);
 // CodeGen Messages:
 #define CODEGEN_LVALUE_EXPECTED_IDENTIFIER "Expected identifier in lvalue expression."
 #define CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL \
-	"Right parameter of member access binary operator must be a LITERAL expression."
+    "Right parameter of member access binary operator must be a LITERAL expression."
 #define CODEGEN_INVALID_LVALUE_BINOP \
-	"Invalid binary operator in lvalue expression."
+    "Invalid binary operator in lvalue expression."
 #define CODEGEN_INVALID_LVALUE \
-	"Invalid lvalue expression!"
+    "Invalid lvalue expression!"
 #define CODEGEN_EXPECTED_IDENTIFIER AST_EXPECTED_IDENTIFIER
 #define CODEGEN_PARENT_NOT_STRUCT "Parent to be inherited from is not a struct!"
 #define CODEGEN_REQ_FILE_READ_ERR SCAN_REQ_FILE_READ_ERR

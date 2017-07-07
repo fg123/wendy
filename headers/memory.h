@@ -11,16 +11,16 @@
 typedef unsigned int address;
 
 typedef struct {
-	char id[MAX_IDENTIFIER_LEN + 1];
-	address val;
-	bool is_closure;
+    char id[MAX_IDENTIFIER_LEN + 1];
+    address val;
+    bool is_closure;
 } stack_entry;
 
 typedef struct mem_block mem_block;
 struct mem_block {
-	unsigned int size;
-	address start;
-	mem_block* next;
+    unsigned int size;
+    address start;
+    mem_block* next;
 };
 
 token* memory;
