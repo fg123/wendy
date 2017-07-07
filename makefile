@@ -1,10 +1,10 @@
 CC=gcc
 
 CXXFLAGS= -std=c99
-ODIR = ../build
-BINDIR = ../bin
-SRCDIR = ./
-INCDIR = ../headers
+ODIR = build
+BINDIR = bin
+SRCDIR = src
+INCDIR = headers
 CFLAGS=-I $(INCDIR) -lreadline -g -lm -Wall -Wextra
 CFLAGSNOLINK = -I $(INCDIR) -g
 

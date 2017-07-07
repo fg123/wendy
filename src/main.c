@@ -2,8 +2,6 @@
 #include "memory.h"
 #include "error.h"
 #include "execpath.h"
-#include "preprocessor.h"
-#include "tests.h"
 #include "global.h"
 #include "scanner.h"
 #include <string.h>
@@ -13,11 +11,11 @@
 #include "codegen.h"
 #include "source.h"
 
-#ifdef _WIN32
+#ifdef _WOP_IN32
 char* readline(char* prompt) {
   fputs(prompt, stdout);
-  char* cpy = safe_malloc(INPUT_BUFFER_SIZE);
-  fgets(cpy, INPUT_BUFFER_SIZE, stdin);
+  char* cpy = safe_malloc(OP_INPUT_BUFFER_SIZE);
+  fgets(cpy, OP_INPUT_BUFFER_SIZE, stdin);
   return cpy;
 }
 
@@ -148,7 +146,7 @@ int main(int argc, char** argv) {
 		invalid_usage();
 	}
 	else if (argc >= 2) {
-		// FILE READ MODE
+		// FILE OP_READ MODE
 		long length = 0;
 		int file_name_length = strlen(argv[1]);
 		FILE *file = fopen(argv[1], "r");

@@ -1,7 +1,7 @@
 #!/bin/sh
 
-mkdir -p ../bin
-mkdir -p ../build
+mkdir -p bin
+mkdir -p build
 
 echo Building WendyScript...
 make clean -s
@@ -9,23 +9,23 @@ make -s
 echo Build Done.
 
 echo Compiling Wendy Library Files
-mkdir -p ../bin/wendy-lib
-rm -f ../bin/wendy-lib/*
-for f in wendy-lib/*.w ; do
-	../bin/wendy "$f" -c
-	cp -R "${f%.w}.wc" ../bin/wendy-lib/
+mkdir -p bin/wendy-lib
+rm -f bin/wendy-lib/*
+for f in src/wendy-lib/*.w ; do
+	bin/wendy "$f" -c
+	cp -R "${f%.w}.wc" bin/wendy-lib/
 done
 echo Compiled and Copied
 
 if [ "$1" != "-b" ]; then
 	echo Running Tests...
 
-	for f in ../tests/*.err ; do
+	for f in tests/*.err ; do
 		rm -f $f
 	done
 
-    for f in ../tests/*.in ; do
-		../bin/wendy "$f" > file.tmp
+    for f in tests/*.in ; do
+		bin/wendy "$f" > file.tmp
 		if diff "${f%.in}.expect" file.tmp > /dev/null ; then
 			echo Test $(basename $f) passed.
 		else

@@ -4,7 +4,7 @@
 #include "global.h"
 
 #define W_MAX_PATH 500
-#ifdef _WIN32
+#ifdef _WOP_IN32
 
 #include <Windows.h>
 

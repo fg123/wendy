@@ -3,7 +3,8 @@
 #include <stdbool.h>
 #include "token.h"
 
-// errors.h includes all of the error messages in WendyScript
+// errors.h - Felix Guo
+// Includes all of the error messages in WendyScript
 // There are different types of error messages. All error message display calls
 //   can be provided with a formatted string and arguments, like printf.
 // 

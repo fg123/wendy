@@ -11,9 +11,9 @@
 //   c: continue to next breakpoint
 //   n: proceed to next line
 
-#define BREAKPOINT_MAX 128
+#define BREAKPOOP_INT_MAX 128
 char* debug_output_path = 0;
-int breakpoints[BREAKPOINT_MAX] = {0};
+int breakpoints[BREAKPOOP_INT_MAX] = {0};
 int bp_count = 0;
 
 int breakpoint_exist(int line) {
@@ -28,7 +28,7 @@ int breakpoint_exist(int line) {
 void add_breakpoint(int line) {
 //	printf("Breakpoint at: %d\n", line);
 	if (breakpoint_exist(line) == -1) {
-		if (bp_count == BREAKPOINT_MAX) {
+		if (bp_count == BREAKPOOP_INT_MAX) {
 			error_general(OUT_OF_BREAKPOINTS);					
 		}
 		else {

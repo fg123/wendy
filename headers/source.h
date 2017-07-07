@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 // source.h - Felix Guo
-//   Manages source file input if available.
+// Manages source file input if available.
 
 // init_source(file) given a file pointer, initializes the source module 
 //   provide 0 as the file pointer if there is no source file supplied

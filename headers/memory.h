@@ -5,23 +5,11 @@
 #include <stdbool.h>
 #include "global.h"
 
-// memory is a list of tokens holding values.
-// call_stack/array includes all the frames and each frame has entries.
-//   Each entry is either:
-//		identifier -> address to previous stack 
-//			identifier is either FUNC (function ret) or LOC (local automatic)
-//		identifier -> address to memory
-//		identifier -> function address
-// frame_pointer is the address to the start to the current frame.
-// stack_pointer is the address to the front of the stack, last empty
-
-// an address is an unsigned int
-// stack_entry holds char[60] -> address
-// frame_pointer is an address
+// memory.h - Felix Guo
+// This module manages the memory model for WendyScript.
 
 typedef unsigned int address;
 
-// sizeof(stack_entry) = 64
 typedef struct {
 	char id[MAX_IDENTIFIER_LEN + 1];
 	address val;
@@ -35,7 +23,6 @@ struct mem_block {
 	mem_block* next;
 };
 
-// FIRST SLOT OF MEMORY IS RESERVED FOR NONE TOKEN
 token* memory;
 mem_block* free_memory;
 stack_entry* call_stack;

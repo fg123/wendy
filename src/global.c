@@ -3,9 +3,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-// global.c Implements Settings Module and holds Global Constants, as well
-//   as safe memory allocation and deallocation!
-
 typedef struct malloc_node {
 	char* filename;
 	int line_num;

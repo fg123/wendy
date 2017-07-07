@@ -135,9 +135,9 @@ static expr_list* identifier_list() {
 	expr** curr = &list->elem;
 	expr_list* curr_list = list;
 	while (1) {
-		if (match(IDENTIFIER)) {
+		if (match(T_IDENTIFIER)) {
 			*curr = make_lit_expr(previous());
-			if (match(COMMA)) {
+			if (match(T_COMMA)) {
 				curr_list->next = safe_malloc(sizeof(expr_list));
 				curr_list = curr_list->next;
 				curr_list->next = 0;
@@ -161,7 +161,7 @@ static expr_list* expression_list(token_type end_delimiter) {
 	expr_list* curr_list = list;
 	while (1) {
 		*curr = expression();
-		if (match(COMMA)) {
+		if (match(T_COMMA)) {
 			curr_list->next = safe_malloc(sizeof(expr_list));
 			curr_list = curr_list->next;
 			curr_list->next = 0;
@@ -186,24 +186,24 @@ static expr* lvalue() {
 }
 
 static expr* primary() {
-	if (match(STRING, NUMBER, TRUE, FALSE, NONE, IDENTIFIER, OBJ_TYPE)) {
+	if (match(T_STRING, T_NUMBER, T_TRUE, T_FALSE, T_NONE, T_IDENTIFIER, T_OBJ_TYPE)) {
 		return make_lit_expr(previous());	
 	}
-	else if (match(LEFT_BRACK)) {
-		expr_list* list = expression_list(RIGHT_BRACK);
+	else if (match(T_LEFT_BRACK)) {
+		expr_list* list = expression_list(T_RIGHT_BRACK);
 		expr* list_expr = make_list_expr(list);
-		consume(RIGHT_BRACK);
+		consume(T_RIGHT_BRACK);
 		return list_expr;
 	}
-	else if (match(LEFT_PAREN)) {
+	else if (match(T_LEFT_PAREN)) {
 		expr* left = expression();
-		consume(RIGHT_PAREN);
+		consume(T_RIGHT_PAREN);
 		return left;
 	}
-	else if (match(LAMBDA)) {
-		consume(LEFT_PAREN);
-		expr_list* list = expression_list(RIGHT_PAREN);
-		consume(RIGHT_PAREN);
+	else if (match(T_LAMBDA)) {
+		consume(T_LEFT_PAREN);
+		expr_list* list = expression_list(T_RIGHT_PAREN);
+		consume(T_RIGHT_PAREN);
 		statement* fn_body = parse_statement();
 		return make_func_expr(list, fn_body);
 	}
@@ -218,18 +218,18 @@ static expr* primary() {
 
 static expr* access() {
 	expr* left = primary();
-	while (match(LEFT_BRACK, DOT, LEFT_PAREN)) {
+	while (match(T_LEFT_BRACK, T_DOT, T_LEFT_PAREN)) {
 		token op = previous();
 		expr* right = 0;
-		if (op.t_type == LEFT_BRACK) {
+		if (op.t_type == T_LEFT_BRACK) {
 			right = expression();
-			consume(RIGHT_BRACK);
+			consume(T_RIGHT_BRACK);
 			left = make_bin_expr(left, op, right);
 		} 
-		else if (op.t_type == LEFT_PAREN) {
-			expr_list* args = expression_list(RIGHT_PAREN);
+		else if (op.t_type == T_LEFT_PAREN) {
+			expr_list* args = expression_list(T_RIGHT_PAREN);
 			left = make_call_expr(left, args);
-			consume(RIGHT_PAREN);
+			consume(T_RIGHT_PAREN);
 		}
 		else {	
 			right = primary();
@@ -240,7 +240,7 @@ static expr* access() {
 }
 
 static expr* unary() {
-	if (match(MINUS, NOT, TILDE)) {
+	if (match(T_MINUS, T_NOT, T_TILDE)) {
 		token op = previous();
 		expr* right = unary();
 		return make_una_expr(op, right);
@@ -249,7 +249,7 @@ static expr* unary() {
 }
 static expr* factor() {
 	expr* left = unary();
-	while (match(STAR, SLASH, INTSLASH, PERCENT)) {
+	while (match(T_STAR, T_SLASH, T_INTSLASH, T_PERCENT)) {
 		token op = previous();
 		expr* right = unary();
 		left = make_bin_expr(left, op, right);
@@ -258,7 +258,7 @@ static expr* factor() {
 }
 static expr* term() {
 	expr* left = factor();
-	while (match(PLUS, MINUS)) {
+	while (match(T_PLUS, T_MINUS)) {
 		token op = previous();
 		expr* right = factor();
 		left = make_bin_expr(left, op, right);
@@ -267,7 +267,7 @@ static expr* term() {
 }
 static expr* range() {
 	expr* left = term();
-	while (match(RANGE_OP)) {
+	while (match(T_RANGE_OP)) {
 		token op = previous();
 		expr* right = term();
 		left = make_bin_expr(left, op, right);
@@ -276,8 +276,8 @@ static expr* range() {
 }
 static expr* comparison() {
 	expr* left = range();
-	while (match(NOT_EQUAL, EQUAL_EQUAL, LESS, GREATER, LESS_EQUAL, 
-					GREATER_EQUAL, TILDE)) {
+	while (match(T_NOT_EQUAL, T_EQUAL_EQUAL, T_LESS, T_GREATER, T_LESS_EQUAL, 
+					T_GREATER_EQUAL, T_TILDE)) {
 		token op = previous();
 		expr* right = range();
 		left = make_bin_expr(left, op, right);
@@ -286,7 +286,7 @@ static expr* comparison() {
 }
 static expr* and() {
 	expr* left = comparison();
-	while (match(AND)) {
+	while (match(T_AND)) {
 		token op = previous();
 		expr* right = comparison();
 		left = make_bin_expr(left, op, right);
@@ -295,7 +295,7 @@ static expr* and() {
 }
 static expr* or() {
 	expr* left = and();
-	while (match(OR)) {
+	while (match(T_OR)) {
 		token op = previous();
 		expr* right = and();
 		left = make_bin_expr(left, op, right);
@@ -304,22 +304,21 @@ static expr* or() {
 }
 static expr* assignment() {
 	expr* left = lvalue();
-	if (match(EQUAL) || match(ASSIGN_PLUS) || match(ASSIGN_MINUS) 
-			|| match(ASSIGN_STAR) || match(ASSIGN_SLASH) 
-			|| match(ASSIGN_INTSLASH)) {
+	if (match(T_EQUAL, T_ASSIGN_PLUS, T_ASSIGN_MINUS, 
+		T_ASSIGN_STAR, T_ASSIGN_SLASH, T_ASSIGN_INTSLASH)) {
 		token op = previous();
 		expr* right = or();
 		left = make_assign_expr(left, right, op);
 	}
-	else if (match(DEFFN)) {
-		token op = make_token(EQUAL, make_data_str("equal"));
-		consume(LEFT_PAREN);
-		expr_list* parameters = expression_list(RIGHT_PAREN);
-		consume(RIGHT_PAREN);
+	else if (match(T_DEFFN)) {
+		token op = make_token(T_EQUAL, make_data_str("equal"));
+		consume(T_LEFT_PAREN);
+		expr_list* parameters = expression_list(T_RIGHT_PAREN);
+		consume(T_RIGHT_PAREN);
 		statement* fnbody = parse_statement();
 		expr* rvalue = make_func_expr(parameters, fnbody);
 		left = make_assign_expr(left, rvalue, 
-				make_token(EQUAL, make_data_str("=")));
+				make_token(T_EQUAL, make_data_str("=")));
 	}
 	return left;
 }
@@ -341,25 +340,25 @@ static statement* parse_statement() {
 	statement* sm = safe_malloc(sizeof(statement));
 	sm->src_line = first.t_line;
 	switch (first.t_type) {
-		case LEFT_BRACE: {
+		case T_LEFT_BRACE: {
 			statement_list* sl = parse_statement_list();
-			consume(RIGHT_BRACE);
+			consume(T_RIGHT_BRACE);
 			sm->type = S_BLOCK;
 			sm->op.block_statement = sl;
 			break;
 		}
-		case LET: {
+		case T_LET: {
 			// Read an expression for a LVALUE
-			consume(IDENTIFIER);
+			consume(T_IDENTIFIER);
 			token lvalue = previous();
 			expr* rvalue = 0;
-			if (match(EQUAL)) {
+			if (match(T_EQUAL)) {
 				rvalue = expression();
 			}
-			else if (match(DEFFN)) {
-				consume(LEFT_PAREN);
-				expr_list* parameters = expression_list(RIGHT_PAREN);
-				consume(RIGHT_PAREN);
+			else if (match(T_DEFFN)) {
+				consume(T_LEFT_PAREN);
+				expr_list* parameters = expression_list(T_RIGHT_PAREN);
+				consume(T_RIGHT_PAREN);
 				statement* fnbody = parse_statement();
 				rvalue = make_func_expr(parameters, fnbody);
 			}
@@ -371,11 +370,11 @@ static statement* parse_statement() {
 			sm->op.let_statement.rvalue = rvalue;
 			break;
 		}
-		case IF: {
+		case T_IF: {
 			expr* condition = expression();
 			statement* run_if_true = parse_statement();
 			statement* run_if_false = 0;
-			if (match(ELSE) || match(COLON)) {
+			if (match(T_ELSE) || match(T_COLON)) {
 				run_if_false = parse_statement();
 			}	
 			sm->type = S_IF;
@@ -384,14 +383,14 @@ static statement* parse_statement() {
 			sm->op.if_statement.statement_false = run_if_false;
 			break;
 		}
-		case LOOP: {
+		case T_LOOP: {
 			expr* index_var = expression();
 			token a_index;
 			expr* condition;
-			if (match(COLON) || match(INOP)) {
+			if (match(T_COLON) || match(T_IN)) {
 				condition = expression();
 				if (index_var->type != E_LITERAL || 
-						index_var->op.lit_expr.t_type != IDENTIFIER) {
+						index_var->op.lit_expr.t_type != T_IDENTIFIER) {
 					token t = previous();
 					error_lexer(t.t_line, t.t_col, AST_EXPECTED_IDENTIFIER_LOOP);
 				}
@@ -410,35 +409,35 @@ static statement* parse_statement() {
 			sm->op.loop_statement.statement_true = run_if_true;
 			break;
 		}
-		case STRUCT: {
-			if (!match(IDENTIFIER)) {
+		case T_STRUCT: {
+			if (!match(T_IDENTIFIER)) {
 				error_lexer(first.t_line, first.t_col, 
 					AST_STRUCT_NAME_IDENTIFIER);	
 			}
 			token name = previous();
 			token parent = empty_token();
-			if (match(COLON)) {
-				if (!match(IDENTIFIER)) {
+			if (match(T_COLON)) {
+				if (!match(T_IDENTIFIER)) {
 					error_lexer(first.t_line, first.t_col, 
 						AST_STRUCT_PARENT_IDENTIFIER);			
 				}
 				parent = previous();
 			}
-			consume(DEFFN);
+			consume(T_DEFFN);
 			expr_list* static_members = 0;
 			expr_list* instance_members = 0;
 			int saved_before_iden = 0;
-			while (match(LEFT_PAREN, LEFT_BRACK)) {
-				if (previous().t_type == LEFT_PAREN) {
+			while (match(T_LEFT_PAREN, T_LEFT_BRACK)) {
+				if (previous().t_type == T_LEFT_PAREN) {
 					saved_before_iden = curr_index;
-					if (match(RIGHT_PAREN)) continue;
+					if (match(T_RIGHT_PAREN)) continue;
 					instance_members = identifier_list();
-					consume(RIGHT_PAREN);
+					consume(T_RIGHT_PAREN);
 				}
 				else {
-					if (match(RIGHT_BRACK)) continue;
+					if (match(T_RIGHT_BRACK)) continue;
 					static_members = identifier_list();
-					consume(RIGHT_BRACK);
+					consume(T_RIGHT_BRACK);
 				}
 			}
 			// Default Initiation Function
@@ -454,14 +453,14 @@ static statement* parse_statement() {
 				curr->elem->op.expr_statement->type = E_ASSIGN;
 				expr* ass_expr = curr->elem->op.expr_statement;
 				ass_expr->op.assign_expr.operator = 
-						make_token(EQUAL, make_data_str("="));
+						make_token(T_EQUAL, make_data_str("="));
 				ass_expr->op.assign_expr.rvalue = 
 						make_lit_expr(tmp_ins->elem->op.lit_expr);
 				// Binary Dot Expr
-				expr* left = make_lit_expr(make_token(IDENTIFIER, 
+				expr* left = make_lit_expr(make_token(T_IDENTIFIER, 
 								make_data_str("this")));
 				expr* right = make_lit_expr(tmp_ins->elem->op.lit_expr);
-				token op = make_token(DOT, make_data_str("."));
+				token op = make_token(T_DOT, make_data_str("."));
 				ass_expr->op.assign_expr.lvalue = 
 						make_bin_expr(left, op, right);
 				
@@ -476,10 +475,10 @@ static statement* parse_statement() {
 			if(prev) prev->next = curr;
 			curr->next = 0;
 			curr->elem->type = S_OPERATION;
-			curr->elem->op.operation_statement.operator = make_token(RET, 
+			curr->elem->op.operation_statement.operator = make_token(T_RET, 
 					make_data_str("ret"));
 			curr->elem->op.operation_statement.operand = make_lit_expr(
-				make_token(IDENTIFIER, make_data_str("this")));
+				make_token(T_IDENTIFIER, make_data_str("this")));
 
 			expr_list* parameters = 0;	
 			if (instance_members) {
@@ -502,19 +501,19 @@ static statement* parse_statement() {
 			sm->op.struct_statement.static_members = static_members;
 			break;
 		}
-		case INC:
-		case DEC:
-		case INPUT:
-		case EXPLODE:
-		case AT:	{
+		case T_INC:
+		case T_DEC:
+		case T_INPUT:
+		case T_EXPLODE:
+		case T_AT:	{
 			sm->type = S_OPERATION;
 			sm->op.operation_statement.operator = first;
 			sm->op.operation_statement.operand = expression();
 			break;
 		}
-		case REQ: {
+		case T_REQ: {
 			sm->type = S_IMPORT;
-			if (match(IDENTIFIER, STRING)) {
+			if (match(T_IDENTIFIER, T_STRING)) {
 				// Don't actually need to do anything if it's a string, but we
 				//   delegate that task to codegen to decide.
 				sm->op.import_statement = previous();
@@ -524,10 +523,10 @@ static statement* parse_statement() {
 			}
 			break;
 		}
-		case RET: {
+		case T_RET: {
 			sm->type = S_OPERATION;
 			sm->op.operation_statement.operator = first;
-			if (peek().t_type != SEMICOLON && peek().t_type != RIGHT_BRACE) {
+			if (peek().t_type != T_SEMICOLON && peek().t_type != T_RIGHT_BRACE) {
 				sm->op.operation_statement.operand = expression();
 			}
 			else {
@@ -543,7 +542,7 @@ static statement* parse_statement() {
 			sm->op.expr_statement = expression();
 			break;
 	}
-	match(SEMICOLON);
+	match(T_SEMICOLON);
 	if (error_thrown) {
 		// Rollback
 		traverse_statement(sm, 
@@ -560,7 +559,7 @@ static statement_list* parse_statement_list() {
 	statement_list* curr_ast = ast;
 	while (true) {
 		*curr = parse_statement();
-		if (!is_at_end() && peek().t_type != RIGHT_BRACE) {
+		if (!is_at_end() && peek().t_type != T_RIGHT_BRACE) {
 			curr_ast->next = safe_malloc(sizeof(statement_list));
 			curr_ast = curr_ast->next;
 			curr_ast->next = 0;

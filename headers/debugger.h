@@ -1,7 +1,7 @@
 #ifndef DEBUGGER_H
 #define DEBUGGER_H
 
-// debugger.h provides options to handle break points and debugging options.
+// debugger.h - Felix Guo
 
 extern char* debug_output_path;
 

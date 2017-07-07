@@ -17,49 +17,49 @@ void set_make_token_param(int l, int c) {
 }
 
 token none_token() {
-	token t = make_token(NONE, make_data_str("<none>"));
+	token t = make_token(T_NONE, make_data_str("<none>"));
 	t.t_line = line;
 	t.t_col = col;
 	return t;
 }
 
 token true_token() {
-	token t = make_token(TRUE, make_data_str("<true>"));
+	token t = make_token(T_TRUE, make_data_str("<true>"));
 	t.t_line = line;
 	t.t_col = col;
 	return t;
 }
 
 token false_token() {
-	token t =  make_token(FALSE, make_data_str("<false>"));
+	token t =  make_token(T_FALSE, make_data_str("<false>"));
 	t.t_line = line;
 	t.t_col = col;
 	return t;
 }
 
 token time_token() {
-	token t = make_token(NUMBER, make_data_num(time(NULL)));
+	token t = make_token(T_NUMBER, make_data_num(time(NULL)));
 	t.t_line = line;
 	t.t_col = col;
 	return t;
 }
 
 token noneret_token() {
-	token t = make_token(NONERET, make_data_str("<noneret>"));
+	token t = make_token(T_NONERET, make_data_str("<noneret>"));
 	t.t_line = line;
 	t.t_col = col;
 	return t;
 }
 
 token empty_token() {
-	token t = make_token(EMPTY, make_data_str(""));
+	token t = make_token(T_EMPTY, make_data_str(""));
 	t.t_line = line;
 	t.t_col = col;
 	return t;
 }
 
 token range_token(int start, int end) {
-	token res = make_token(RANGE, make_data_str(""));
+	token res = make_token(T_RANGE, make_data_str(""));
 	sprintf(res.t_data.string, "%d|%d", start, end);
 	res.t_line = line;
 	res.t_col = col;
@@ -81,30 +81,9 @@ int range_end(token r) {
 }
 
 token list_header_token(int size) {
-	//char* str = calloc(MAX_STRING_LEN, sizeof(char));
-	//sprintf(str, "<list size %d>", size);
-
-/*	int index = MAX_STRING_LEN - 1;
-	while (size > 0) {
-		str[index--] = size % 128;
-		size /= 128;
-	}*/
-	token res = make_token(LIST_HEADER, make_data_num(size));
-	//free(str);
+	token res = make_token(T_LIST_HEADER, make_data_num(size));
 	return res;
 }
-
-/*int get_list_size(token t) {
-	if (t.t_type == LIST) {
-		int size = 0;
-		int index = MAX_STRING_LEN - 1;
-		while (t.t_data.string[index] != 0) {
-			size += t.t_data.string[index--];
-		}
-		return size;
-	}
-	return 0;
-}*/
 
 token make_token(token_type t, data d) {
 	token token_ = { t, 0, 0, d };
@@ -128,7 +107,7 @@ bool token_equal(token* a, token* b) {
 		return false;
 	}
 	else {
-		if (a->t_type == NUMBER || a->t_type == ADDRESS) {
+		if (a->t_type == T_NUMBER || a->t_type == T_ADDRESS) {
 			return a->t_data.number == b->t_data.number;
 		}
 		else {
@@ -145,31 +124,30 @@ void print_token(const token* t) {
 }
 
 void print_token_inline(const token* t, FILE* buf) {
-	if (t->t_type == OBJ_TYPE) {
+	if (t->t_type == T_OBJ_TYPE) {
 		fprintf(buf, "<%s>", t->t_data.string);
 	}
-	else if (t->t_type == STRUCT) {
+	else if (t->t_type == T_STRUCT) {
 		fprintf(buf, "<struct>");
 	}
-	else if (t->t_type == FUNCTION) {
+	else if (t->t_type == T_FUNCTION) {
 		fprintf(buf, "<function>");
 	}
-	else if (t->t_type == STRUCT_INSTANCE) {
+	else if (t->t_type == T_STRUCT_INSTANCE) {
 		token instance_loc = memory[(int)(t->t_data.number)];
 		fprintf(buf, "<struct:%s>", 
 				memory[(int)instance_loc.t_data.number + 1].t_data.string);
 	}
-	else if (t->t_type == RANGE) {
+	else if (t->t_type == T_RANGE) {
 		fprintf(buf, "<range from %d to %d>", range_start(*t), range_end(*t));
 	}
-	else if (t->t_type == LIST_HEADER) {
+	else if (t->t_type == T_LIST_HEADER) {
 		fprintf(buf, "<lhd size %d>", (int)(t->t_data.number));	
 	}
-	else if (t->t_type == STRUCT_METADATA) {
+	else if (t->t_type == T_STRUCT_METADATA) {
 		fprintf(buf, "<meta size %d>", (int)(t->t_data.number));	
 	}
-	else if (t->t_type == LIST) {
-		// Traverse to list header
+	else if (t->t_type == T_LIST) {
 		address start = t->t_data.number;
 		token l_header = memory[start];
 		fprintf(buf, "[");
@@ -179,32 +157,24 @@ void print_token_inline(const token* t, FILE* buf) {
 		}
 		fprintf(buf, "]");
 	}
-	else if (t->t_type == NUMBER) {
+	else if (t->t_type == T_NUMBER) {
 		size_t len = snprintf(0, 0, "%f", t->t_data.number);
-//		printf("length %d\n", len);
 		char* buffer = safe_malloc(len + 1);
-//		memset(buffer, 0, len + 1);
 		snprintf(buffer, len + 1, "%f", t->t_data.number);
-		// Start at end, if it's 0 we clip it, otherwise we stop
 		len--;
 		while (buffer[len] == '0') {
 			buffer[len--] = 0;
 		}
 		if (buffer[len] == '.') {
-			// clip that too
 			buffer[len--] = 0;
 		}
 			
 		fprintf(buf, "%s", buffer);
 		safe_free(buffer);
 	}
-	else if (t->t_type == ADDRESS) {
+	else if (t->t_type == T_ADDRESS) {
 		fprintf(buf, "0x%X", (int)t->t_data.number);
 	}
-	/*else if (t->t_type == ARRAY_HEADER) {
-		fprintf(buf, "<array size %d>", t->t_data.number);
-		fflush(buf);
-	}*/
 	else {
 		fprintf(buf, "%s", t->t_data.string);
 	}
@@ -214,41 +184,38 @@ void print_token_inline(const token* t, FILE* buf) {
 
 int precedence(token op) {
 	switch (op.t_type) {
-		case PLUS:
-		case MINUS:
+		case T_PLUS:
+		case T_MINUS:
 			return 140;
-		case STAR:
-		case SLASH:
-		case INTSLASH:
-		case PERCENT:
+		case T_STAR:
+		case T_SLASH:
+		case T_INTSLASH:
+		case T_PERCENT:
 			return 150;
-		case AND:
+		case T_AND:
 			return 120;
-		case OR:
+		case T_OR:
 			return 110;
-		case RANGE_OP:
-		/*case TYPEOF:*/
+		case T_RANGE_OP:
 			return 132;
-		case NOT_EQUAL:
-		case EQUAL_EQUAL:
-		case TILDE:
+		case T_NOT_EQUAL:
+		case T_EQUAL_EQUAL:
+		case T_TILDE:
 			return 130;
-		case GREATER:
-		case GREATER_EQUAL:
-		case LESS:
-		case LESS_EQUAL:
+		case T_GREATER:
+		case T_GREATER_EQUAL:
+		case T_LESS:
+		case T_LESS_EQUAL:
 			return 130;
-		case NOT:
-		case U_MINUS:
-	    case U_TILDE:
-		case U_STAR:
+		case T_NOT:
+		case T_U_MINUS:
+	    case T_U_TILDE:
+		case T_U_STAR:
 			return 160;
-		case DOT:
-		case LEFT_BRACK:
-			// Array bracket
+		case T_DOT:
+		case T_LEFT_BRACK:
 			return 170;
-		case AMPERSAND:
-			// Actually precedes the left bracket!?
+		case T_AMPERSAND:
 			return 180;
 		default: 
 			return 0;
@@ -256,9 +223,9 @@ int precedence(token op) {
 }
 
 bool is_numeric(token t) {
-	return t.t_type == NUMBER || t.t_type == ADDRESS || t.t_type == LIST ||
-		t.t_type == LIST_HEADER || t.t_type == STRUCT || 
-		t.t_type == STRUCT_METADATA || t.t_type == STRUCT_INSTANCE || 
-		t.t_type == STRUCT_INSTANCE_HEAD;
+	return t.t_type == T_NUMBER || t.t_type == T_ADDRESS || t.t_type == T_LIST ||
+		t.t_type == T_LIST_HEADER || t.t_type == T_STRUCT || 
+		t.t_type == T_STRUCT_METADATA || t.t_type == T_STRUCT_INSTANCE || 
+		t.t_type == T_STRUCT_INSTANCE_HEAD;
 }
 

@@ -4,6 +4,10 @@
 #include "stdint.h"
 #include "memory.h"
 
+// vm.h - Felix Guo
+// Executes a stream of bytecode based on instructions in [codegen] by 
+//   interfacing with [memory]
+
 // vm_run(bytecode) runs the given bytecode.
 void vm_run(uint8_t* bytecode);
 

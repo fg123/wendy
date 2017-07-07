@@ -5,8 +5,8 @@
 #include <stdint.h>
 
 // codegen.h - Felix Guo
-// This module generates the bytecode that runs on the WendyVM, based on the
-//   abstract syntax tree that is passed in from the [ast] module.
+// Generates the bytecode that runs on the WendyVM, based on the
+//   abstract syntax tree that is passed in from the [AST] module.
 
 // WendyVM ByteCode supports operations on Tokens, which is a unit of memory
 //   represented by the same type as token. Each unit of memory has an address,
@@ -33,7 +33,7 @@
 // [int32]       | uint32_t(4)
 // =============================================================================
 // BYTE | OPCODE | PARAMETER | STACK CHANGE
-// > EXPLANATION
+//   `- EXPLANATION
 // =============================================================================
 // 0x00 | PUSH   | [token]   | (...) -> (...) [token]
 // 0x01 | POP    |           | (...) [token] -> (...)
@@ -63,54 +63,53 @@
 //   `- writes top of stack to $MR
 // 0x10 | JMP    | [address] | 
 //   `- jumps to the given address in bytecode
-// 0x11 | MADD   | [number]  | adds n to the memory register
-// 0x12 | MSUB   | [number]  | subtracts n from the memory register
-// 0x13 | JIF    | [address] | 
+// 0x11 | JIF    | [address] | 
 //   `- if top of stack is false, jumps to address
-// 0x14 | FRM    |           |
+// 0x12 | FRM    |           |
 //   `- creates a local variable stack frame
-// 0x15 | END    |           | 
+// 0x13 | END    |           | 
 //	 `- pops a local variable stack frame
-// 0x16 | LJMP   | [address] | given loop index var name, performs check if 
+// 0x14 | LJMP   | [address] | given loop index var name, performs check if 
 //                 [string]  |   loop is done, if it is jump to the address
-// 0x17 | LBIND  | [string]  | first is userindexvar, second is loop index var
+// 0x15 | LBIND  | [string]  | first is userindexvar, second is loop index var
 //                 [string]  |
-// 0x18 | INC    |           | increments value at memory register
-// 0x19 | DEC    |           | decrements value at memory register
-// 0x1A | NTHPTR |           | list at mem register, and a number index 
+// 0x16 | INC    |           | increments value at memory register
+// 0x17 | DEC    |           | decrements value at memory register
+// 0x18 | NTHPTR |           | list at mem register, and a number index 
 //                               off top of the stack and puts an address in the
 //                               memory register
-// 0x1B | MEMPTR |           | struct/structinstance at mem_register and a 
+// 0x19 | MEMPTR |           | struct/structinstance at mem_register and a 
 //								 member id at top of stack and puts an address 
 //								 in the memory register
-// 0x1C | ASSERT | [toktype] | verifies that the type at the memory register is
+// 0x1A | ASSERT | [toktype] | verifies that the type at the memory register is
 //                 [string]  |   what it should be, prints error if not
-// 0x1D | MPTR   |           | sets memory_register to number of the item at
+// 0x1B | MPTR   |           | sets memory_register to number of the item at
 //                               memory_register
-// 0x1E | DIN    |           | moves data from element in top of the stack to
+// 0x1C | DIN    |           | moves data from element in top of the stack to
 //                               data register
-// 0x1F | DOUT   |           | moves data from data register to top of the 
+// 0x1D | DOUT   |           | moves data from data register to top of the 
 //                               stack
-// 0x20 | CLOSUR |           | binds a closure, pushes a closure to the top of
+// 0x1E | CLOSUR |           | binds a closure, pushes a closure to the top of
 //                               the stack.
-// 0x21 | RBIN   |           | reverse binary operator, b OP a
-// 0x22 | RBW    | [string]  | REQ-BIND-WRITE, requests 1, binds string 
-// 0x23 | CHTYPE | [toktype] | changes the type of the top of the stack
-// 0x24 | HALT   |           | halt instruction, end program
-// 0x25 | SRC    | [int32]   | store the src line number
-// 0x26 | BADR   | [int32]   | change the base address by the value given
+// 0x1F | RBIN   |           | reverse binary operator, b OP a
+// 0x20 | RBW    | [string]  | REQ-BIND-WRITE, requests 1, binds string 
+// 0x21 | CHTYPE | [toktype] | changes the type of the top of the stack
+// 0x22 | HALT   |           | halt instruction, end program
+// 0x23 | SRC    | [int32]   | store the src line number
+// 0x24 | BADR   | [int32]   | change the base address by the value given
 
 typedef enum opcode { 
-	OPUSH, OPOP, BIN, UNA, OCALL, ORET, BIND, OREQ, WHERE, OUT, OUTL, IN, PLIST, 
-	ORANGE, READ, WRITE, JMP, MADD, MSUB, JIF, FRM, END, LJMP, LBIND, OINC, 
-	ODEC, NTHPTR, MEMPTR, ASSERT, MPTR, DIN, DOUT, CLOSUR, RBIN, RBW, CHTYPE, 
-	HALT, SRC, BADR } 
+	OP_PUSH, OP_POP, OP_BIN, OP_UNA, OP_CALL, OP_RET, OP_BIND, OP_REQ, OP_WHERE, 
+	OP_OUT, OP_OUTL, OP_IN, OP_PLIST, OP_RANGE, OP_READ, OP_WRITE, OP_JMP, 
+	OP_JIF, OP_FRM, OP_END, OP_LJMP, OP_LBIND, OP_INC, OP_DEC, OP_NTHPTR, 
+	OP_MEMPTR, OP_ASSERT, OP_MPTR, OP_DIN, OP_DOUT, OP_CLOSUR, OP_RBIN, 
+	OP_RBW, OP_CHTYPE, OP_HALT, OP_SRC, OP_BADR } 
 	opcode;
 
 static char* opcode_string[] = {
 	"push", "pop", "bin", "una", "call", "ret", "bind", "req", 
-	"where", "out", "outl", "in", "plist", "range", "read", "write", "jmp", "madd", 
-	"msub", "jif", "frm", "end", "ljmp", "lbind", "inc", "dec", "nthptr",
+	"where", "out", "outl", "in", "plist", "range", "read", "write", "jmp", 
+	"jif", "frm", "end", "ljmp", "lbind", "inc", "dec", "nthptr",
 	"memptr", "assert", "mptr", "din", "dout", "closur", "rbin", "rbw", "chtype",
 	"halt", "src", "badr"
 };
@@ -130,8 +129,8 @@ void write_bytecode(uint8_t* bytecode, FILE* buffer);
 // get_token(bytecode, end) gets a token from the bytecode stream
 token get_token(uint8_t* bytecode, unsigned int* end);
 
-// verify_header(bytecode) checks the Header for Information, 
-//   then returns the index of the start
+// verify_header(bytecode) checks the header for information, 
+//   then returns the index of the first opcode instruction
 int verify_header(uint8_t* bytecode);
 
 #endif

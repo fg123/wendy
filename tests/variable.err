@@ -1,5 +1,0 @@
-[31mParser Error[0m on line [33m7[0m: Expected primary expression!
-==========================
- Line Source (../tests/variable.in)
-    7 [31mlet f = d + e;
-[0m                     ^

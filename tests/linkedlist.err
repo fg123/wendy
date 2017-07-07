@@ -1,5 +1,0 @@
-[31mParser Error[0m on line [33m3[0m: Expected primary expression!
-==========================
- Line Source (../tests/linkedlist.in)
-    3 [31mlet mylist = [1..10];
-[0m                       ^

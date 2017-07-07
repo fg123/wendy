@@ -19,12 +19,10 @@ static size_t col;
 static void add_token(token_type type);
 static void add_token_V(token_type type, data val);
 
-// is_at_end() returns true if scanning index reached the end
 static bool is_at_end() {
 	return current >= source_len;
 }
 
-// match(expected, source) advances the index and checks the next character
 static bool match(char expected) {
 	if (is_at_end()) return false;
 	if (source[current] != expected) return false;
@@ -33,37 +31,32 @@ static bool match(char expected) {
 	return true;
 }
 
-// peek(char) returns the next character or \0 if we are at the end
 static char peek() {
 	if (is_at_end()) return '\0';
 	return source[current];
 }
 
-// advance() returns the current character then moves onto the next one
 static char advance() {
 	current++;
 	col++;
 	return source[current - 1];
 }
-// peek_next() peeks at the character after the next or \0 if at end
+
 static char peek_next() {
 	if(current + 1 >= source_len) return '\0';
 	return source[current + 1];
 }
 
-// is_alpha(c) returns true if c is alphabet
 static bool is_alpha(char c) {
 	return (c >= 'a' && c <= 'z') ||
 		(c >= 'A' && c <= 'Z') ||
 		c == '_';
 }
 
-// is_digit(c) returns true if c is digit
 static bool is_digit(char c) {
 	return c >= '0' && c <= '9';
 }
 
-// is_alpha_numeric(c) returns true if c is alpha AND numeric
 static bool is_alpha_numeric(char c) {
 	return is_alpha(c) || is_digit(c);
 }
@@ -72,7 +65,7 @@ static bool is_alpha_numeric(char c) {
 //   leaves it for code_gen
 static void handle_import() {
 	
-	add_token(REQ);	
+	add_token(T_REQ);	
 	// we scan a string
 	// t_curr points to space after REQ
 	start = current;
@@ -80,7 +73,7 @@ static void handle_import() {
 		start = current;
 	}
 	
-	if (tokens[t_curr - 1].t_type == STRING) {
+	if (tokens[t_curr - 1].t_type == T_STRING) {
 		int str_loc = t_curr - 1;
 		char* path = tokens[str_loc].t_data.string;
 		long length = 0;
@@ -116,11 +109,9 @@ static void handle_import() {
 		else {
 			error_lexer(line, col, SCAN_REQ_FILE_READ_ERR);
 		}
-		//safe_free(path);
 	}
 }
 
-// handle_obj_type() processes the next oBJ_TYPE
 static void handle_obj_type() {
 	while (peek() != '>' && !is_at_end()) {
 		if (peek() == '\n') line++;
@@ -142,10 +133,9 @@ static void handle_obj_type() {
 	memcpy(value, &source[start + 1], s_length);
 	value[s_length] = '\0';
 
-	add_token_V(OBJ_TYPE, make_data_str(value));	
+	add_token_V(T_OBJ_TYPE, make_data_str(value));	
 }
 
-// handle_string() processes the next string
 static void handle_string() {
 	while (peek() != '"' && !is_at_end()) {
 		if (peek() == '\n') line++;
@@ -168,7 +158,7 @@ static void handle_string() {
 	memcpy(value, &source[start + 1], s_length);
 	value[s_length] = '\0';
 
-	add_token_V(STRING, make_data_str(value));	
+	add_token_V(T_STRING, make_data_str(value));	
 }
 
 // identifier() processes the next identifier and also handles wendyScript 
@@ -180,46 +170,34 @@ static void identifier() {
 	memcpy(text, &source[start], current - start);
 	text[current - start] = '\0';
 
-	/*if (strcmp(text, "empty") == 0) { add_token_V(NUMBER, make_data_num(0)); }
-	else*/ if (strcmp(text, "and") == 0)	{ add_token(AND); }
-	else if (strcmp(text, "else") == 0)	{ add_token(ELSE); }
-	else if (strcmp(text, "false") == 0)	{ add_token(FALSE); }
-	else if (strcmp(text, "if") == 0)	{ add_token(IF); }
-	else if (strcmp(text, "or") == 0)	{ add_token(OR); }
-	else if (strcmp(text, "true") == 0)	{ add_token(TRUE); }
+	if (strcmp(text, "and") == 0)	{ add_token(T_AND); }
+	else if (strcmp(text, "else") == 0)	{ add_token(T_ELSE); }
+	else if (strcmp(text, "false") == 0)	{ add_token(T_FALSE); }
+	else if (strcmp(text, "if") == 0)	{ add_token(T_IF); }
+	else if (strcmp(text, "or") == 0)	{ add_token(T_OR); }
+	else if (strcmp(text, "true") == 0)	{ add_token(T_TRUE); }
 
-	else if (strcmp(text, "printstack") == 0)	{ add_token(PRINTSTACK); }
-	else if (strcmp(text, "let") == 0)	{ add_token(LET); }
-	else if (strcmp(text, "set") == 0)	{ add_token(SET); }
-//	else if (strcmp(text, "memset") == 0){ add_token(MEMSET); }
-	else if (strcmp(text, "for") == 0)	{ add_token(LOOP); }
-	else if (strcmp(text, "none") == 0)	{ add_token(NONE); }
-	else if (strcmp(text, "in") == 0)	{ add_token(INOP); }
-/*	else if (strcmp(text, "Bool") == 0)	{ add_token(OBJ_TYPE); }
-	else if (strcmp(text, "String") == 0)	{ add_token(OBJ_TYPE); }
-	else if (strcmp(text, "Number") == 0)	{ add_token(OBJ_TYPE); }
-	else if (strcmp(text, "List") == 0)	{ add_token(OBJ_TYPE); }
-	else if (strcmp(text, "Address") == 0)	{ add_token(OBJ_TYPE); }*/
+	else if (strcmp(text, "printstack") == 0)	{ add_token(T_PRINTSTACK); }
+	else if (strcmp(text, "let") == 0)	{ add_token(T_LET); }
+	else if (strcmp(text, "set") == 0)	{ add_token(T_SET); }
+	else if (strcmp(text, "for") == 0)	{ add_token(T_LOOP); }
+	else if (strcmp(text, "none") == 0)	{ add_token(T_NONE); }
+	else if (strcmp(text, "in") == 0)	{ add_token(T_IN); }
 
-//	else if (strcmp(text, "typeof") == 0)	{ add_token(TYPEOF); }
-
-
-	else if (strcmp(text, "ret") == 0)	{ add_token(RET); }
-	else if (strcmp(text, "explode") == 0) { add_token(EXPLODE); }
+	else if (strcmp(text, "ret") == 0)	{ add_token(T_RET); }
+	else if (strcmp(text, "explode") == 0) { add_token(T_EXPLODE); }
 	else if (strcmp(text, "import") == 0)	{ 
 		handle_import();
 	}
-	else if (strcmp(text, "time") == 0) { add_token(TIME); }
-	else if (strcmp(text, "inc") == 0)	{ add_token(INC); }
-	else if (strcmp(text, "dec") == 0)	{ add_token(DEC); }
-	else if (strcmp(text, "input") == 0)	{ add_token(INPUT); }
+	else if (strcmp(text, "time") == 0) { add_token(T_TIME); }
+	else if (strcmp(text, "inc") == 0)	{ add_token(T_INC); }
+	else if (strcmp(text, "dec") == 0)	{ add_token(T_DEC); }
+	else if (strcmp(text, "input") == 0)	{ add_token(T_INPUT); }
 	else if (strcmp(text, "struct") == 0){ 
-		// HANDLE STRUCT
-		//handle_struct(); 
-		add_token(STRUCT);
+		add_token(T_STRUCT);
 	
 	}
-	else { add_token(IDENTIFIER); }
+	else { add_token(T_IDENTIFIER); }
 }
 
 // handle_number() processes the next number
@@ -238,7 +216,7 @@ static void handle_number() {
 	memcpy(num_s, &source[start], current-start);
 	num_s[current - start] = '\0';
 	double num = strtod(num_s, NULL); 
-	add_token_V(NUMBER, make_data_num(num));
+	add_token_V(T_NUMBER, make_data_num(num));
 }
 
 static bool ignore_next = false;
@@ -246,18 +224,18 @@ static bool ignore_next = false;
 static bool scan_token() {
 	char c = advance();	
 	switch(c) {
-		case '(': add_token(LEFT_PAREN); break;
-		case ')': add_token(RIGHT_PAREN); break;
-		case '[': add_token(LEFT_BRACK); break;
-		case ']': add_token(RIGHT_BRACK); break;
-		case '{': add_token(LEFT_BRACE); break;
-		case '}': add_token(RIGHT_BRACE); break;
-		case '&': add_token(AND); break;
-		case '|': add_token(OR); break;
-		case '?': add_token(IF); break;
-		case '~': add_token(TILDE); break;
-		case ',': add_token(COMMA); break;
-		case '.': add_token(DOT); break;
+		case '(': add_token(T_LEFT_PAREN); break;
+		case ')': add_token(T_RIGHT_PAREN); break;
+		case '[': add_token(T_LEFT_BRACK); break;
+		case ']': add_token(T_RIGHT_BRACK); break;
+		case '{': add_token(T_LEFT_BRACE); break;
+		case '}': add_token(T_RIGHT_BRACE); break;
+		case '&': add_token(T_AND); break;
+		case '|': add_token(T_OR); break;
+		case '?': add_token(T_IF); break;
+		case '~': add_token(T_TILDE); break;
+		case ',': add_token(T_COMMA); break;
+		case '.': add_token(T_DOT); break;
 		case '-': 
 			if (t_curr == 0 || (is_digit(peek()) && 
 					precedence(tokens[t_curr - 1]))) {
@@ -265,85 +243,85 @@ static bool scan_token() {
 				handle_number();
 			}
 			else if (match('=')) {
-				add_token(ASSIGN_MINUS);
+				add_token(T_ASSIGN_MINUS);
 			}
 			else if (match('-')) {
-				add_token(DEC);
+				add_token(T_DEC);
 			}
 			else if (match('>')) {
-				add_token(RANGE_OP);
+				add_token(T_RANGE_OP);
 			}
 			else {
-				add_token(MINUS); 
+				add_token(T_MINUS); 
 			}
 			break;
 		case '+': 
 			if (match('=')) {
-				add_token(ASSIGN_PLUS);
+				add_token(T_ASSIGN_PLUS);
 			}
 			else if (match('+')) {
-				add_token(INC);
+				add_token(T_INC);
 			}
 			else {
-				add_token(PLUS);
+				add_token(T_PLUS);
 			}
 			break;
-		case '\\': add_token(match('=') ? ASSIGN_INTSLASH : INTSLASH); break;
-		case '%': add_token(PERCENT); break;
-		case '@': add_token(AT); break;
-		case ';': add_token(SEMICOLON); break;
-		case ':': add_token(COLON); break;
+		case '\\': add_token(match('=') ? T_ASSIGN_INTSLASH : T_INTSLASH); break;
+		case '%': add_token(T_PERCENT); break;
+		case '@': add_token(T_AT); break;
+		case ';': add_token(T_SEMICOLON); break;
+		case ':': add_token(T_COLON); break;
 		case '#': 
 			if (match(':')) {
-				add_token(LAMBDA);
+				add_token(T_LAMBDA);
 			}
 			else if (match('#')) {
-				add_token(DEBUG);
+				add_token(T_DEBUG);
 				ignore_next = true;
 			}
 			else {
-				add_token(LOOP);
+				add_token(T_LOOP);
 			}
 			break;
-		case '*': add_token(match('=') ? ASSIGN_STAR : STAR); break;
-		case '!': add_token(match('=') ? NOT_EQUAL : NOT); break;
+		case '*': add_token(match('=') ? T_ASSIGN_STAR : T_STAR); break;
+		case '!': add_token(match('=') ? T_NOT_EQUAL : T_NOT); break;
 		case '=': 
 			if (match('='))
 			{
-				add_token(EQUAL_EQUAL);
+				add_token(T_EQUAL_EQUAL);
 			}
 			else if (match('>'))
 			{
-				add_token(DEFFN);
+				add_token(T_DEFFN);
 			}
 			else
 			{
-				add_token(EQUAL);
+				add_token(T_EQUAL);
 			}
 			break;
 		case '<': 
 			if (match('=')) {
-				add_token(LESS_EQUAL);
+				add_token(T_LESS_EQUAL);
 			}
 			else if (is_alpha(peek())) {
 				handle_obj_type();
 			}
 			else if (match('<')) {
-				add_token(LET);
+				add_token(T_LET);
 			}
 			else {
-				add_token(LESS);
+				add_token(T_LESS);
 			}
 			break;
 		case '>': 
 			if (match('=')) {
-				add_token(GREATER_EQUAL);
+				add_token(T_GREATER_EQUAL);
 			}
 			else if (match('>')) {
-				add_token(INPUT);
+				add_token(T_INPUT);
 			}
 			else {
-				add_token(GREATER);
+				add_token(T_GREATER);
 			}
 			break;	
 		case '/':
@@ -354,10 +332,10 @@ static bool scan_token() {
 				col = 1;
 			}
 			else if (match('>')) {
-				add_token(RET);
+				add_token(T_RET);
 			}
 			else if (match('=')) {
-				add_token(ASSIGN_SLASH);
+				add_token(T_ASSIGN_SLASH);
 			}
 			else if (match('*')) {
 				while(!(match('*') && match('/'))) {
@@ -365,7 +343,7 @@ static bool scan_token() {
 				}
 			}
 			else {
-				add_token(SLASH);
+				add_token(T_SLASH);
 			}
 			break;
 		case ' ':
@@ -390,7 +368,7 @@ static bool scan_token() {
 				error_lexer(line, col, SCAN_UNEXPECTED_CHARACTER, c);
 			}
 			break;
-		// END SWITCH HERE
+		// OP_END SWITCH HERE
 	}
 	return true;
 }
@@ -424,9 +402,9 @@ static void add_token(token_type type) {
 }
 
 static void add_token_V(token_type type, data val) {
-	if (type == NONE) { tokens[t_curr++] = none_token(); }
-	else if (type == TRUE) { tokens[t_curr++] = true_token(); }
-	else if (type == FALSE) { tokens[t_curr++] = false_token(); }
+	if (type == T_NONE) { tokens[t_curr++] = none_token(); }
+	else if (type == T_TRUE) { tokens[t_curr++] = true_token(); }
+	else if (type == T_FALSE) { tokens[t_curr++] = false_token(); }
 	else {
 		token new_t = { type, line, col, val };
 		tokens[t_curr++] = new_t;

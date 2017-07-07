@@ -1,5 +1,0 @@
-[31mParser Error[0m on line [33m14[0m: Expected primary expression!
-==========================
- Line Source (../tests/function.in)
-   14 [31m// Testing Function Reassignment
-[0m                ^

@@ -7,9 +7,6 @@
 // Memory.c, provides functions for the interpreter to manipulate the local 
 //   WendyScript memory
 
-// A TOKEN IS 1032 BYTES, we allow 128mb of Memory
-// 128mb * 1024kb/mb * 1024b/kb = 134217728 bytes = 129055.5 Tokens in 128 MB
-// Lets choose an arbitrary closest prime because why not: 129061
 address frame_pointer = 0;
 address stack_pointer = 0;
 address arg_pointer = 0;
@@ -40,13 +37,13 @@ bool garbage_collect(int size) {
 			address a = call_stack[i].val;
 			// Check for array header because we need to mark all of the size.
 			int block_size = 1;
-			if (memory[a].t_type == LIST || memory[a].t_type == STRUCT) {
+			if (memory[a].t_type == T_LIST || memory[a].t_type == T_STRUCT) {
 				marked[a] = true;
 				// Traverse to list header.
 				a = memory[a].t_data.number;
 				block_size += memory[a].t_data.number;
 			}
-			else if (memory[a].t_type == STRUCT_INSTANCE) {
+			else if (memory[a].t_type == T_STRUCT_INSTANCE) {
 				marked[a] = true;
 				// This means that the original struct metadata must also
 				//   persist as well as the corresponding fields.
@@ -56,7 +53,7 @@ bool garbage_collect(int size) {
 			// We'll mark the location it points to. If it's an address, we'll
 			//   recursively mark that one too.
 			for (int j = 0; j < block_size; j++) marked[a + j] = true;
-			while (memory[a].t_type == ADDRESS) {
+			while (memory[a].t_type == T_ADDRESS) {
 				a = memory[a].t_data.number;
 				marked[a] = true;
 			}
@@ -235,7 +232,7 @@ void init_memory() {
 	// ADDRESS 0 REFERS TO NONE_TOKEN
 	push_memory(none_token());
 	// ADDRESS 1 REFERS TO EMPTY RETURNS TOKEN
-	push_memory(make_token(NONERET, make_data_str("<noneret>")));
+	push_memory(make_token(T_NONERET, make_data_str("<noneret>")));
 }
 
 void clear_arg_stack() {
