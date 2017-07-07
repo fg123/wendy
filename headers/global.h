@@ -17,7 +17,6 @@
 #define MAX_LIST_INIT_LEN 100
 #define MAX_STRUCT_META_LEN 100
 
-// Always have 1024 more bytes than we need in the allocation.
 #define CODEGEN_PAD_SIZE 512
 #define CODEGEN_START_SIZE 1024
 
