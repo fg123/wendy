@@ -13,7 +13,8 @@
 //  assignment      ->  or (("=" | "=>" | "+=" | "-=" | "*=" | "/=" | "\=") or)*
 //  or              ->  and (("or") and)*
 //  and             ->  comparison (("and") comparison))*
-//  comparison      ->  range (("!=" | "==" | "<" | ">" | "<=" | ">=" | "~") range)*
+//  comparison      ->  range (("in" | "!=" | "==" | "<" | ">" 
+//                              | "<=" | ">=" | "~") range)*
 //  range           ->  comparison (("->") comparison)*
 //  term            ->  factor (("-" | "+") factor)*
 //  factor          ->  unary (("*" | "/" | "\" | "%") unary)*

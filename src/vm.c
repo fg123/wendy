@@ -849,7 +849,7 @@ static token eval_binop(token op, token a, token b) {
                 safe_free(new_list);
                 return make_token(T_LIST, make_data_num(new_adr));
             }
-            else if (op.t_type == OP_IN) {
+            else if (op.t_type == T_IN) {
                 // element in list
                 for (int i = 0; i < size_b; i++) {
 //                  print_token(&a);
