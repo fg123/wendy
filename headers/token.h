@@ -87,7 +87,6 @@ bool last_printed_newline;
     OP(T_REQ) \
     OP(T_EXPLODE) \
     OP(T_TIME) \
-    OP(T_STRUCT_HEADER) \
     OP(T_STRUCT_NAME) \
     OP(T_STRUCT_METADATA) \
     OP(T_STRUCT_STATIC) \
