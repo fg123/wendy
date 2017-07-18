@@ -36,6 +36,7 @@ size_t* closure_list_sizes;
 extern address frame_pointer;
 extern address stack_pointer;
 extern address closure_list_pointer;
+extern address arg_pointer;
 
 // init_memory() allocates the memory
 void init_memory();

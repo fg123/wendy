@@ -641,6 +641,15 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
             }
             i += strlen(c);
         }
+        else if (op == OP_LJMP) {
+            void* loc = &bytecode[i + 1];
+            i += sizeof(address);
+            fprintf(buffer, "0x%X", *((address*)loc));
+            i++;
+            char* c = (char*)(bytecode + i);
+            fprintf(buffer, "%.*s ", maxlen, c);
+            i += strlen(c);
+        }
         else if (op == OP_LBIND) {
             i++;
             char* c = (char*)(bytecode + i);

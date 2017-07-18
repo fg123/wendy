@@ -27,6 +27,7 @@ void vm_run(uint8_t* bytecode) {
     for (i = verify_header(bytecode);; i++) {
         reset_error_flag();
         opcode op = bytecode[i];
+        
         if (op == OP_PUSH) {
             i++;
             token t = get_token(&bytecode[i], &i);
@@ -143,7 +144,11 @@ void vm_run(uint8_t* bytecode) {
             else {
                 jump = true;
             }
-            if (jump) i = end_of_loop - 1;
+            if (jump)  {
+                // Pop Condition too!
+                pop_arg(line);
+                i = end_of_loop - 1;
+            }
         }
         else if (op == OP_LBIND) {
             char* user_index = (char*)(bytecode + (++i));
