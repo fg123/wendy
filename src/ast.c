@@ -186,7 +186,8 @@ static expr* lvalue() {
 }
 
 static expr* primary() {
-    if (match(T_STRING, T_NUMBER, T_TRUE, T_FALSE, T_NONE, T_IDENTIFIER, T_OBJ_TYPE)) {
+    if (match(T_STRING, T_NUMBER, T_TRUE, T_FALSE, T_NONE, T_IDENTIFIER, 
+            T_OBJ_TYPE, T_TIME)) {
         return make_lit_expr(previous());   
     }
     else if (match(T_LEFT_BRACK)) {

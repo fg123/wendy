@@ -212,18 +212,15 @@ static void codegen_statement(void* expre) {
             fseek (f, 0, SEEK_END);
             length = ftell (f);
             fseek (f, 0, SEEK_SET);
-            buffer = safe_malloc(length); // + 1 for null terminator
+            buffer = safe_malloc(length);
             fread (buffer, sizeof(uint8_t), length, f);
-            write_opcode(OP_BADR);
-            int offset = size + sizeof(int) - strlen(WENDY_VM_HEADER) - 1;
-            write_integer(offset);
+            int offset = size - strlen(WENDY_VM_HEADER) - 1;
+            offset_addresses(buffer, length, offset);
             for (long i = verify_header(buffer); i < length; i++) {
                 if (i == length - 1 && buffer[i] == OP_HALT) break;
                 bytecode[size++] = buffer[i];
                 guarantee_size();
             }
-            write_opcode(OP_BADR);
-            write_integer(-1 * offset);
             safe_free(buffer);
             fclose (f);
         }
@@ -607,18 +604,6 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
             i++;
             fprintf(buffer, "0x%X", bytecode[i]);
         }
-        else if (op == OP_BADR) {
-            void* loc = &bytecode[i + 1];
-            i += sizeof(int);
-            int offset = *((int*)loc);
-            if (offset < 0) {
-                fprintf(buffer, "-0x%X", -offset);
-            }
-            else {
-                fprintf(buffer, "0x%X", offset);
-            }
-            baseaddr += offset;
-        }
         else if (op == OP_SRC) {
             void* loc = &bytecode[i + 1];
             i += sizeof(address);
@@ -629,25 +614,16 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
             i += sizeof(address);
             fprintf(buffer, "0x%X", *((address*)loc));
         }
-        else if (op == OP_JMP) {
+        else if (op == OP_LJMP) {
             void* loc = &bytecode[i + 1];
             i += sizeof(address);
-            fprintf(buffer, "0x%X ", *((address*)loc));
+            fprintf(buffer, "0x%X ", *((address*)loc + baseaddr));
             i++;
             char* c = (char*)(bytecode + i);
             fprintf(buffer, "%.*s ", maxlen, c);
             if (strlen(c) > maxlen) {
                 fprintf(buffer, ">");
             }
-            i += strlen(c);
-        }
-        else if (op == OP_LJMP) {
-            void* loc = &bytecode[i + 1];
-            i += sizeof(address);
-            fprintf(buffer, "0x%X", *((address*)loc));
-            i++;
-            char* c = (char*)(bytecode + i);
-            fprintf(buffer, "%.*s ", maxlen, c);
             i += strlen(c);
         }
         else if (op == OP_LBIND) {
@@ -677,6 +653,91 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
             fprintf(buffer, "%02X", bytecode[j]);
         }
         fprintf(buffer, "\n" RESET);
+        if (op == OP_HALT) {
+            break;
+        }
+    }
+}
+
+static void write_address_at_buffer(address a, uint8_t* buffer, size_t loc) {
+    uint8_t* first = (void*)&a;
+    for (int i = 0; i < sizeof(address); i++) {
+        buffer[loc++] = first[i];
+    }
+}
+
+static void write_token_at_buffer(token t, uint8_t* buffer, size_t loc) {
+    buffer[loc++] = t.t_type;
+    if (t.t_type == T_ADDRESS) {
+        // Writing a double
+        unsigned char * p = (void*)&t.t_data.number;
+        for (int i = 0; i < sizeof(double); i++) {
+            buffer[loc++] = p[i];
+        }
+    }
+}
+
+// loops through, offsets all addresses based on import linking location
+void offset_addresses(uint8_t* buffer, size_t length, int offset) {
+    for (unsigned int i = verify_header(buffer);; i++) {
+        opcode op = buffer[i];
+        //printf("%X\n", i);
+        if (op == OP_PUSH) {
+            i++;
+            size_t tokLoc = i;
+            token t = get_token(&buffer[i], &i);
+            //printf("%X PUSHED A TOKEN HERE WITH TYPE %d, %d\n", tokLoc - 1, t.t_type, T_ADDRESS);
+            if (t.t_type == T_ADDRESS) { 
+                //printf("%X Token here address %X\n",i, (int)t.t_data.number);
+                t.t_data.number += offset;
+                write_token_at_buffer(t, buffer, tokLoc);
+            }
+        }
+        else if (op == OP_BIN || op == OP_UNA || op == OP_RBIN) {
+            i++;
+            get_token(&buffer[i], &i);
+        }
+        else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW) {
+            i++;
+            char* c = (char*)(buffer + i);
+            i += strlen(c);
+        }
+        else if (op == OP_SRC) {
+            i += sizeof(address);
+        }
+        else if (op == OP_JMP || op == OP_JIF) {            
+            address loc = *((address*) &buffer[i + 1]);
+            loc += offset;
+            write_address_at_buffer(loc, buffer, i + 1);
+            i += sizeof(address);
+            
+        }
+        else if (op == OP_LJMP) {
+            address loc = *((address*) &buffer[i + 1]);
+            loc += offset;
+            write_address_at_buffer(loc, buffer, i + 1);
+            i += sizeof(address);
+            i++;
+            char* c = (char*)(buffer + i);
+            i += strlen(c);
+        }
+        else if (op == OP_LBIND) {
+            i++;
+            char* c = (char*)(buffer + i);
+            i += strlen(c);
+            i++;
+            c = (char*)(buffer + i);
+            i += strlen(c);
+        }
+        else if (op == OP_ASSERT) {
+            i++;
+            i++;
+            char* c = (char*)(buffer + i);
+            i += strlen(c);
+        }
+        else if (op == OP_CHTYPE || op == OP_REQ || op == OP_PLIST) {
+            i++;
+        }
         if (op == OP_HALT) {
             break;
         }

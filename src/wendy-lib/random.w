@@ -5,13 +5,11 @@
 
 let r_seed = 1;
 
-let irand => (seed) {
-	r_seed = seed;
-	ret;
-};
+let irand => (seed) { r_seed = seed; }
+
 
 // returns a random number from 0 to max
 let rand => (max) {
 	r_seed = (((r_seed * 1103515245) + 12345)) % 2147483647;
 	ret r_seed % max; 
-};
+}

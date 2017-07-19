@@ -96,14 +96,13 @@
 // 0x21 | CHTYPE | [toktype] | changes the type of the top of the stack
 // 0x22 | HALT   |           | halt instruction, end program
 // 0x23 | SRC    | [int32]   | store the src line number
-// 0x24 | BADR   | [int32]   | change the base address by the value given
 
 typedef enum opcode { 
     OP_PUSH, OP_POP, OP_BIN, OP_UNA, OP_CALL, OP_RET, OP_BIND, OP_REQ, OP_WHERE, 
     OP_OUT, OP_OUTL, OP_IN, OP_PLIST, OP_RANGE, OP_READ, OP_WRITE, OP_JMP, 
     OP_JIF, OP_FRM, OP_END, OP_LJMP, OP_LBIND, OP_INC, OP_DEC, OP_NTHPTR, 
     OP_MEMPTR, OP_ASSERT, OP_MPTR, OP_DIN, OP_DOUT, OP_CLOSUR, OP_RBIN, 
-    OP_RBW, OP_CHTYPE, OP_HALT, OP_SRC, OP_BADR } 
+    OP_RBW, OP_CHTYPE, OP_HALT, OP_SRC } 
     opcode;
 
 static char* opcode_string[] = {
@@ -111,7 +110,7 @@ static char* opcode_string[] = {
     "where", "out", "outl", "in", "plist", "range", "read", "write", "jmp", 
     "jif", "frm", "end", "ljmp", "lbind", "inc", "dec", "nthptr",
     "memptr", "assert", "mptr", "din", "dout", "closur", "rbin", "rbw", "chtype",
-    "halt", "src", "badr"
+    "halt", "src"
 };
 
 // generate_code(ast) generates Wendy ByteCode based on the ast and 
@@ -122,6 +121,10 @@ uint8_t* generate_code(statement_list* ast);
 // print_bytecode(bytecode, buffer) prints the given bytecode into 
 //   a readable format into the buffer.
 void print_bytecode(uint8_t* bytecode, FILE* buffer);
+
+// offset_addresses(buffer, length, offset) offsets all instructions
+//   that require an address by the given offset
+void offset_addresses(uint8_t* buffer, size_t length, int offset);
 
 // write_bytecode(bytecode, buffer) writes the bytecode into binary file
 void write_bytecode(uint8_t* bytecode, FILE* buffer);

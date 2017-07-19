@@ -15,7 +15,6 @@ static address memory_register = 0;
 static address memory_register_A = 0;
 static data data_register; 
 static int line;
-static int base_address = 0;
 static address i = 0;
 
 address get_instruction_pointer() {
@@ -27,17 +26,15 @@ void vm_run(uint8_t* bytecode) {
     for (i = verify_header(bytecode);; i++) {
         reset_error_flag();
         opcode op = bytecode[i];
-        
+        //printf("i: %X\n", i);
         if (op == OP_PUSH) {
             i++;
             token t = get_token(&bytecode[i], &i);
-            if (t.t_type == T_IDENTIFIER) {
-                if (strcmp(t.t_data.string, "time") == 0) {
-                    t = time_token();
-                }
-                else {
-                    t = *get_value_of_id(t.t_data.string, line);
-                }
+            if (t.t_type == T_TIME) {   
+                t = time_token();
+            }
+            else if (t.t_type == T_IDENTIFIER) {
+                t = *get_value_of_id(t.t_data.string, line);
             }
             else if (t.t_type == T_MEMBER) {
                 t.t_type = T_IDENTIFIER;
@@ -111,7 +108,7 @@ void vm_run(uint8_t* bytecode) {
         else if (op == OP_LJMP) {
             // L_JMP Address LoopIndexString
             void* ad = &bytecode[i + 1];
-            address end_of_loop = base_address + *((address*)ad);
+            address end_of_loop = *((address*)ad);
             i += sizeof(address);
             char* loop_index_string = (char*)(bytecode + (++i));
             i += strlen((char*)(bytecode + i));
@@ -329,7 +326,7 @@ void vm_run(uint8_t* bytecode) {
         }
         else if (op == OP_JMP) {
             void* ad = &bytecode[i + 1];
-            address addr = base_address + *((address*)ad);
+            address addr = *((address*)ad);
             i = addr - 1;
         }
         else if (op == OP_JIF) {
@@ -337,7 +334,7 @@ void vm_run(uint8_t* bytecode) {
             token top = pop_arg(line);
 
             void* ad = &bytecode[i + 1];
-            address addr = base_address + *((address*)ad);
+            address addr = *((address*)ad);
             i += sizeof(address);
 
             if (top.t_type != T_TRUE && top.t_type != T_FALSE) {
@@ -433,7 +430,7 @@ void vm_run(uint8_t* bytecode) {
                 push_stack_entry("this", memory_register_A, line);  
             }
             int loc = top.t_data.number;
-            address addr = base_address + memory[loc].t_data.number;
+            address addr = memory[loc].t_data.number;
             i = addr - 1;
             // push closure variables
             address cloc = memory[loc + 1].t_data.number;
@@ -462,11 +459,6 @@ void vm_run(uint8_t* bytecode) {
             if (t.t_type != T_NONERET) {
                 print_token_inline(&t, stdout);
             }
-        }
-        else if (op == OP_BADR) {
-            void* ad = &bytecode[i + 1];
-            base_address += *((int*)ad);
-            i += sizeof(int);
         }
         else if (op == OP_IN) {
             // Scan one line from the input.
