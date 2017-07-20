@@ -8,6 +8,7 @@
 #include <string.h>
 #include "memory.h"
 #include "execpath.h"
+#include "source.h"
 
 // Implementation of Wendy ByteCode Generator
 
@@ -167,8 +168,11 @@ static opcode tok_to_opcode(token t) {
 static void codegen_statement(void* expre) {
     if (!expre) return;
     statement* state = (statement*) expre;
-    write_opcode(OP_SRC);
-    write_integer(state->src_line);
+
+    if (!get_settings_flag(SETTINGS_COMPILE)) {
+        write_opcode(OP_SRC);
+        write_integer(state->src_line);
+    }
     if (state->type == S_LET) {
         codegen_expr(state->op.let_statement.rvalue);
         // Request Memory
@@ -576,6 +580,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
         fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
         opcode op = bytecode[i];
         long int oldChar = ftell(buffer);
+        int printSourceLine = -1;
         fprintf(buffer, YEL "%6s " RESET, opcode_string[op]);
         if (op == OP_PUSH || op == OP_BIN || op == OP_UNA || op == OP_RBIN) {
             i++;
@@ -612,6 +617,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
             void* loc = &bytecode[i + 1];
             i += sizeof(address);
             fprintf(buffer, "0x%X", *((address*)loc));
+            printSourceLine = *((int*)loc);
         }
         else if (op == OP_JMP || op == OP_JIF) {
             void* loc = &bytecode[i + 1];
@@ -655,6 +661,18 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
         for (int j = start; j <= i; j++) {
             if (j != start) fprintf(buffer, " ");
             fprintf(buffer, "%02X", bytecode[j]);
+            if (j > start + 2) {
+                fprintf(buffer, "... ");
+                break;
+            }
+            else if (j == i) {
+                fprintf(buffer, "    ");
+                break;
+            }
+        }
+        if (printSourceLine > 0) {
+            // Print Source Line
+            printf(RESET " %s", get_source_line(printSourceLine));
         }
         fprintf(buffer, "\n" RESET);
         if (op == OP_HALT) {
