@@ -96,6 +96,8 @@ static void write_opcode(opcode op) {
 static void codegen_expr(void* expre);
 static void codegen_statement(void* expre);
 static void codegen_statement_list(void* expre);
+static void codegen_call_lvalue_expr(expr* expression);
+
 static void codegen_lvalue_expr(expr* expression) {
     if (expression->type == E_LITERAL) {
         // Better be a identifier eh
@@ -129,6 +131,9 @@ static void codegen_lvalue_expr(expr* expression) {
             error_lexer(expression->line, expression->col, 
                     CODEGEN_INVALID_LVALUE_BINOP); 
         }
+    }
+    else if (expression->type == E_CALL) {
+        codegen_expr(expression);
     }
     else {
         error_lexer(expression->line, expression->col, CODEGEN_INVALID_LVALUE);
@@ -459,8 +464,7 @@ static void codegen_expr(void* expre) {
     }
     else if (expression->type == E_CALL) {
         codegen_expr_list(expression->op.call_expr.arguments);
-        codegen_lvalue_expr(expression->op.call_expr.function);
-        write_opcode(OP_READ);
+        codegen_expr(expression->op.call_expr.function);
         write_opcode(OP_CALL);
     }
     else if (expression->type == E_LIST) {
