@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include "global.h"
+#include <math.h>
 
 #define match(...) fnmatch(sizeof((token_type []) {__VA_ARGS__}) / sizeof(token_type), __VA_ARGS__)
 
@@ -810,15 +811,75 @@ static expr* make_lvalue_expr(expr* left, token op, expr* right) {
 }
 static expr* make_bin_expr(expr* left, token op, expr* right) {
     expr* node = safe_malloc(sizeof(expr));
+    node->line = op.t_line;
+    node->col = op.t_col;
+    node->type = E_LITERAL;
+    if (left->type == E_LITERAL && left->op.lit_expr.t_type == T_NUMBER &&
+        right->type == E_LITERAL && right->op.lit_expr.t_type == T_NUMBER) {
+        // Peek Optimization is Available on Numbers
+        // Optimized Reuslt will be on OP  
+        bool can_optimize = true;
+        double a = left->op.lit_expr.t_data.number;
+        double b = right->op.lit_expr.t_data.number;
+        switch (op.t_type) {
+            case T_STAR:
+                op.t_data.number = a * b;
+                break;
+            case T_INTSLASH:
+                if (b != 0) {
+                    op.t_data.number = (int)(a / b);
+                    break;
+                }
+            case T_SLASH:
+                if (b != 0) {
+                    op.t_data.number = a / b;
+                    break;
+                }
+            case T_PERCENT:
+                if (b != 0 && a == floor(a) && b == floor(b)) {
+                    op.t_data.number = (long long)a % (long long)b;
+                    break;
+                }
+            case T_MINUS:
+                op.t_data.number = a - b;
+                break;
+            case T_PLUS:
+                op.t_data.number = a + b;
+                break;
+            default: 
+                can_optimize = false;
+                break;
+        }
+        if (can_optimize) {
+            op.t_type = T_NUMBER;
+            node->op.lit_expr = op;
+            safe_free(left);
+            safe_free(right);
+            return node;
+        }
+    }
     node->type = E_BINARY;
     node->op.bin_expr.operator = op;
     node->op.bin_expr.left = left;
     node->op.bin_expr.right = right;
-    node->line = op.t_line;
-    node->col = op.t_col;
     return node;
 }
 static expr* make_una_expr(token op, expr* operand) {
+    // Apply Peek Optimization
+    if (op.t_type == T_MINUS && operand->type == E_LITERAL &&
+        operand->op.lit_expr.t_type == T_NUMBER) {
+        // Apply here
+        operand->op.lit_expr.t_data.number *= -1;
+        return operand;
+    }
+    if (op.t_type == T_NOT && operand->type == E_LITERAL &&
+        (operand->op.lit_expr.t_type == T_TRUE || 
+         operand->op.lit_expr.t_type == T_FALSE)) {
+        // Apply here
+        operand->op.lit_expr.t_type = 
+            operand->op.lit_expr.t_type == T_TRUE ? T_FALSE : T_TRUE;
+        return operand;
+    }
     expr* node = safe_malloc(sizeof(expr));
     node->type = E_UNARY;
     node->op.una_expr.operator = op;
