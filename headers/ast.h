@@ -42,7 +42,11 @@ typedef struct expr {
             struct {    int                 length; 
                         struct expr_list*   contents; }     list_expr;
             struct {    struct expr_list*   parameters;
-                        struct statement*   body; }         func_expr;
+                        struct statement*   body;
+                        bool                is_native;
+                        token               native_name; }  func_expr;
+            struct {    struct expr_list*   parameters;
+                        token               name; }         native_func_expr;
             struct {    token               operator;
                         struct expr*        lvalue;
                         struct expr*        rvalue; }       assign_expr;
@@ -67,7 +71,6 @@ typedef struct statement {
             struct {    token       lvalue; 
                         expr*       rvalue; }           let_statement;
             struct {    token       name; 
-                        token       parent;
                         expr_list*  instance_members;
                         expr_list*  static_members; 
                         expr* init_fn; }                struct_statement;

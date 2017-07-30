@@ -133,6 +133,9 @@ void print_token_inline(const token* t, FILE* buf) {
     else if (t->t_type == T_FUNCTION) {
         fprintf(buf, "<function>");
     }
+    else if (t->t_type == T_STRUCT_FUNCTION) {
+        fprintf(buf, "<struct function>");
+    }
     else if (t->t_type == T_STRUCT_INSTANCE) {
         token instance_loc = memory[(int)(t->t_data.number)];
         fprintf(buf, "<struct:%s>", 
@@ -224,7 +227,7 @@ int precedence(token op) {
 
 bool is_numeric(token t) {
     return t.t_type == T_NUMBER || t.t_type == T_ADDRESS || t.t_type == T_LIST ||
-        t.t_type == T_LIST_HEADER || t.t_type == T_STRUCT || 
+        t.t_type == T_LIST_HEADER || t.t_type == T_STRUCT || t.t_type == T_FUNCTION ||
         t.t_type == T_STRUCT_METADATA || t.t_type == T_STRUCT_INSTANCE || 
         t.t_type == T_STRUCT_INSTANCE_HEAD;
 }

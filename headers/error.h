@@ -39,7 +39,6 @@ void error_runtime(int line, char* message, ...);
 #define AST_EXPECTED_PRIMARY "Expected primary expression!"
 #define AST_EXPECTED_IDENTIFIER_LOOP "Expected identifier in place of loop variable."
 #define AST_STRUCT_NAME_IDENTIFIER "Struct name must be an identifier!"
-#define AST_STRUCT_PARENT_IDENTIFIER "Struct parent delegation must be an identifier!"
 #define AST_UNRECOGNIZED_IMPORT "Unrecognized import, expected an identifier!"
 
 // CodeGen Messages:
@@ -51,7 +50,6 @@ void error_runtime(int line, char* message, ...);
 #define CODEGEN_INVALID_LVALUE \
     "Invalid lvalue expression!"
 #define CODEGEN_EXPECTED_IDENTIFIER AST_EXPECTED_IDENTIFIER
-#define CODEGEN_PARENT_NOT_STRUCT "Parent to be inherited from is not a struct!"
 #define CODEGEN_REQ_FILE_READ_ERR SCAN_REQ_FILE_READ_ERR
 
 // Debugger Messages:
@@ -84,6 +82,7 @@ void error_runtime(int line, char* message, ...);
 #define VM_INVALID_APPEND "Invalid operator '%s' between list and element."
 #define VM_STRING_NUM_INVALID_OPERATOR "Invalid operator '%s' between string and number."
 #define VM_INVALID_NEGATE "Negation operand must be a number."  
+#define VM_INVALID_NATIVE_CALL "Natively linked function '%s' not found!"
 
 // Colors
 #ifdef _WIN32

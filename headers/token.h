@@ -86,6 +86,7 @@ bool last_printed_newline;
     OP(T_PRINTSTACK) \
     OP(T_REQ) \
     OP(T_EXPLODE) \
+    OP(T_NATIVE) \
     OP(T_TIME) \
     OP(T_STRUCT_NAME) \
     OP(T_STRUCT_METADATA) \
@@ -93,15 +94,9 @@ bool last_printed_newline;
     OP(T_STRUCT_PARAM) \
     OP(T_STRUCT_INSTANCE) \
     OP(T_STRUCT_INSTANCE_HEAD) \
-    OP(T_STRUCT_PARENT) \
-    OP(T_STRUCT_BASE_INSTANCE) \
     OP(T_STRUCT_FUNCTION) \
     OP(T_NONE) \
-    OP(T_NONERET) \
-    OP(T_CALL) \
-    OP(T_PUSH) \
-    OP(T_POP) \
-    OP(T_COND)
+    OP(T_NONERET)
 
 #define ENUM(x) x,
 #define STRING(x) #x,

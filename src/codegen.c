@@ -256,22 +256,6 @@ static void codegen_statement(void* expre) {
         codegen_expr(state->op.struct_statement.init_fn);
 
         push_size += 2;
-
-        if (state->op.struct_statement.parent.t_type != T_EMPTY) {
-            // Write Parent, but assert first
-            write_opcode(OP_WHERE);
-            write_string(state->op.struct_statement.parent.t_data.string);
-            write_opcode(OP_ASSERT);
-            bytecode[size++] = T_STRUCT;
-            write_string(CODEGEN_PARENT_NOT_STRUCT);
-
-            write_opcode(OP_READ); // Read Parent Element In
-            write_opcode(OP_CHTYPE);  // Store Address of Struct Meta in Data Reg
-            bytecode[size++] = T_STRUCT_PARENT;
-            write_opcode(OP_PUSH);
-            write_token(make_token(T_STRUCT_PARAM, make_data_str("base")));
-            push_size += 2;
-        }
     
         expr_list* curr = state->op.struct_statement.instance_members;
         while (curr) {
@@ -491,25 +475,41 @@ static void codegen_expr(void* expre) {
         int writeSizeLoc = size;
         size += sizeof(address);
         int startAddr = size;
-        // Parameters are reversed from AST Generation
-        expr_list* param = expression->op.func_expr.parameters;
-        while (param) {
-            token t = param->elem->op.lit_expr;
-            write_opcode(OP_RBW);
-            write_string(t.t_data.string);
-            param = param->next;
-        }
-        if (expression->op.func_expr.body->type == S_EXPR) {
-            codegen_expr(expression->op.func_expr.body->op.expr_statement);
+        if (expression->op.func_expr.is_native) {
+            write_opcode(OP_NATIVE);
+            int count = 0;
+            expr_list* param = expression->op.func_expr.parameters;
+            while (param) {
+                param = param->next;
+                count++;
+            }
+            write_integer(count);
+            write_string(expression->op.func_expr.native_name.t_data.string);
+            write_opcode(OP_PUSH);
+            write_token(noneret_token());
             write_opcode(OP_RET);
         }
         else {
-            codegen_statement(expression->op.func_expr.body);
-            if (bytecode[size - 1] != OP_RET) {
-                // Function has no explicit Return
-                write_opcode(OP_PUSH);
-                write_token(noneret_token());
+            // Parameters are reversed from AST Generation
+            expr_list* param = expression->op.func_expr.parameters;
+            while (param) {
+                token t = param->elem->op.lit_expr;
+                write_opcode(OP_RBW);
+                write_string(t.t_data.string);
+                param = param->next;
+            }
+            if (expression->op.func_expr.body->type == S_EXPR) {
+                codegen_expr(expression->op.func_expr.body->op.expr_statement);
                 write_opcode(OP_RET);
+            }
+            else {
+                codegen_statement(expression->op.func_expr.body);
+                if (bytecode[size - 1] != OP_RET) {
+                    // Function has no explicit Return
+                    write_opcode(OP_PUSH);
+                    write_token(noneret_token());
+                    write_opcode(OP_RET);
+                }
             }
         }
         write_address_at(size, writeSizeLoc);
@@ -646,6 +646,15 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
             fprintf(buffer, "%.*s ", maxlen, c);
             i += strlen(c);
         }
+        else if (op == OP_NATIVE) {
+            i++;
+            void* loc = &bytecode[i];
+            i += sizeof(address);
+            fprintf(buffer, "%d ", *((address*)loc));
+            char* c = (char*)(bytecode + i);
+            fprintf(buffer, "%.*s", maxlen, c);
+            i += strlen(c);
+        }
         else if (op == OP_ASSERT) {
             i++;
             fprintf(buffer, "%s <error>", token_string[bytecode[i]]);
@@ -703,7 +712,7 @@ static void write_token_at_buffer(token t, uint8_t* buffer, size_t loc) {
 void offset_addresses(uint8_t* buffer, size_t length, int offset) {
     for (unsigned int i = verify_header(buffer);; i++) {
         opcode op = buffer[i];
-        //printf("%X\n", i);
+        // printf("%X\n", i);
         if (op == OP_PUSH) {
             i++;
             size_t tokLoc = i;
@@ -732,7 +741,6 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
             loc += offset;
             write_address_at_buffer(loc, buffer, i + 1);
             i += sizeof(address);
-            
         }
         else if (op == OP_LJMP) {
             address loc = *((address*) &buffer[i + 1]);
@@ -754,6 +762,11 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
         else if (op == OP_ASSERT) {
             i++;
             i++;
+            char* c = (char*)(buffer + i);
+            i += strlen(c);
+        }
+        else if (op == OP_NATIVE) {
+            i += sizeof(address);
             char* c = (char*)(buffer + i);
             i += strlen(c);
         }

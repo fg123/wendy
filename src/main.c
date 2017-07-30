@@ -13,10 +13,10 @@
 
 #ifdef _WOP_IN32
 char* readline(char* prompt) {
-  fputs(prompt, stdout);
-  char* cpy = safe_malloc(OP_INPUT_BUFFER_SIZE);
-  fgets(cpy, OP_INPUT_BUFFER_SIZE, stdin);
-  return cpy;
+    fputs(prompt, stdout);
+    char* cpy = safe_malloc(OP_INPUT_BUFFER_SIZE);
+    fgets(cpy, OP_INPUT_BUFFER_SIZE, stdin);
+    return cpy;
 }
 
 void add_history(char* prompt) {

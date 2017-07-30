@@ -200,10 +200,11 @@ void here_u_go(address a, int size) {
 
 
 void print_free_memory() {
-    printf("FREE MEMORY BLOCKS:\n");
+    printf("=============\n");
+    printf("Free Memory Blocks:\n");
     mem_block* c = free_memory;
     while(c) {
-        printf("BLOCK FROM %d WITH SIZE %d.\n", c->start, c->size);
+        printf("Block from %d with size %d.\n", c->start, c->size);
         c = c->next;
     }
     printf("=============\n");
@@ -367,11 +368,11 @@ void print_call_stack(int maxlines) {
         if (call_stack[i].id[0] != '$' && call_stack[i].id[0] != '~') {
             if (frame_pointer == i) {
                 if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
-                    printf("%5d FP-> [" BLU "%s" RESET " -> %d", i, 
+                    printf("%5d FP-> [" BLU "%s" RESET " -> 0x%04X", i, 
                             call_stack[i].id, call_stack[i].val);
                 }
                 else {
-                    printf("%5d FP-> [%s -> %d", i, call_stack[i].id, 
+                    printf("%5d FP-> [%s -> 0x%04X", i, call_stack[i].id, 
                             call_stack[i].val);
                 }
 //              print_token_inline(&memory[call_stack[i].val], stdout);
@@ -379,11 +380,11 @@ void print_call_stack(int maxlines) {
             }
             else {
                 if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
-                    printf("%5d      [" BLU "%s" RESET " -> %d: ", i, 
+                    printf("%5d      [" BLU "%s" RESET " -> 0x%04X: ", i, 
                             call_stack[i].id, call_stack[i].val);
                 }
                 else {
-                    printf("%5d      [%s -> %d: ",i, 
+                    printf("%5d      [%s -> 0x%04X: ",i, 
                             call_stack[i].id, call_stack[i].val);
                 }
                 print_token_inline(&memory[call_stack[i].val], stdout);

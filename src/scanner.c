@@ -136,8 +136,8 @@ static void handle_obj_type() {
     add_token_V(T_OBJ_TYPE, make_data_str(value));  
 }
 
-static void handle_string() {
-    while (peek() != '"' && !is_at_end()) {
+static void handle_string(char endChar) {
+    while (peek() != endChar && !is_at_end()) {
         if (peek() == '\n') line++;
         advance();
     }
@@ -188,6 +188,9 @@ static void identifier() {
     else if (strcmp(text, "explode") == 0) { add_token(T_EXPLODE); }
     else if (strcmp(text, "import") == 0)   { 
         handle_import();
+    }
+    else if (strcmp(text, "native") == 0)   { 
+        add_token(T_NATIVE);
     }
     else if (strcmp(text, "time") == 0) { add_token(T_TIME); }
     else if (strcmp(text, "inc") == 0)  { add_token(T_INC); }
@@ -356,7 +359,8 @@ static bool scan_token() {
             else ignore_next = false;
             col = 1;
             return false;
-        case '"': handle_string(); break;
+        case '"': handle_string('"'); break;
+        case '\'': handle_string('\''); break;
         default:
             if (is_digit(c)) {
                 handle_number();

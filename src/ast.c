@@ -40,6 +40,7 @@ static expr* make_una_expr(token op, expr* operand);
 static expr* make_call_expr(expr* left, expr_list* arg_list);
 static expr* make_list_expr(expr_list* list);
 static expr* make_func_expr(expr_list* parameters, statement* body);
+static expr* make_native_func_expr(expr_list* parameters, token name);
 static expr* make_assign_expr(expr* left, expr* right, token op);
 static expr* make_lvalue_expr(expr* left, token op, expr* right);
 static expr* parse_expression();
@@ -316,8 +317,16 @@ static expr* assignment() {
         consume(T_LEFT_PAREN);
         expr_list* parameters = expression_list(T_RIGHT_PAREN);
         consume(T_RIGHT_PAREN);
-        statement* fnbody = parse_statement();
-        expr* rvalue = make_func_expr(parameters, fnbody);
+        expr* rvalue;
+        if (match(T_NATIVE)) {
+            // Native Binding
+            consume(T_IDENTIFIER);
+            rvalue = make_native_func_expr(parameters, previous());
+        }
+        else {
+            statement* fnbody = parse_statement();
+            rvalue = make_func_expr(parameters, fnbody);
+        }
         left = make_assign_expr(left, rvalue, 
                 make_token(T_EQUAL, make_data_str("=")));
     }
@@ -360,8 +369,15 @@ static statement* parse_statement() {
                 consume(T_LEFT_PAREN);
                 expr_list* parameters = expression_list(T_RIGHT_PAREN);
                 consume(T_RIGHT_PAREN);
-                statement* fnbody = parse_statement();
-                rvalue = make_func_expr(parameters, fnbody);
+                if (match(T_NATIVE)) {
+                    // Native Binding
+                    consume(T_IDENTIFIER);
+                    rvalue = make_native_func_expr(parameters, previous());
+                }
+                else {
+                    statement* fnbody = parse_statement();
+                    rvalue = make_func_expr(parameters, fnbody);
+                }
             }
             else {
                 rvalue = make_lit_expr(none_token());
@@ -375,7 +391,7 @@ static statement* parse_statement() {
             expr* condition = expression();
             statement* run_if_true = parse_statement();
             statement* run_if_false = 0;
-            if (match(T_ELSE) || match(T_COLON)) {
+            if (match(T_ELSE, T_COLON)) {
                 run_if_false = parse_statement();
             }   
             sm->type = S_IF;
@@ -388,7 +404,7 @@ static statement* parse_statement() {
             expr* index_var = expression();
             token a_index;
             expr* condition;
-            if (match(T_COLON) || match(T_IN)) {
+            if (match(T_COLON, T_IN)) {
                 condition = expression();
                 if (index_var->type != E_LITERAL || 
                         index_var->op.lit_expr.t_type != T_IDENTIFIER) {
@@ -416,14 +432,6 @@ static statement* parse_statement() {
                     AST_STRUCT_NAME_IDENTIFIER);    
             }
             token name = previous();
-            token parent = empty_token();
-            if (match(T_COLON)) {
-                if (!match(T_IDENTIFIER)) {
-                    error_lexer(first.t_line, first.t_col, 
-                        AST_STRUCT_PARENT_IDENTIFIER);          
-                }
-                parent = previous();
-            }
             consume(T_DEFFN);
             expr_list* static_members = 0;
             expr_list* instance_members = 0;
@@ -497,7 +505,6 @@ static statement* parse_statement() {
             sm->type = S_STRUCT;
             sm->op.struct_statement.name = name;
             sm->op.struct_statement.init_fn = function_const;
-            sm->op.struct_statement.parent = parent;
             sm->op.struct_statement.instance_members = instance_members;
             sm->op.struct_statement.static_members = static_members;
             break;
@@ -755,8 +762,6 @@ static void print_s(void* s) {
     else if (state->type == S_STRUCT) {
         printf("Struct Statement " GRN);
         print_token_inline(&state->op.struct_statement.name, stdout);
-        printf(RESET ":" GRN);
-        print_token_inline(&state->op.struct_statement.parent, stdout);
         printf("\n" RESET);
     }
     else if (state->type == S_IF) {
@@ -877,8 +882,14 @@ static expr* make_func_expr(expr_list* parameters, statement* body) {
     parameters = prev;
     node->op.func_expr.parameters = parameters;
     node->op.func_expr.body = body;
+    node->op.func_expr.is_native = false;
     node->line = t.t_line;
     node->col = t.t_col;
     return node;
 }
-
+static expr* make_native_func_expr(expr_list* parameters, token name) {
+    expr* node = make_func_expr(parameters, 0);
+    node->op.func_expr.is_native = true;
+    node->op.func_expr.native_name = name;
+    return node;
+}

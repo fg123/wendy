@@ -10,6 +10,7 @@
 #include <errno.h>
 #include "global.h"
 #include <limits.h>
+#include "native.h"
 
 static address memory_register = 0;
 static address memory_register_A = 0;
@@ -63,6 +64,15 @@ void vm_run(uint8_t* bytecode) {
             token a = pop_arg(line);
             token b = pop_arg(line);
             push_arg(eval_binop(operator, a, b), line);
+        }
+        else if (op == OP_NATIVE) {
+            i++;
+            void* ag = &bytecode[i];
+            address args = *((address*)ag);
+            i += sizeof(address);
+            char* name = (char*)(bytecode + i);
+            i += strlen(name);
+            native_call(name, args, line);
         }
         else if (op == OP_UNA) {
             i++;
@@ -279,7 +289,6 @@ void vm_run(uint8_t* bytecode) {
             bool found = false;
             while(!found) {
                 int params_passed = 0;
-                address parent_meta = 0;
                 int size = (int)(memory[metadata].t_data.number);
                 for (int i = 0; i < size; i++) {
                     token mdata = memory[metadata + i];
@@ -309,19 +318,9 @@ void vm_run(uint8_t* bytecode) {
                         }
                         params_passed++;
                     }
-                    else if (mdata.t_type == T_STRUCT_PARENT) {
-                        parent_meta = mdata.t_data.number;
-                    }
                 }
-                // Check now if there is a parent class
                 if (found) break;
-                if (parent_meta) {
-                    metadata = parent_meta;
-                    struct_header = memory[struct_header + 1].t_data.number;
-                }
-                else {
-                    error_runtime(line, VM_MEMBER_NOT_EXIST, e.t_data.string);
-                }
+                error_runtime(line, VM_MEMBER_NOT_EXIST, e.t_data.string);
             }
         }
         else if (op == OP_JMP) {
@@ -360,33 +359,9 @@ void vm_run(uint8_t* bytecode) {
                 //   overloaded init.
                 int m_size = memory[j].t_data.number;
                 int params = 0;
-                address base_instance_address = 0;  
                 for (int i = 0; i < m_size; i++) {
                     if (memory[j + i].t_type == T_STRUCT_PARAM) {
                         params++;
-                    }
-                    else if (memory[j + i].t_type == T_STRUCT_PARENT) {
-                        // Structure has a parent. We'll navigate to the parent
-                        //   and build an empty struct instance of the parent.
-                        address p_mdata = (int)memory[j + i].t_data.number;
-                        int p_size = memory[p_mdata].t_data.number;
-                        int p_params = 0;
-                        for (int p = 0; p < p_size; p++) {
-                            if (memory[p_mdata + p].t_type == T_STRUCT_PARAM) {
-                                p_params++;
-                            }
-                        }
-                        int p_total_size = p_params + 1;
-                        token *parent_instance = safe_malloc(p_total_size * sizeof(token));
-                        parent_instance[0] = make_token(T_STRUCT_INSTANCE_HEAD,
-                                make_data_num(p_mdata));
-                        for (int p = 1; p < p_total_size; p++) {
-                            parent_instance[p] = none_token();
-                        }
-                        address parent_base_addr = 
-                            push_memory_array(parent_instance, p_total_size);
-                        base_instance_address = parent_base_addr;
-                        safe_free(parent_instance);
                     }
                 }       
 
@@ -398,22 +373,13 @@ void vm_run(uint8_t* bytecode) {
                 struct_instance[0] = make_token(T_STRUCT_INSTANCE_HEAD, 
                         make_data_num(j));
                 int offset = params;
-                if (base_instance_address) {
-                    // First param is actually a hidden BASE param
-                    struct_instance[1] = make_token(T_STRUCT_INSTANCE,
-                            make_data_num(base_instance_address));
-                    offset++;
-                    si_size++;
-                }
                 for (int i = 0; i < params; i++) {  
                     struct_instance[offset - i] = none_token();
                 }
                 // Struct instance is done.
                 address a = push_memory_array(struct_instance, si_size);
                 safe_free(struct_instance);
-                address b = push_memory(make_token(T_STRUCT_INSTANCE, 
-                                make_data_num(a)));
-                memory_register_A = b;
+                memory_register_A = a;
             }
 
             if (top.t_type != T_FUNCTION && top.t_type != T_STRUCT_FUNCTION) {
@@ -427,7 +393,8 @@ void vm_run(uint8_t* bytecode) {
                 else {
                     t = T_STRUCT;
                 }
-                push_stack_entry("this", memory_register_A, line);  
+                push_stack_entry("this", push_memory(make_token(
+                    t, make_data_num(memory_register_A))), line);  
             }
             int loc = top.t_data.number;
             address addr = memory[loc].t_data.number;
@@ -601,55 +568,42 @@ static token eval_binop(token op, token a, token b) {
             if (a.t_type == T_STRUCT || a.t_type == T_STRUCT_INSTANCE) {
                 // Either will be allowed to look through static parameters.
                 address metadata = (int)(a.t_data.number);
+                memory_register_A = metadata;
                 if (a.t_type == T_STRUCT_INSTANCE) {
                     // metadata actually points to the STRUCT_INSTANE_HEADER 
                     //   right now.
                     metadata = (address)(memory[metadata].t_data.number);
                 }
-                memory_register_A = metadata;
                 token_type struct_type = a.t_type;
                 address struct_header = a.t_data.number;
-                while(1) {
-                    int params_passed = 0;
-                    address parent_meta = 0;
-                    int size = (int)(memory[metadata].t_data.number);
-                    for (int i = 0; i < size; i++) {
-                        token mdata = memory[metadata + i];
-                        if (mdata.t_type == T_STRUCT_STATIC &&
+               
+                int params_passed = 0;
+                int size = (int)(memory[metadata].t_data.number);
+                for (int i = 0; i < size; i++) {
+                    token mdata = memory[metadata + i];
+                    if (mdata.t_type == T_STRUCT_STATIC &&
+                        strcmp(mdata.t_data.string, b.t_data.string) == 0) {
+                        // Found the static member we were looking for
+                        token result = memory[metadata + i + 1];
+                        if (result.t_type == T_FUNCTION) {
+                            result.t_type = T_STRUCT_FUNCTION;
+                        }
+                        return result;
+                    }
+                    else if (mdata.t_type == T_STRUCT_PARAM) {
+                        if (struct_type == T_STRUCT_INSTANCE && 
                             strcmp(mdata.t_data.string, b.t_data.string) == 0) {
-                            // Found the static member we were looking for
-                            token result = memory[metadata + i + 1];
+                            // Found the instance member we were looking for.
+                            // Address of the STRUCT_INSTANCE_HEADER offset by
+                            //   params_passed + 1;
+                            address loc = struct_header + params_passed + 1;
+                            token result = memory[loc];
                             if (result.t_type == T_FUNCTION) {
                                 result.t_type = T_STRUCT_FUNCTION;
                             }
                             return result;
                         }
-                        else if (mdata.t_type == T_STRUCT_PARAM) {
-                            if (struct_type == T_STRUCT_INSTANCE && 
-                                strcmp(mdata.t_data.string, b.t_data.string) == 0) {
-                                // Found the instance member we were looking for.
-                                // Address of the STRUCT_INSTANCE_HEADER offset by
-                                //   params_passed + 1;
-                                address loc = struct_header + params_passed + 1;
-                                token result = memory[loc];
-                                if (result.t_type == T_FUNCTION) {
-                                    result.t_type = T_STRUCT_FUNCTION;
-                                }
-                                return result;
-                            }
-                            params_passed++;
-                        }
-                        else if (mdata.t_type == T_STRUCT_PARENT) {
-                            parent_meta = mdata.t_data.number;
-                        }
-                    }
-                    // Check now if there is a parent class
-                    if (parent_meta) {
-                        metadata = parent_meta;
-                        struct_header = memory[struct_header + 1].t_data.number;
-                    }
-                    else {
-                        break;
+                        params_passed++;
                     }
                 }
             }
