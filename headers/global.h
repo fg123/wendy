@@ -44,6 +44,9 @@ typedef enum {
 
 void set_settings_flag(settings_flags flag);
 bool get_settings_flag(settings_flags flag);
+void determine_endianness();
+
+extern bool is_big_endian;
 
 // Safe Malloc Implementation
 #define safe_malloc(size) safe_malloc_impl(size, __FILE__, __LINE__)

@@ -45,26 +45,41 @@ static void write_string(char* string) {
 }
 
 static void write_address(address a) {
+    size_t pos = size;
+    if (!is_big_endian) pos += sizeof(a);
+    size += sizeof(a);
     uint8_t* first = (void*)&a;
-    for (int i = 0; i < sizeof(a); i++) {
-        bytecode[size++] = first[i];
+    for (int i = 0; i < sizeof(address); i++) {
+        bytecode[is_big_endian ? pos++ : --pos] = first[i];
     }
     guarantee_size();
 }
 
 static void write_address_at(address a, int pos) {
+    if (!is_big_endian) pos += sizeof(address);
     uint8_t* first = (void*)&a;
-    for (int i = 0; i < sizeof(a); i++) {
-        bytecode[pos++] = first[i];
+    for (int i = 0; i < sizeof(address); i++) {
+        bytecode[is_big_endian ? pos++ : --pos] = first[i];
     }
 }
 
 static void write_double_at(double a, int pos) {
-    unsigned char * p = (void*)&a;
+    if (!is_big_endian) pos += sizeof(a);
+    uint8_t* p = (void*)&a;
     for (int i = 0; i < sizeof(double); i++) {
-        bytecode[pos++] = p[i];
+        bytecode[is_big_endian ? pos++ : --pos] = p[i];
     }
+}
 
+static void write_double(double a) {
+    size_t pos = size;
+    if (!is_big_endian) pos += sizeof(a);
+    size += sizeof(double);
+    uint8_t* p = (void*)&a;
+    for (int i = 0; i < sizeof(double); i++) {
+        bytecode[is_big_endian ? pos++ : --pos] = p[i];
+    }
+    guarantee_size();
 }
 
 static void write_integer(int a) {
@@ -76,10 +91,7 @@ static void write_token(token t) {
     bytecode[size++] = t.t_type;
     if (is_numeric(t)) {
         // Writing a double
-        unsigned char * p = (void*)&t.t_data.number;
-        for (int i = 0; i < sizeof(double); i++) {
-            bytecode[size++] = p[i];
-        }
+        write_double(t.t_data.number);
     }
     else {
         write_string(t.t_data.string);
@@ -368,10 +380,6 @@ static void codegen_statement(void* expre) {
         write_address_at(size, loop_skip_loc);
         write_opcode(OP_END);
     }
-    else {
-        printf("Traverse Statement: Unknown Type\n");
-    }
-
 }
 
 static void codegen_statement_list(void* expre) {
@@ -523,9 +531,6 @@ static void codegen_expr(void* expre) {
         write_opcode(OP_CHTYPE);
         bytecode[size++] = T_FUNCTION;
     }
-    else {
-        printf("Traverse Expr: Unknown Type\n");
-    }
 }
 
 uint8_t* generate_code(statement_list* _ast) {
@@ -541,16 +546,19 @@ uint8_t* generate_code(statement_list* _ast) {
 }
 
 token get_token(uint8_t* bytecode, unsigned int* end) {
+    // Bytecode is already Offset!
     token t;
     int start = *end;
     int i = 0;
     t.t_type = bytecode[i++];
     t.t_data.string[0] = 0;
     if (is_numeric(t)) {
+        if (!is_big_endian) i += sizeof(double);
         unsigned char * p = (void*)&t.t_data.number;
         for (int j = 0; j < sizeof(double); j++) {
-            p[j] = bytecode[i++];
+            p[j] = bytecode[is_big_endian ? i++ : --i];
         }
+        if (!is_big_endian) i += sizeof(double);
     }
     else {
         int len = 0;
@@ -566,6 +574,18 @@ token get_token(uint8_t* bytecode, unsigned int* end) {
 
 void write_bytecode(uint8_t* bytecode, FILE* buffer) {
     fwrite(bytecode, sizeof(uint8_t), size, buffer);
+}
+
+address get_address(uint8_t* bytecode) {
+    // Bytecode is already offset
+    int i = 0;
+    if (!is_big_endian) i += sizeof(address);
+    address result = 0;
+    unsigned char * p = (void*)&result;
+    for (int j = 0; j < sizeof(address); j++) {
+        p[j] = bytecode[is_big_endian ? i++ : --i];
+    }
+    return result;
 }
 
 void print_bytecode(uint8_t* bytecode, FILE* buffer) {
@@ -616,18 +636,18 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
         else if (op == OP_SRC) {
             void* loc = &bytecode[i + 1];
             i += sizeof(address);
-            fprintf(buffer, "0x%X", *((address*)loc));
-            printSourceLine = *((int*)loc);
+            fprintf(buffer, "0x%X", get_address(loc));
+            printSourceLine = get_address(loc);
         }
         else if (op == OP_JMP || op == OP_JIF) {
             void* loc = &bytecode[i + 1];
             i += sizeof(address);
-            fprintf(buffer, "0x%X", *((address*)loc));
+            fprintf(buffer, "0x%X", get_address(loc));
         }
         else if (op == OP_LJMP) {
             void* loc = &bytecode[i + 1];
             i += sizeof(address);
-            fprintf(buffer, "0x%X ", *((address*)loc + baseaddr));
+            fprintf(buffer, "0x%X ", get_address(loc + baseaddr));
             i++;
             char* c = (char*)(bytecode + i);
             fprintf(buffer, "%.*s ", maxlen, c);
@@ -650,16 +670,9 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
             i++;
             void* loc = &bytecode[i];
             i += sizeof(address);
-            fprintf(buffer, "%d ", *((address*)loc));
+            fprintf(buffer, "%d ", get_address(loc));
             char* c = (char*)(bytecode + i);
             fprintf(buffer, "%.*s", maxlen, c);
-            i += strlen(c);
-        }
-        else if (op == OP_ASSERT) {
-            i++;
-            fprintf(buffer, "%s <error>", token_string[bytecode[i]]);
-            i++;
-            char* c = (char*)(bytecode + i);
             i += strlen(c);
         }
         long int count = ftell(buffer) - oldChar;
@@ -691,9 +704,10 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 }
 
 static void write_address_at_buffer(address a, uint8_t* buffer, size_t loc) {
-    uint8_t* first = (void*)&a;
+    if (!is_big_endian) loc += sizeof(address);
+    unsigned char * p = (void*)&a;
     for (int i = 0; i < sizeof(address); i++) {
-        buffer[loc++] = first[i];
+        buffer[is_big_endian ? loc++ : --loc] = p[i];
     }
 }
 
@@ -701,9 +715,10 @@ static void write_token_at_buffer(token t, uint8_t* buffer, size_t loc) {
     buffer[loc++] = t.t_type;
     if (t.t_type == T_ADDRESS) {
         // Writing a double
+        if (!is_big_endian) loc += sizeof(double);
         unsigned char * p = (void*)&t.t_data.number;
         for (int i = 0; i < sizeof(double); i++) {
-            buffer[loc++] = p[i];
+            buffer[is_big_endian ? loc++ : --loc] = p[i];
         }
     }
 }
@@ -737,13 +752,13 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
             i += sizeof(address);
         }
         else if (op == OP_JMP || op == OP_JIF) {            
-            address loc = *((address*) &buffer[i + 1]);
+            address loc = get_address(&buffer[i + 1]);
             loc += offset;
             write_address_at_buffer(loc, buffer, i + 1);
             i += sizeof(address);
         }
         else if (op == OP_LJMP) {
-            address loc = *((address*) &buffer[i + 1]);
+            address loc = get_address(&buffer[i + 1]);
             loc += offset;
             write_address_at_buffer(loc, buffer, i + 1);
             i += sizeof(address);

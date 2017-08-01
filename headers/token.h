@@ -172,6 +172,10 @@ int precedence(token op);
 //   otherwise.
 bool is_numeric(token tok);
 
+// is_boolean(tok) returns true if the token is T_TRUE or T_FALSE and false 
+//   otherwise
+bool is_boolean(token tok);
+
 // set_make_token_param(l, c) sets the line and column of the current state of
 //   the scanner
 void set_make_token_param(int l, int c); 

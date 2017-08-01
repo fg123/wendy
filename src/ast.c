@@ -5,7 +5,6 @@
 #include <stdarg.h>
 #include <string.h>
 #include "global.h"
-#include <math.h>
 
 #define match(...) fnmatch(sizeof((token_type []) {__VA_ARGS__}) / sizeof(token_type), __VA_ARGS__)
 
@@ -22,18 +21,6 @@ static int indentation = 0;
 static bool error_thrown = false;
 
 // Forward Declarations
-static void traverse_expr(expr* expression, 
-        void (*a)(void*), void (*b)(void*), 
-        void (*c)(void*), void (*d)(void*));
-static void traverse_expr_list(expr_list* list, 
-        void (*a)(void*), void (*b)(void*), 
-        void (*c)(void*), void (*d)(void*));
-static void traverse_statement_list(statement_list* list,
-        void (*a)(void*), void (*b)(void*), 
-        void (*c)(void*), void (*d)(void*));
-static void traverse_statement(statement* state, 
-        void (*a)(void*), void (*b)(void*), 
-        void (*c)(void*), void (*d)(void*));
 
 static expr* make_lit_expr(token t);
 static expr* make_bin_expr(expr* left, token op, expr* right);
@@ -589,7 +576,7 @@ static statement_list* parse_statement_list() {
 // Expression Traversal:
 /*  void (*a)(expr*), void (*b)(expr_list*), 
     void (*c)(statement*), void (*d)(statement_list*) */
-static void traverse_statement_list(statement_list* list,
+void traverse_statement_list(statement_list* list,
         void (*a)(void*), void (*b)(void*), 
         void (*c)(void*), void (*d)(void*)) {
     if (!list) return;
@@ -601,7 +588,7 @@ static void traverse_statement_list(statement_list* list,
     if (!pre_order) d(list);
 }
 
-static void traverse_statement(statement* state, 
+void traverse_statement(statement* state, 
         void (*a)(void*), void (*b)(void*), 
         void (*c)(void*), void (*d)(void*)) {
     if (!state) return;
@@ -633,17 +620,11 @@ static void traverse_statement(statement* state,
         traverse_expr(state->op.loop_statement.condition, a, b, c, d);
         traverse_statement(state->op.loop_statement.statement_true, a, b, c, d);
     }
-    else if (state->type == S_IMPORT) {
-        // Do nothing.
-    }
-    else {
-        printf("Traverse Statement: Unknown Type\n");
-    }
     indentation--;
     if(!pre_order) c(state);
 }
 
-static void traverse_expr(expr* expression, 
+void traverse_expr(expr* expression, 
         void (*a)(void*), void (*b)(void*), 
         void (*c)(void*), void (*d)(void*)) {
     if (!expression) return;
@@ -674,14 +655,11 @@ static void traverse_expr(expr* expression,
         traverse_expr(expression->op.assign_expr.lvalue, a, b, c, d);   
         traverse_expr(expression->op.assign_expr.rvalue, a, b, c, d);   
     }
-    else {
-        printf("Traverse Expr: Unknown Type\n");
-    }
     indentation--;
     if (!pre_order) a(expression);
 }
 
-static void traverse_expr_list(expr_list* list, 
+void traverse_expr_list(expr_list* list, 
         void (*a)(void*), void (*b)(void*), 
         void (*c)(void*), void (*d)(void*)) {
     if (!list) return;
@@ -732,9 +710,6 @@ static void print_e(void* expre) {
     else if (expression->type == E_ASSIGN) {
         printf("Assignment Expression \n");
     }
-    else {
-        printf("Traverse Expr: Unknown Type\n");
-    }
     printf(RESET);
 }
 static void print_el(void* el) {
@@ -774,14 +749,14 @@ static void print_s(void* s) {
     else if (state->type == S_IMPORT) {
         printf("Import Statement\n");
     }
-    else {
-        printf("Traverse Statement: Unknown Type\n");
+    else if (state->type == S_EMPTY) {
+        printf("Empty Statement\n");
     }
     printf(RESET);
 }
 static void print_sl(void* sl) {
     print_indent();
-    printf(MAG "<Statement List Item>\n" RESET);
+    printf(MAG "<Statement List Item %p>\n" RESET, sl);
 }
 
 static void traverse_ast(statement_list* list, 
@@ -790,7 +765,7 @@ static void traverse_ast(statement_list* list,
     pre_order = false;
     traverse_statement_list(list, a, b, c, d);  
 }
- 
+
 static expr* make_lit_expr(token t) {
     expr* node = safe_malloc(sizeof(expr));
     node->type = E_LITERAL;
@@ -813,51 +788,6 @@ static expr* make_bin_expr(expr* left, token op, expr* right) {
     expr* node = safe_malloc(sizeof(expr));
     node->line = op.t_line;
     node->col = op.t_col;
-    node->type = E_LITERAL;
-    if (left->type == E_LITERAL && left->op.lit_expr.t_type == T_NUMBER &&
-        right->type == E_LITERAL && right->op.lit_expr.t_type == T_NUMBER) {
-        // Peek Optimization is Available on Numbers
-        // Optimized Reuslt will be on OP  
-        bool can_optimize = true;
-        double a = left->op.lit_expr.t_data.number;
-        double b = right->op.lit_expr.t_data.number;
-        switch (op.t_type) {
-            case T_STAR:
-                op.t_data.number = a * b;
-                break;
-            case T_INTSLASH:
-                if (b != 0) {
-                    op.t_data.number = (int)(a / b);
-                    break;
-                }
-            case T_SLASH:
-                if (b != 0) {
-                    op.t_data.number = a / b;
-                    break;
-                }
-            case T_PERCENT:
-                if (b != 0 && a == floor(a) && b == floor(b)) {
-                    op.t_data.number = (long long)a % (long long)b;
-                    break;
-                }
-            case T_MINUS:
-                op.t_data.number = a - b;
-                break;
-            case T_PLUS:
-                op.t_data.number = a + b;
-                break;
-            default: 
-                can_optimize = false;
-                break;
-        }
-        if (can_optimize) {
-            op.t_type = T_NUMBER;
-            node->op.lit_expr = op;
-            safe_free(left);
-            safe_free(right);
-            return node;
-        }
-    }
     node->type = E_BINARY;
     node->op.bin_expr.operator = op;
     node->op.bin_expr.left = left;
@@ -865,21 +795,6 @@ static expr* make_bin_expr(expr* left, token op, expr* right) {
     return node;
 }
 static expr* make_una_expr(token op, expr* operand) {
-    // Apply Peek Optimization
-    if (op.t_type == T_MINUS && operand->type == E_LITERAL &&
-        operand->op.lit_expr.t_type == T_NUMBER) {
-        // Apply here
-        operand->op.lit_expr.t_data.number *= -1;
-        return operand;
-    }
-    if (op.t_type == T_NOT && operand->type == E_LITERAL &&
-        (operand->op.lit_expr.t_type == T_TRUE || 
-         operand->op.lit_expr.t_type == T_FALSE)) {
-        // Apply here
-        operand->op.lit_expr.t_type = 
-            operand->op.lit_expr.t_type == T_TRUE ? T_FALSE : T_TRUE;
-        return operand;
-    }
     expr* node = safe_malloc(sizeof(expr));
     node->type = E_UNARY;
     node->op.una_expr.operator = op;

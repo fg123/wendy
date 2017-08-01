@@ -60,6 +60,28 @@ void error_lexer(int line, int col, char* message, ...) {
     }
 }
 
+
+void error_compile(int line, int col, char* message, ...) {
+    va_list args;
+    va_start(args, message);
+
+    char* msg = error_message(message, args);
+    printf(RED "Compile Error (Optimize)" RESET " on line " YEL "%d" RESET ": %s\n", 
+        line, msg);
+    
+    if (has_source()) {
+        printf("==========================\n%5s %s (%s)\n", "Line", "Source",
+            get_source_name());
+        printf("%5d " RED "%s\n" RESET, line, get_source_line(line));
+        printf("      %*c^\n", col, ' ');
+    }
+
+    free(msg);
+    if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
+        safe_exit(1);
+    }
+}
+
 void error_runtime(int line, char* message, ...) {
     va_list args;
     va_start(args, message);

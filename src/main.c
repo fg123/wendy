@@ -10,8 +10,9 @@
 #include "vm.h"
 #include "codegen.h"
 #include "source.h"
+#include "optimizer.h"
 
-#ifdef _WOP_IN32
+#ifdef _WIN32
 char* readline(char* prompt) {
     fputs(prompt, stdout);
     char* cpy = safe_malloc(OP_INPUT_BUFFER_SIZE);
@@ -99,6 +100,7 @@ void run(char* input_string) {
 
     // Build AST
     statement_list* ast = generate_ast(tokens, tokens_count);
+    ast = optimize_ast(ast);
     //print_ast(ast);   
     // Generate Bytecode
     //printf("%d\n", ast_error_flag());
@@ -113,6 +115,7 @@ void run(char* input_string) {
 
 int main(int argc, char** argv) {
     init_memory();
+    determine_endianness();
     if (argc == 1) {
         init_source(0, "", 0, false);
         clear_console();
@@ -187,6 +190,7 @@ int main(int argc, char** argv) {
 
             // Build AST
             statement_list* ast = generate_ast(tokens, tokens_count);
+            ast = optimize_ast(ast);
             if (get_settings_flag(SETTINGS_ASTPRINT)) {
                 print_ast(ast);
             }
