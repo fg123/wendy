@@ -166,6 +166,7 @@ static void add_node(char* id, expr* value) {
 static void make_new_block() {
     statement_block* new_block = safe_malloc(sizeof(statement_block));
     new_block->next = curr_statement_block;
+    new_block->id_list = 0;
     curr_statement_block = new_block;
     print_statement_blocks();
 }
@@ -217,8 +218,7 @@ static statement* optimize_statement(statement* state) {
         state->op.expr_statement = optimize_expr(state->op.expr_statement);
     }
     else if (state->type == S_BLOCK) {
-        state->op.block_statement = 
-            optimize_statement_list(state->op.block_statement);
+        // Already Optmized Through Scan Stage
     }
     else if (state->type == S_STRUCT) {
         state->op.struct_statement.init_fn =
@@ -231,10 +231,6 @@ static statement* optimize_statement(statement* state) {
     else if (state->type == S_IF) {
         state->op.if_statement.condition =
             optimize_expr(state->op.if_statement.condition);
-        state->op.if_statement.statement_true = 
-            optimize_statement(state->op.if_statement.statement_true);
-        state->op.if_statement.statement_false = 
-            optimize_statement(state->op.if_statement.statement_false);
         expr* condition = state->op.if_statement.condition;
         statement* run_if_false = state->op.if_statement.statement_false;
         statement* run_if_true = state->op.if_statement.statement_true;
@@ -244,6 +240,7 @@ static statement* optimize_statement(statement* state) {
                 optimize_safe_free, optimize_safe_free, optimize_safe_free);
             traverse_expr(condition, optimize_safe_free_remove_usage, 
                 optimize_safe_free, optimize_safe_free, optimize_safe_free);
+            safe_free(state);
             return run_if_true;
         }
         else if (condition->type == E_LITERAL && condition->op.lit_expr.t_type == T_FALSE) {
@@ -251,14 +248,13 @@ static statement* optimize_statement(statement* state) {
                 optimize_safe_free, optimize_safe_free, optimize_safe_free);
             traverse_expr(condition, optimize_safe_free_remove_usage, 
                 optimize_safe_free, optimize_safe_free, optimize_safe_free);
+            safe_free(state);
             return run_if_false;
         }
     }
     else if (state->type == S_LOOP) {
         state->op.loop_statement.condition =
             optimize_expr(state->op.loop_statement.condition);
-        state->op.loop_statement.statement_true =
-            optimize_statement(state->op.loop_statement.statement_true);
     }
     return state;
 }
@@ -503,9 +499,6 @@ static void scan_statement(statement* state) {
         scan_statement(state->op.loop_statement.statement_true);
         delete_block();
     }
-    else if (state->type == S_IMPORT) {
-        // Do nothing.
-    }
 }
 
 static void scan_statement_list(statement_list* list) {
@@ -565,7 +558,7 @@ static void scan_expr_list(expr_list* list) {
 }
 
 static void print_statement_blocks() {
-    printf("STATEMENT BLOCKS \n");
+    /*printf("STATEMENT BLOCKS \n");
     statement_block* b = curr_statement_block;
     while (b) {
         printf("Block: \n");
@@ -577,5 +570,5 @@ static void print_statement_blocks() {
         }
         b = b->next;
     }
-    printf("\n");
+    printf("\n");*/
 }
