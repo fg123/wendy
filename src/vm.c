@@ -779,6 +779,22 @@ static token eval_binop(token op, token a, token b) {
                 safe_free(new_list);
                 return make_token(T_LIST, make_data_num(new_adr));
             }
+            else if (op.t_type == T_STAR && b.t_type == T_NUMBER) {
+                // list * number
+                address start_a = a.t_data.number;
+                int size_a = memory[start_a].t_data.number;
+                // Size expansion
+                int new_size = size_a * (int)b.t_data.number;
+                token* new_list = safe_malloc(new_size * sizeof(token));
+                // Copy all Elements n times
+                int n = 0;
+                for (int i = 0; i < new_size; i++) {
+                    new_list[n++] = memory[(start_a + (i % size_a)) + 1];
+                }
+                address new_adr = push_memory_a(new_list, new_size);
+                safe_free(new_list);
+                return make_token(T_LIST, make_data_num(new_adr));
+            }
             else { 
                 error_runtime(line, VM_INVALID_APPEND); 
             }
@@ -800,7 +816,23 @@ static token eval_binop(token op, token a, token b) {
                 safe_free(new_list);
                 return make_token(T_LIST, make_data_num(new_adr));
             }
-            else if (op.t_type == T_IN) {
+            else if (op.t_type == T_STAR && a.t_type == T_NUMBER) {
+                // number * list
+                address start_b = b.t_data.number;
+                int size_b = memory[start_b].t_data.number;
+                // Size expansion
+                int new_size = size_b * (int)a.t_data.number;
+                token* new_list = safe_malloc(new_size * sizeof(token));
+                // Copy all Elements n times
+                int n = 0;
+                for (int i = 0; i < new_size; i++) {
+                    new_list[n++] = memory[(start_b + (i % size_b)) + 1];
+                }
+                address new_adr = push_memory_a(new_list, new_size);
+                safe_free(new_list);
+                return make_token(T_LIST, make_data_num(new_adr));
+            }
+            else if (op.t_type == T_TILDE) {
                 // element in list
                 for (int i = 0; i < size_b; i++) {
 //                  print_token(&a);
@@ -837,6 +869,32 @@ static token eval_binop(token op, token a, token b) {
             result[len1 + len2] = '\0'; // add null terminator
             return make_token(T_STRING, make_data_str(result));
         }
+        else if (op.t_type == T_STAR) {
+            // String Duplication
+            int times = 0;
+            char* string;
+            int size;
+            char* result;
+            if (a.t_type == T_NUMBER) {
+                times = (int) a.t_data.number;
+                size = times * strlen(b.t_data.string) + 1;
+                string = b.t_data.string;
+            }
+            else if (b.t_type == T_NUMBER) {
+                times = (int) b.t_data.number;
+                size = times * strlen(a.t_data.string) + 1;
+                string = a.t_data.string;
+            }
+            result = safe_malloc(size * sizeof(char));
+            result[0] = 0;
+            for (int i = 0; i < times; i++) {
+                // Copy it over n times
+                strcat(result, string);
+            }
+            token t = make_token(T_STRING, make_data_str(result));
+            safe_free(result);
+            return t;
+        } 
         else {
             error_runtime(line, VM_STRING_NUM_INVALID_OPERATOR, 
                 op.t_data.string);

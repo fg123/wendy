@@ -267,7 +267,7 @@ static expr* range() {
 static expr* comparison() {
     expr* left = range();
     while (match(T_NOT_EQUAL, T_EQUAL_EQUAL, T_LESS, T_GREATER, T_LESS_EQUAL, 
-                    T_IN, T_GREATER_EQUAL, T_TILDE)) {
+                    T_GREATER_EQUAL, T_TILDE)) {
         token op = previous();
         expr* right = range();
         left = make_bin_expr(left, op, right);

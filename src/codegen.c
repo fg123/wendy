@@ -536,7 +536,6 @@ uint8_t* generate_code(statement_list* _ast) {
     capacity = CODEGEN_START_SIZE;
     bytecode = safe_malloc(capacity * sizeof(uint8_t));
     size = 0;
-    global_loop_id = 0;
     write_string(WENDY_VM_HEADER);
     codegen_statement_list(_ast);
     write_opcode(OP_HALT);
