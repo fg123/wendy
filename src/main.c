@@ -10,8 +10,9 @@
 #include "vm.h"
 #include "codegen.h"
 #include "source.h"
+#include "optimizer.h"
 
-#ifdef _WOP_IN32
+#ifdef _WIN32
 char* readline(char* prompt) {
     fputs(prompt, stdout);
     char* cpy = safe_malloc(OP_INPUT_BUFFER_SIZE);
@@ -45,6 +46,7 @@ void invalid_usage() {
     printf("    file            : is either a compiled WendyScript file, or a raw source file.\n");
     printf("    -h, --help      : shows this message.\n");
     printf("    --nogc          : disables garbage-collection.\n");
+    printf("    --noop          : disables optimization algorithm.\n");
     printf("    -c, --compile   : compiles the given file but does not run.\n");
     printf("    --ast           : prints out the constructed AST.\n");
     printf("    --toklst        : prints out the parsed tokens.\n");
@@ -74,6 +76,9 @@ void process_options(char** options, int len) {
         else if (strcmp("--nogc", options[i]) == 0) {
             set_settings_flag(SETTINGS_NOGC);
         }
+        else if (strcmp("--noop", options[i]) == 0) {
+            set_settings_flag(SETTINGS_NOOP);
+        }
         else if (strcmp("--ast", options[i]) == 0) {
             set_settings_flag(SETTINGS_ASTPRINT);
         }
@@ -99,6 +104,9 @@ void run(char* input_string) {
 
     // Build AST
     statement_list* ast = generate_ast(tokens, tokens_count);
+    if (!get_settings_flag(SETTINGS_NOOP)) {
+        ast = optimize_ast(ast);
+    }
     //print_ast(ast);   
     // Generate Bytecode
     //printf("%d\n", ast_error_flag());
@@ -113,6 +121,7 @@ void run(char* input_string) {
 
 int main(int argc, char** argv) {
     init_memory();
+    determine_endianness();
     if (argc == 1) {
         init_source(0, "", 0, false);
         clear_console();
@@ -187,6 +196,9 @@ int main(int argc, char** argv) {
 
             // Build AST
             statement_list* ast = generate_ast(tokens, tokens_count);
+            if (!get_settings_flag(SETTINGS_NOOP)) {
+                ast = optimize_ast(ast);
+            }
             if (get_settings_flag(SETTINGS_ASTPRINT)) {
                 print_ast(ast);
             }

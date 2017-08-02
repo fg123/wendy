@@ -13,6 +13,12 @@ typedef struct malloc_node {
 
 static malloc_node* malloc_node_list = 0;
 static bool settings_data[SETTINGS_COUNT] = { false };
+bool is_big_endian = true;
+
+void determine_endianness() {
+    int i = 1;
+    is_big_endian = ((*(char*)&i) == 0);
+}
 
 void set_settings_flag(settings_flags flag) {
     settings_data[flag] = true;
@@ -69,7 +75,7 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
         }
         curr = curr->next;
     }
-    printf("SafeRealloc: Couldn't find pointer! %s at line %d.\n", filename,
+    printf("SafeRealloc: Couldn't find pointer! %p, %s at line %d.\n", ptr, filename,
         line_num);
     safe_exit(1);
     return 0;
@@ -95,7 +101,7 @@ void safe_free_impl(void* ptr, char* filename, int line_num) {
         prev = curr;
         curr = curr->next;
     }
-    printf("SafeFree: Couldn't find pointer! %s at line %d.\n", filename,
+    printf("SafeFree: Couldn't find pointer! %p, %s at line %d.\n", ptr, filename,
         line_num);
     safe_exit(1);
     return;

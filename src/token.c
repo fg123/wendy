@@ -232,3 +232,6 @@ bool is_numeric(token t) {
         t.t_type == T_STRUCT_INSTANCE_HEAD;
 }
 
+bool is_boolean(token t) {
+    return t.t_type == T_TRUE || t.t_type == T_FALSE;
+}

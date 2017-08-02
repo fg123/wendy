@@ -32,7 +32,7 @@
 #define MEMREGSTACK_SIZE 100
 
 // Compiler/VM Settings
-#define SETTINGS_COUNT 6
+#define SETTINGS_COUNT 7
 
 typedef enum {
     SETTINGS_COMPILE = 0, 
@@ -40,10 +40,14 @@ typedef enum {
     SETTINGS_ASTPRINT = 2,
     SETTINGS_DISASSEMBLE = 3,
     SETTINGS_STRICT_ERROR = 4,
-    SETTINGS_TOKEN_LIST_PRINT = 5 } settings_flags; 
+    SETTINGS_TOKEN_LIST_PRINT = 5, 
+    SETTINGS_NOOP = 6 } settings_flags; 
 
 void set_settings_flag(settings_flags flag);
 bool get_settings_flag(settings_flags flag);
+void determine_endianness();
+
+extern bool is_big_endian;
 
 // Safe Malloc Implementation
 #define safe_malloc(size) safe_malloc_impl(size, __FILE__, __LINE__)

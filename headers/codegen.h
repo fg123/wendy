@@ -3,6 +3,7 @@
 
 #include "ast.h"
 #include <stdint.h>
+#include "memory.h"
 
 // codegen.h - Felix Guo
 // Generates the bytecode that runs on the WendyVM, based on the
@@ -133,6 +134,10 @@ void write_bytecode(uint8_t* bytecode, FILE* buffer);
 
 // get_token(bytecode, end) gets a token from the bytecode stream
 token get_token(uint8_t* bytecode, unsigned int* end);
+
+// get_address(bytecode) gets an address from bytecode stream, decoding 
+//   endianness as required
+address get_address(uint8_t* bytecode);
 
 // verify_header(bytecode) checks the header for information, 
 //   then returns the index of the first opcode instruction

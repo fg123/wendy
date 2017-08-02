@@ -23,6 +23,8 @@ void error_lexer(int line, int col, char* message, ...);
 
 void error_runtime(int line, char* message, ...);
 
+void error_compile(int line, int col, char* message, ...);
+
 // General Messages:
 #define GENERAL_INVALID_HEADER "Invalid bytecode header!"
 #define GENERAL_NOT_IMPLEMENTED "%s is not implemented yet!" 
@@ -40,6 +42,9 @@ void error_runtime(int line, char* message, ...);
 #define AST_EXPECTED_IDENTIFIER_LOOP "Expected identifier in place of loop variable."
 #define AST_STRUCT_NAME_IDENTIFIER "Struct name must be an identifier!"
 #define AST_UNRECOGNIZED_IMPORT "Unrecognized import, expected an identifier!"
+
+// Optimizer Errors
+#define OPTIMIZER_NO_STATEMENT_BLOCK "Identifier declared outside of statement block!?"
 
 // CodeGen Messages:
 #define CODEGEN_LVALUE_EXPECTED_IDENTIFIER "Expected identifier in lvalue expression."

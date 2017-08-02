@@ -63,7 +63,7 @@ typedef struct expr_list {
 
 typedef struct statement { 
     enum { S_EXPR, S_OPERATION, S_LET, S_STRUCT, S_IF, S_BLOCK, S_LOOP, S_SET, 
-        S_IMPORT } 
+        S_IMPORT, S_EMPTY } 
         type;
     union { expr*                                       expr_statement;
             struct {    token       operator;
@@ -103,4 +103,18 @@ void print_ast(statement_list* ast);
 // ast_error_flag() returns true if the AST module encountered an error, and
 //   false otherwise
 bool ast_error_flag();
+
+void traverse_expr(expr* expression, 
+        void (*a)(void*), void (*b)(void*), 
+        void (*c)(void*), void (*d)(void*));
+void traverse_expr_list(expr_list* list, 
+        void (*a)(void*), void (*b)(void*), 
+        void (*c)(void*), void (*d)(void*));
+void traverse_statement_list(statement_list* list,
+        void (*a)(void*), void (*b)(void*), 
+        void (*c)(void*), void (*d)(void*));
+void traverse_statement(statement* state, 
+        void (*a)(void*), void (*b)(void*), 
+        void (*c)(void*), void (*d)(void*));
+
 #endif

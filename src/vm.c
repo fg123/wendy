@@ -44,7 +44,7 @@ void vm_run(uint8_t* bytecode) {
         }
         else if (op == OP_SRC) {
             void* ad = &bytecode[i + 1];
-            line = *((int*)ad);
+            line = get_address(ad);
             i += sizeof(int);
         }
         else if (op == OP_POP) {
@@ -68,7 +68,7 @@ void vm_run(uint8_t* bytecode) {
         else if (op == OP_NATIVE) {
             i++;
             void* ag = &bytecode[i];
-            address args = *((address*)ag);
+            address args = get_address(ag);
             i += sizeof(address);
             char* name = (char*)(bytecode + i);
             i += strlen(name);
@@ -118,7 +118,7 @@ void vm_run(uint8_t* bytecode) {
         else if (op == OP_LJMP) {
             // L_JMP Address LoopIndexString
             void* ad = &bytecode[i + 1];
-            address end_of_loop = *((address*)ad);
+            address end_of_loop = get_address(ad);
             i += sizeof(address);
             char* loop_index_string = (char*)(bytecode + (++i));
             i += strlen((char*)(bytecode + i));
@@ -325,7 +325,7 @@ void vm_run(uint8_t* bytecode) {
         }
         else if (op == OP_JMP) {
             void* ad = &bytecode[i + 1];
-            address addr = *((address*)ad);
+            address addr = get_address(ad);
             i = addr - 1;
         }
         else if (op == OP_JIF) {
@@ -333,7 +333,7 @@ void vm_run(uint8_t* bytecode) {
             token top = pop_arg(line);
 
             void* ad = &bytecode[i + 1];
-            address addr = *((address*)ad);
+            address addr = get_address(ad);
             i += sizeof(address);
 
             if (top.t_type != T_TRUE && top.t_type != T_FALSE) {
