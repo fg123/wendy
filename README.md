@@ -5,7 +5,7 @@ The syntax for WendyScript can be found at [felixguo.me/wendy](http://felixguo.m
 
 WendyScript code can be run online at [felixguo.me/#wendyScript](http://felixguo.me/#wendyScript).
 
-Technical implementation details can be found at the wiki [wiki](https://github.com/fg123/wendy/wiki).
+Technical implementation details can be found at the [wiki](https://github.com/fg123/wendy/wiki).
 
 This can be built by using the build.sh file.
 
