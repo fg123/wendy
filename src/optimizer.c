@@ -18,7 +18,7 @@ struct id_node {
     id_node* next;
 };
 
-// Statement block in the program, also a linked list of all statement blocks
+// Statement Scope Block
 typedef struct statement_block statement_block;
 struct statement_block {
     id_node* id_list;
@@ -42,7 +42,9 @@ static void scan_expr_list(expr_list* list);
 static void print_statement_blocks();
 
 static id_node* find_id_node(char* id, int line, int col) {
-    // search in all blocks and all lists
+    // Search in each block and each list. Returns null if not found for now.
+    //   ToDo, perform identifier checking here, but will need to add in
+    //     special cases like `this` for OOP
     statement_block* b = curr_statement_block;
     while (b) {
         id_node* n = b->id_list;
@@ -58,7 +60,7 @@ static id_node* find_id_node(char* id, int line, int col) {
 }
 
 static void remove_entry(char* id, int line, int col) {
-    // search in all blocks and all lists
+    // Basic LL Search and Remove
     statement_block* b = curr_statement_block;
     while (b) {
         id_node* p = 0;

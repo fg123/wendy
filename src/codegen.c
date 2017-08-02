@@ -493,8 +493,6 @@ static void codegen_expr(void* expre) {
             }
             write_integer(count);
             write_string(expression->op.func_expr.native_name.t_data.string);
-            write_opcode(OP_PUSH);
-            write_token(noneret_token());
             write_opcode(OP_RET);
         }
         else {

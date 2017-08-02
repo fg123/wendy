@@ -19,8 +19,4 @@ let hash => (n)
   else {
     ret 
   }
-let reverse => (str) {
-  let a = ""
-  for i: str.size->0 a += str[i-1]
-  ret a
-}
+let reverse => (str) native reverseString;
