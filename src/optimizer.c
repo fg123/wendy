@@ -213,8 +213,8 @@ static statement* optimize_statement(statement* state) {
         }
     }
     else if (state->type == S_OPERATION) {
-        state->op.operation_statement.operand = 
-            optimize_expr(state->op.operation_statement.operand);
+        /*state->op.operation_statement.operand = 
+            optimize_expr(state->op.operation_statement.operand);*/
     }
     else if (state->type == S_EXPR) {
         state->op.expr_statement = optimize_expr(state->op.expr_statement);
@@ -472,7 +472,17 @@ static void scan_statement(statement* state) {
         scan_expr(state->op.let_statement.rvalue);
     }
     else if (state->type == S_OPERATION) {
-        scan_expr(state->op.operation_statement.operand);
+        token op = state->op.operation_statement.operator;
+        if (op.t_type == T_RET) {
+            scan_expr(state->op.operation_statement.operand);
+        }
+        else if (op.t_type == T_AT) {
+            scan_expr(state->op.operation_statement.operand);
+        }
+        else {
+            add_modified(state->op.operation_statement.operand->op.lit_expr.t_data.string,
+                op.t_line, op.t_col);   
+        }
     }
     else if (state->type == S_EXPR) {
         scan_expr(state->op.expr_statement);

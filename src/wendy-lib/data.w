@@ -3,11 +3,7 @@
  * Provides int(), str() and digit() 
  */
 
-let digit => (s) s.val - "0".val;
-let int => (s) 
-  if s.size != 0 
-    ret digit(s[0]) + int(s[1->s.size]) 
-  else ret "";
+let int => (s) native stringToInteger;
 let str => (n) n + "";
 let hash => (n) 
   if n.type == <number> ret n

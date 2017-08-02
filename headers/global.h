@@ -50,10 +50,17 @@ void determine_endianness();
 extern bool is_big_endian;
 
 // Safe Malloc Implementation
-#define safe_malloc(size) safe_malloc_impl(size, __FILE__, __LINE__)
+/*#define safe_malloc(size) safe_malloc_impl(size, __FILE__, __LINE__)
 #define safe_free(ptr) safe_free_impl(ptr, __FILE__, __LINE__)
 #define safe_calloc(num, size) safe_calloc_impl(num, size, __FILE__, __LINE__)
 #define safe_realloc(ptr, size) safe_realloc_impl(ptr, size, __FILE__, __LINE__)
+*/
+
+// Regular Malloc Implementations
+#define safe_malloc(size) malloc(size)
+#define safe_free(ptr) free(ptr)
+#define safe_calloc(num, size) calloc(num, size)
+#define safe_realloc(ptr, size) realloc(ptr, size)
 
 void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num);
 void* safe_malloc_impl(size_t size, char* filename, int line_num);

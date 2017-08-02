@@ -6,6 +6,7 @@
 #include "token.h"
 #include <string.h>
 #include "codegen.h"
+#include <stdlib.h>
 
 typedef struct native_function {
     char* name;
@@ -15,12 +16,16 @@ typedef struct native_function {
 
 static token native_printCallStack(token* args);
 static token native_reverseString(token* args);
+static token native_stringToInteger(token* args);
 static token native_examineMemory(token* args);
+static token native_exec(token* args);
 
 static native_function native_functions[] = {
     { "printCallStack", 1, native_printCallStack },
     { "reverseString", 1, native_reverseString },
-    { "examineMemory", 2, native_examineMemory }
+    { "stringToInteger", 1, native_stringToInteger },
+    { "examineMemory", 2, native_examineMemory },
+    { "exec", 1, native_exec }
 };
 
 static double native_to_numeric(token* t) {
@@ -29,6 +34,12 @@ static double native_to_numeric(token* t) {
 
 static char* native_to_string(token* t) {
     return t->t_data.string;
+}
+
+static token native_exec(token* args) {
+    char* command = native_to_string(args);
+    system(command);
+    return noneret_token();
 }
 
 static token native_printCallStack(token* args) {
@@ -47,6 +58,23 @@ static token native_reverseString(token* args) {
         t.t_data.string[len - i - 1] = tmp;
     }
     return t;
+}
+
+static token native_stringToInteger(token* args) {
+    char* s = native_to_string(args);
+    int integer = 0;
+    bool neg = false;
+    for (int i = 0; s[i]; i++) {
+        if (s[i] == '-') {
+            neg = !neg;
+        }
+        else if (s[i] >= '0' && s[i] <= '9') {
+            integer *= 10;
+            integer += s[i] - '0';
+        }
+    }
+    if (neg) integer *= -1;
+    return make_token(T_NUMBER, make_data_num(integer));
 }
 
 static token native_examineMemory(token* args) {
