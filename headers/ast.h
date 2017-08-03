@@ -89,6 +89,8 @@ typedef struct statement_list {
     struct statement_list*  next;
 } statement_list;
 
+extern void (*within_optimize_cycle)(void*);
+
 // generate_ast(tokens, length) generates an ast based on the tokens/length
 statement_list* generate_ast(token* tokens, size_t length);
 
@@ -102,17 +104,9 @@ void print_ast(statement_list* ast);
 //   false otherwise
 bool ast_error_flag();
 
-void traverse_expr(expr* expression, 
-        void (*a)(void*), void (*b)(void*), 
-        void (*c)(void*), void (*d)(void*));
-void traverse_expr_list(expr_list* list, 
-        void (*a)(void*), void (*b)(void*), 
-        void (*c)(void*), void (*d)(void*));
-void traverse_statement_list(statement_list* list,
-        void (*a)(void*), void (*b)(void*), 
-        void (*c)(void*), void (*d)(void*));
-void traverse_statement(statement* state, 
-        void (*a)(void*), void (*b)(void*), 
-        void (*c)(void*), void (*d)(void*));
+void free_expr(expr* expression);
+void free_expr_list(expr_list* list);
+void free_statement_list(statement_list* list);
+void free_statement(statement* state);
 
 #endif

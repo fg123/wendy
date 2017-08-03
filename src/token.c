@@ -52,7 +52,7 @@ token noneret_token() {
 }
 
 token empty_token() {
-    token t = make_token(T_EMPTY, make_data_str(""));
+    token t = make_token(T_EMPTY, make_data_num(0));
     t.t_line = line;
     t.t_col = col;
     return t;
@@ -98,7 +98,9 @@ data make_data_num(double i) {
 
 data make_data_str(char* s) {
     data d;
-    memcpy(d.string, s, MAX_STRING_LEN);
+    int length = strlen(s) + 1;
+    d.string = safe_malloc(length * sizeof(char));
+    memcpy(d.string, s, length);
     return d;
 }
 
@@ -229,9 +231,30 @@ bool is_numeric(token t) {
     return t.t_type == T_NUMBER || t.t_type == T_ADDRESS || t.t_type == T_LIST ||
         t.t_type == T_LIST_HEADER || t.t_type == T_STRUCT || t.t_type == T_FUNCTION ||
         t.t_type == T_STRUCT_METADATA || t.t_type == T_STRUCT_INSTANCE || 
-        t.t_type == T_STRUCT_INSTANCE_HEAD;
+        t.t_type == T_STRUCT_INSTANCE_HEAD || t.t_type == T_EMPTY || t.t_type == T_CLOSURE;
 }
 
 bool is_boolean(token t) {
     return t.t_type == T_TRUE || t.t_type == T_FALSE;
+}
+
+void free_token(token t) {
+    if (!is_numeric(t)) {
+        safe_free(t.t_data.string);
+    }
+}
+
+void free_token_list(token* t, size_t length) {
+    for (int i = 0; i < length; i++) {
+        free_token(t[i]);
+    }
+    safe_free(t);
+}
+
+token clone_token(token t) {
+    if (!is_numeric(t)) {
+        // Duplicate String
+        t.t_data = make_data_str(t.t_data.string);
+    }
+    return t;    
 }

@@ -548,7 +548,6 @@ token get_token(uint8_t* bytecode, unsigned int* end) {
     int start = *end;
     int i = 0;
     t.t_type = bytecode[i++];
-    t.t_data.string[0] = 0;
     if (is_numeric(t)) {
         if (!is_big_endian) i += sizeof(double);
         unsigned char * p = (void*)&t.t_data.number;
@@ -559,11 +558,10 @@ token get_token(uint8_t* bytecode, unsigned int* end) {
     }
     else {
         int len = 0;
-        while (bytecode[i++]) {
-            t.t_data.string[len++] = bytecode[i - 1];
-        }
-        // i is 1 past the null term
-        t.t_data.string[len++] = 0;
+        char* string_start = (char*)&bytecode[i];
+        size_t length = strlen(string_start) + 1;
+        t.t_data.string = (char*)&bytecode[i];
+        i += length;
     }
     *end = start + i - 1;
     return t;
