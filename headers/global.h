@@ -28,7 +28,7 @@
 #define STACK_SIZE 100000
 #define ARGSTACK_SIZE 512 
 #define RESERVED_MEMORY 2
-#define CLOSURES_SIZE 128
+#define CLOSURES_SIZE 1024
 #define MEMREGSTACK_SIZE 100
 
 // Compiler/VM Settings
