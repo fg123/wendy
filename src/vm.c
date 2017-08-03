@@ -805,7 +805,6 @@ static token eval_binop(token op, token a, token b) {
 
             if (op.t_type == T_PLUS) {
                 // element + list
-
                 token* new_list = safe_malloc((size_b + 1) * sizeof(token));
                 int n = 0;
                 new_list[n++] = a;

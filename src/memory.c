@@ -383,6 +383,10 @@ void print_call_stack(int maxlines) {
                     printf("%5d      [" BLU "%s" RESET " -> 0x%04X: ", i, 
                             call_stack[i].id, call_stack[i].val);
                 }
+                else if (call_stack[i].is_closure) {
+                    printf("%5d  C-> [%s -> 0x%04X: ",i, 
+                            call_stack[i].id, call_stack[i].val);
+                }
                 else {
                     printf("%5d      [%s -> 0x%04X: ",i, 
                             call_stack[i].id, call_stack[i].val);

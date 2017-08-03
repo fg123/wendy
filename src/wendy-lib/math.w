@@ -3,6 +3,7 @@
  * By: Felix Guo
  * Provides: factorial, pow, sqrt, root, is_even, is_odd
  */
+let abs => (x) if x < 0 ret -x else ret x
 
 let factorial => (x) 
 	if(x < 1) ret 0;
@@ -19,6 +20,7 @@ let pow => (base, expt)
 	else ret base * pow(base, expt - 1);
 
 let root => (num, rt) {
+	let close_enough => (x, y) abs(x - y) < 0.0001 
 	let next_it => (x, rt, n) {
 		// top is x ^ rt - orig, bottom is derivative of it
 		ret (x - ((pow(x, rt) - n) / (rt * pow(x, (rt - 1)))));
@@ -26,13 +28,12 @@ let root => (num, rt) {
 	let ans = 1;
 	let x = next_it(ans, rt, num);
 
-	for ans != x {
+	for !close_enough(ans, x) {
 		ans = x;
 		x = next_it(ans, rt, num);
 	}
 	ret x;
 };
 let sqrt => (n) root(n, 2)
-let abs => (n) if (n < 0) ret -n else ret n
 let is_even => (x) x % 2 == 0
 let is_odd => (x) x % 2 == 0
