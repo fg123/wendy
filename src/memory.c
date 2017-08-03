@@ -11,6 +11,7 @@ address frame_pointer = 0;
 address stack_pointer = 0;
 address arg_pointer = 0;
 address closure_list_pointer = 0;
+size_t closure_list_size = 0;
 address mem_reg_pointer = 0;
 
 static const char FUNCTION_START_CHAR = '>';
@@ -95,6 +96,19 @@ address create_closure() {
     closure_list[closure_list_pointer] = closure;
     closure_list_sizes[closure_list_pointer] = actual_size;
     closure_list_pointer++; 
+
+    if (closure_list_pointer == closure_list_size) {
+        // Resize for more storage
+        closure_list_size *= 2;
+        closure_list = safe_realloc(closure_list, 
+            closure_list_size * sizeof(stack_entry*));
+        // Reset 0s
+        for (int i = closure_list_pointer; i < closure_list_size; i++) {
+            closure_list[i] = 0;
+        }
+        closure_list_sizes = safe_realloc(closure_list_sizes, 
+            closure_list_size * sizeof(size_t));
+    }
     return location;
 }
 
@@ -229,8 +243,9 @@ void init_memory() {
 
     closure_list = safe_calloc(CLOSURES_SIZE, sizeof(stack_entry*));
     closure_list_sizes = safe_malloc(sizeof(size_t) * CLOSURES_SIZE);
+    closure_list_size = CLOSURES_SIZE;
 
-    // ADDRESS 0 REFERS TO NONE_TOKEN
+    // ADDRESS 0 REFERS TO NONE_TOKEN  
     push_memory(none_token());
     // ADDRESS 1 REFERS TO EMPTY RETURNS TOKEN
     push_memory(make_token(T_NONERET, make_data_str("<noneret>")));
