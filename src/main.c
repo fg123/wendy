@@ -116,7 +116,7 @@ void run(char* input_string) {
         safe_free(bytecode);
     }
     free_ast(ast);
-    safe_free(tokens);
+    free_token_list(tokens, tokens_count);
 }
 
 int main(int argc, char** argv) {
@@ -205,7 +205,7 @@ int main(int argc, char** argv) {
             
             // Generate Bytecode
             bytecode_stream = generate_code(ast);
-            safe_free(tokens);
+            free_token_list(tokens, tokens_count);
             free_ast(ast);
         }
         else {

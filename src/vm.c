@@ -30,7 +30,7 @@ void vm_run(uint8_t* bytecode) {
         //printf("i: %X\n", i);
         if (op == OP_PUSH) {
             i++;
-            token t = get_token(&bytecode[i], &i);
+            token t = clone_token(get_token(&bytecode[i], &i));
             if (t.t_type == T_TIME) {   
                 t = time_token();
             }
@@ -429,8 +429,8 @@ void vm_run(uint8_t* bytecode) {
         }
         else if (op == OP_IN) {
             // Scan one line from the input.
-            char buffer[MAX_STRING_LEN];
-            while(!fgets(buffer, MAX_STRING_LEN, stdin)) {};
+            char buffer[INPUT_BUFFER_SIZE];
+            while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
                     
             token* t = &memory[memory_register]; 
             char* end_ptr = buffer;
@@ -442,7 +442,9 @@ void vm_run(uint8_t* bytecode) {
                 size_t len = strlen(buffer);
                 // remove last newline
                 buffer[len - 1] = 0;
-                strcpy(t->t_data.string, buffer);
+                // Makes new Token
+                free_token(*t);
+                *t = make_token(T_STRING, make_data_str(buffer));
             }
             else {
                 // conversion successful

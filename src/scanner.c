@@ -392,8 +392,9 @@ int scan_tokens(char* source_, token** destination, size_t* alloc_size) {
         start = current;
         scan_token();
     }
+    tokens = safe_realloc(tokens, t_curr * sizeof(token));
     *destination = tokens;
-    *alloc_size = tokens_alloc_size;
+    *alloc_size = t_curr;
     safe_free(source);
     return t_curr;
 }

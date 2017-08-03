@@ -1,0 +1,133 @@
+void print_statement_list(statement_list* list) {
+    if (!list) return;
+    print_indent();
+    printf(MAG "<Statement List Item %p>\n" RESET, sl);
+    indentation++;
+    print_statement(list->elem);
+    indentation--;
+    print_statement_list(list->next);
+}
+
+void print_statement(statement* state) {
+    if (!state) return;
+    print_indent();
+    statement* state = (statement*)s;
+    printf(BLU);
+    if (state->type == S_LET) {
+        printf("Let Statement " GRN "(%s)\n" RESET,
+            state->op.let_statement.lvalue.t_data.string);
+        indentation++;
+        print_expr(state->op.let_statement.rvalue);
+    }
+    else if (state->type == S_OPERATION) {
+        printf("Operation Statement " GRN);
+        print_token_inline(&state->op.operation_statement.operator, stdout);
+        printf(" \n" RESET);
+        indentation++;
+        print_expr(state->op.operation_statement.operand);
+    }
+    else if (state->type == S_EXPR) {
+        printf("Expression Statement \n");  
+        print_expr(state->op.expr_statement);
+    }
+    else if (state->type == S_BLOCK) {
+        printf("Block Statement \n");
+        print_statement_list(state->op.block_statement);
+    }
+    else if (state->type == S_STRUCT) {
+        printf("Struct Statement " GRN);
+        print_token_inline(&state->op.struct_statement.name, stdout);
+        printf("\n" RESET);
+        indentation++;
+        print_expr(state->op.struct_statement.init_fn);
+        print_expr_list(state->op.struct_statement.instance_members);
+        print_expr_list(state->op.struct_statement.static_members);
+    }
+    else if (state->type == S_IF) {
+        printf("If Statement\n");
+        indentation++;
+        print_expr(state->op.if_statement.condition);
+        print_statement(state->op.if_statement.statement_true);
+        print_statement(state->op.if_statement.statement_false);
+    }
+    else if (state->type == S_LOOP) {
+        printf("Loop Statement\n");
+        indentation++;
+        print_expr(state->op.loop_statement.condition);
+        print_statement(state->op.loop_statement.statement_true);
+    }
+    else if (state->type == S_IMPORT) {
+        printf("Import Statement\n");
+    }
+    else if (state->type == S_EMPTY) {
+        printf("Empty Statement\n");
+    }
+    indentation--;
+    printf(RESET);
+}
+
+void print_expr(expr* expression) {
+    if (!expression) return;
+    print_indent();
+    expr* expression = (expr*)expre;
+    printf(YEL);
+    if (expression->type == E_LITERAL) {
+        printf("Literal Expression " GRN);
+        print_token(&expression->op.lit_expr);
+        printf(RESET);
+        indentation++;
+    }
+    else if (expression->type == E_BINARY || expression->type == E_BIN_LVALUE) {
+        if (expression->type == E_BINARY) {
+            printf("Binary Expression " GRN);
+        }
+        else {
+            printf("Binary LValue Expression " GRN);
+        }
+        print_token(&expression->op.bin_expr.operator);
+        printf(RESET);
+        indentation++;
+        print_expr(expression->op.bin_expr.left);
+        print_expr(expression->op.bin_expr.right);
+    }
+    else if (expression->type == E_UNARY) {
+        printf("Unary Expression\n");
+        indentation++;
+        print_expr(expression->op.una_expr.operand);
+    }
+    else if (expression->type == E_CALL) {
+        printf("Call Expression\n");
+        indentation++;
+        print_expr(expression->op.call_expr.function);
+        print_expr_list(expression->op.call_expr.arguments);
+    }
+    else if (expression->type == E_LIST) {
+        printf("List Expression\n");
+        indentation++;
+        print_expr_list(expression->op.list_expr.contents);
+    }
+    else if (expression->type == E_FUNCTION) {
+        printf("Function Expression\n");
+        indentation++;
+        print_expr_list(expression->op.func_expr.parameters);
+        print_statement(expression->op.func_expr.body);
+    }
+    else if (expression->type == E_ASSIGN) {
+        printf("Assignment Expression \n");
+        indentation++;
+        print_expr(expression->op.assign_expr.lvalue);   
+        print_expr(expression->op.assign_expr.rvalue);   
+    }
+    indentation--;
+    printf(RESET);
+}
+
+void print_expr_list(expr_list* list) {
+    if (!list) return;
+    print_indent();
+    printf(CYN "<Expression List Item>\n" RESET);
+    indentation++;
+    print_expr(list->elem);
+    indentation--;
+    print_expr_list(list->next);
+}

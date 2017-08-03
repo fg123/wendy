@@ -256,7 +256,7 @@ void clear_arg_stack() {
 }
 
 void c_free_memory() {
-    safe_free(memory);
+    free_token_list(memory, MEMORY_SIZE);
     safe_free(call_stack);
     safe_free(mem_reg_stack);
     
@@ -452,8 +452,6 @@ address push_memory_array(token* a, int size) {
 address push_memory_s(token t, int size) {
     address loc = pls_give_memory(size + 1, t.t_line);
     memory[loc] = list_header_token(size);
-//  printf("pushmemsize: %s\n", memory[loc].t_data.string);
-//  memory[loc].t_data.number = size; 
     for (int i = 0; i < size; i++) {
         memory[loc + i + 1] = t;
     }
@@ -464,8 +462,6 @@ address push_memory_s(token t, int size) {
 address push_memory_a(token* a, int size) {
     address loc = pls_give_memory(size + 1, a[0].t_line);
     memory[loc] = list_header_token(size);
-//  printf("pushmemsize: %s\n", memory[loc].t_data.string);
-//  memory[loc].t_data.number = size; 
     for (int i = 0; i < size; i++) {
         memory[loc + i + 1] = a[i];
     }

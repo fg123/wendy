@@ -111,7 +111,7 @@ static const char *token_string[] = {
 
 typedef union {
     double number;
-    char string[MAX_STRING_LEN];
+    char* string;
 } data;
 
 typedef struct {    
@@ -179,4 +179,13 @@ bool is_boolean(token tok);
 // set_make_token_param(l, c) sets the line and column of the current state of
 //   the scanner
 void set_make_token_param(int l, int c); 
+
+// free_token_list(t, length) frees any tokens and token lists
+void free_token_list(token* t, size_t length);
+
+// free_token(t) frees token 
+void free_token(token t);
+
+// makes a clone of the token
+token clone_token(token t);
 #endif

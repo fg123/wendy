@@ -9,11 +9,10 @@
 
 // Main Information
 #define WENDY_VERSION "Wendy 2.0"
-#define INPUT_BUFFER_SIZE 256
+#define INPUT_BUFFER_SIZE 1024
 #define WENDY_VM_HEADER "WendyVM Bytecode"
 
 // Data/Token Information
-#define MAX_STRING_LEN 1024
 #define MAX_LIST_INIT_LEN 100
 #define MAX_STRUCT_META_LEN 100
 
