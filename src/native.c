@@ -50,8 +50,7 @@ static token native_printCallStack(token* args) {
 static token native_reverseString(token* args) {
     char* string = native_to_string(args);
     int len = strlen(string);
-    token t = make_token(T_STRING, make_data_str(""));
-    strcpy(t.t_data.string, string);
+    token t = make_token(T_STRING, make_data_str(string));
     for (int i = 0; i < len / 2; i++) {
         char tmp = t.t_data.string[i];
         t.t_data.string[i] = t.t_data.string[len - i - 1];

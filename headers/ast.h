@@ -45,8 +45,6 @@ typedef struct expr {
                         struct statement*   body;
                         bool                is_native;
                         token               native_name; }  func_expr;
-            struct {    struct expr_list*   parameters;
-                        token               name; }         native_func_expr;
             struct {    token               operator;
                         struct expr*        lvalue;
                         struct expr*        rvalue; }       assign_expr;
