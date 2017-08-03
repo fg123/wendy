@@ -724,7 +724,7 @@ static void write_token_at_buffer(token t, uint8_t* buffer, size_t loc) {
 void offset_addresses(uint8_t* buffer, size_t length, int offset) {
     for (unsigned int i = verify_header(buffer);; i++) {
         opcode op = buffer[i];
-        // printf("%X\n", i);
+
         if (op == OP_PUSH) {
             i++;
             size_t tokLoc = i;
@@ -778,6 +778,7 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
             i += strlen(c);
         }
         else if (op == OP_NATIVE) {
+            i++;
             i += sizeof(address);
             char* c = (char*)(buffer + i);
             i += strlen(c);

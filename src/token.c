@@ -98,7 +98,7 @@ data make_data_num(double i) {
 
 data make_data_str(char* s) {
     data d;
-    memcpy(d.string, s, MAX_STRING_LEN);
+    memcpy(d.string, s, MAX_STRING_LEN * sizeof(char));
     return d;
 }
 

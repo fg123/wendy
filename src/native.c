@@ -7,6 +7,7 @@
 #include <string.h>
 #include "codegen.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 typedef struct native_function {
     char* name;
@@ -19,13 +20,15 @@ static token native_reverseString(token* args);
 static token native_stringToInteger(token* args);
 static token native_examineMemory(token* args);
 static token native_exec(token* args);
+static token native_getc(token* args);
 
 static native_function native_functions[] = {
     { "printCallStack", 1, native_printCallStack },
     { "reverseString", 1, native_reverseString },
     { "stringToInteger", 1, native_stringToInteger },
     { "examineMemory", 2, native_examineMemory },
-    { "exec", 1, native_exec }
+    { "exec", 1, native_exec },
+    { "getc", 0, native_getc }
 };
 
 static double native_to_numeric(token* t) {
@@ -34,6 +37,13 @@ static double native_to_numeric(token* t) {
 
 static char* native_to_string(token* t) {
     return t->t_data.string;
+}
+
+static token native_getc(token* args) {
+    char result[2];
+    result[0] = getc(stdin);
+    result[1] = 0;
+    return make_token(T_STRING, make_data_str(result));
 }
 
 static token native_exec(token* args) {
