@@ -55,7 +55,6 @@ extern bool is_big_endian;
 #define safe_calloc(num, size) safe_calloc_impl(num, size, __FILE__, __LINE__)
 #define safe_realloc(ptr, size) safe_realloc_impl(ptr, size, __FILE__, __LINE__)
 
-
 // Regular Malloc Implementations
 /*#define safe_malloc(size) malloc(size)
 #define safe_free(ptr) free(ptr)
