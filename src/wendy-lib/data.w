@@ -9,7 +9,7 @@ let hash => (n)
   if n.type == <number> ret n
   else if n.type == <string> {
     let h = 7
-    for i:str h += h * 31 + i.val
+    for i in n h += h * 31 + i.val
     ret h
   }
   else {
