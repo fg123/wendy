@@ -30,6 +30,7 @@ static expr* make_list_expr(expr_list* list);
 static expr* make_func_expr(expr_list* parameters, statement* body);
 static expr* make_native_func_expr(expr_list* parameters, token name);
 static expr* make_assign_expr(expr* left, expr* right, token op);
+static expr* make_if_expr(expr* condition, expr* if_true, expr* if_false);
 static expr* make_lvalue_expr(expr* left, token op, expr* right);
 static expr* parse_expression();
 static statement* parse_statement();
@@ -196,6 +197,15 @@ static expr* primary() {
         consume(T_RIGHT_PAREN);
         statement* fn_body = parse_statement();
         return make_func_expr(list, fn_body);
+    }
+    else if (match(T_IF)) {
+        expr* condition = expression();
+        expr* run_if_true = expression();
+        expr* run_if_false = 0;
+        if (match(T_ELSE, T_COLON)) {
+            run_if_false = expression();
+        }   
+        return make_if_expr(condition, run_if_true, run_if_false);
     }
     else {
         token t = previous();
@@ -637,6 +647,11 @@ void traverse_expr(expr* expression,
         traverse_expr(expression->op.bin_expr.left, a, b, c, d);
         traverse_expr(expression->op.bin_expr.right, a, b, c, d);
     }
+    else if (expression->type == E_IF) {
+        traverse_expr(expression->op.if_expr.condition, a, b, c, d);
+        traverse_expr(expression->op.if_expr.expr_true, a, b, c, d);
+        traverse_expr(expression->op.if_expr.expr_false, a, b, c, d);
+    }
     else if (expression->type == E_UNARY) {
         traverse_expr(expression->op.una_expr.operand, a, b, c, d);
     }
@@ -691,6 +706,9 @@ static void print_e(void* expre) {
         printf("Binary Expression " GRN);
         print_token(&expression->op.bin_expr.operator);
         printf(RESET);
+    }
+    else if (expression->type == E_IF) {
+        printf("Conditional Expression\n");
     }
     else if (expression->type == E_BIN_LVALUE) {
         printf("Binary LValue Expression\n");
@@ -792,6 +810,17 @@ static expr* make_bin_expr(expr* left, token op, expr* right) {
     node->op.bin_expr.operator = op;
     node->op.bin_expr.left = left;
     node->op.bin_expr.right = right;
+    return node;
+}
+static expr* make_if_expr(expr* condition, expr* if_true, expr* if_false) {
+    token t = tokens[curr_index];
+    expr* node = safe_malloc(sizeof(expr));
+    node->line = t.t_line;
+    node->col = t.t_col;
+    node->type = E_IF;
+    node->op.if_expr.expr_true = if_true;
+    node->op.if_expr.condition = condition;
+    node->op.if_expr.expr_false = if_false;
     return node;
 }
 static expr* make_una_expr(token op, expr* operand) {

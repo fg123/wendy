@@ -144,7 +144,7 @@ static void codegen_lvalue_expr(expr* expression) {
             error_lexer(expression->line, expression->col, 
                     CODEGEN_INVALID_LVALUE_BINOP); 
         }
-    }
+    }    
     else if (expression->type == E_CALL) {
         codegen_expr(expression);
     }
@@ -415,6 +415,25 @@ static void codegen_expr(void* expre) {
         }
         write_opcode(OP_BIN);
         write_token(expression->op.bin_expr.operator);
+    }
+    else if (expression->type == E_IF) {
+        codegen_expr(expression->op.if_expr.condition);
+        write_opcode(OP_JIF);
+        int falseJumpLoc = size;
+        size += sizeof(address);
+        codegen_expr(expression->op.if_expr.expr_true);
+        write_opcode(OP_JMP);
+        int doneJumpLoc = size;
+        size += sizeof(address);
+        write_address_at(size, falseJumpLoc);
+        if (expression->op.if_expr.expr_false) {
+            codegen_expr(expression->op.if_expr.expr_false);
+        }
+        else {
+            write_opcode(OP_PUSH);
+            write_token(none_token());
+        }
+        write_address_at(size, doneJumpLoc);
     }
     else if (expression->type == E_ASSIGN) {
         token operator = expression->op.assign_expr.operator;

@@ -414,6 +414,14 @@ static expr* optimize_expr(expr* expression) {
             return operand;
         }
     }
+    else if (expression->type == E_IF) {
+        expression->op.if_expr.condition =
+            optimize_expr(expression->op.if_expr.condition);
+        expression->op.if_expr.expr_true = 
+            optimize_expr(expression->op.if_expr.expr_true);
+        expression->op.if_expr.expr_false = 
+            optimize_expr(expression->op.if_expr.expr_false);
+    }
     else if (expression->type == E_CALL) {
         expression->op.call_expr.function =
             optimize_expr(expression->op.call_expr.function);
@@ -534,6 +542,11 @@ static void scan_expr(expr* expression) {
     }
     else if (expression->type == E_UNARY) {
         scan_expr(expression->op.una_expr.operand);
+    }
+    else if (expression->type == E_IF) {
+        scan_expr(expression->op.if_expr.condition);
+        scan_expr(expression->op.if_expr.expr_true);
+        scan_expr(expression->op.if_expr.expr_false);
     }
     else if (expression->type == E_CALL) {
         scan_expr(expression->op.call_expr.function);

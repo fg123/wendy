@@ -29,7 +29,7 @@
 
 typedef struct expr {
     enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_ASSIGN,
-            E_BIN_LVALUE } 
+            E_BIN_LVALUE, E_IF } 
         type;
     union { token                                           lit_expr;
             struct {    token               operator;
@@ -45,6 +45,9 @@ typedef struct expr {
                         struct statement*   body;
                         bool                is_native;
                         token               native_name; }  func_expr;
+            struct {    struct expr*        condition;
+                        struct expr*        expr_true;
+                        struct expr*        expr_false; }   if_expr;
             struct {    token               operator;
                         struct expr*        lvalue;
                         struct expr*        rvalue; }       assign_expr;
