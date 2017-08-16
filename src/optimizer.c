@@ -403,6 +403,7 @@ static expr* optimize_expr(expr* expression) {
             operand->op.lit_expr.t_type == T_NUMBER) {
             // Apply here
             operand->op.lit_expr.t_data.number *= -1;
+            safe_free(expression);
             return operand;
         }
         if (op.t_type == T_NOT && operand->type == E_LITERAL &&
@@ -411,6 +412,7 @@ static expr* optimize_expr(expr* expression) {
             // Apply here
             operand->op.lit_expr.t_type = 
                 operand->op.lit_expr.t_type == T_TRUE ? T_FALSE : T_TRUE;
+            safe_free(expression);
             return operand;
         }
     }
