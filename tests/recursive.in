@@ -1,14 +1,6 @@
 // Testing recursive functions
 let factorial => (x) {
-	let my_local_fac => (x) {
-		if (x == 1) {
-			ret 1;
-		}
-		else {
-			ret x * my_local_fac(x - 1);
-		};
-	};
-	ret my_local_fac(x);
+	ret if x == 1 1 else x * factorial(x-1);
 };
 
 let my_compare => (a, b, op) {

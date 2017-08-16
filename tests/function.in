@@ -12,10 +12,10 @@ let add1 => (x) {
 add1(10);
 
 // Testing Function Reassignment
-set add1 = 10;
+add1 = 10;
 add1;
 
-set add1 => (x) {
+add1 => (x) {
 	ret x + x;
 };
 

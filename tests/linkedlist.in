@@ -1,6 +1,8 @@
-req "list.w";
+import list
 
-let mylist = [1..10];
+let mylist = [];
+for i in 1->11 
+    mylist += i
 mylist;
 
 
