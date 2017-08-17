@@ -17,6 +17,13 @@ static size_t capacity = 0;
 static size_t size = 0;
 static int global_loop_id = 0;
 
+typedef struct import_node {
+    char* name;
+    struct import_node* next;
+} import_node;
+
+import_node* imported_libraries = 0;
+
 int verify_header(uint8_t* bytecode) {
     char* start = (char*)bytecode;
     if (strcmp(WENDY_VM_HEADER, start) == 0) {
@@ -26,6 +33,35 @@ int verify_header(uint8_t* bytecode) {
         error_general(GENERAL_INVALID_HEADER); 
     }
     return 0;
+}
+
+static void add_imported_library(char* name) {
+    import_node* new_node = safe_malloc(sizeof(import_node));
+    new_node->name = safe_malloc(sizeof(char) * (strlen(name) + 1));
+    strcpy(new_node->name, name);
+    new_node->next = imported_libraries;
+    imported_libraries = new_node;
+} 
+
+static void free_imported_libraries_ll() {
+    import_node* curr = imported_libraries;
+    while (curr) {
+        safe_free(curr->name);
+        import_node* next = curr->next;
+        safe_free(curr);
+        curr = next;
+    }
+}
+
+static bool has_already_imported_library(char* name) {
+    import_node* curr = imported_libraries;
+    while (curr) {
+        if (strcmp(curr->name, name) == 0) {
+            return true;
+        }
+        curr = curr->next;
+    }
+    return false;
 }
 
 static void guarantee_size() {
@@ -219,38 +255,43 @@ static void codegen_statement(void* expre) {
             // Already handled by the scanner class.
             return;
         }
+        char* library_name = state->op.import_statement.t_data.string;
         // Has to be identifier now.
-        char* path = get_path();
-        long length = 0;
-        
-        uint8_t* buffer;
-        strcat(path, "wendy-lib/");
-        strcat(path, state->op.import_statement.t_data.string);
-        strcat(path, ".wc");
-        //printf("Attempting to open: %s\n", path);
-        FILE * f = fopen(path, "r");
-        if (f) {
-            fseek (f, 0, SEEK_END);
-            length = ftell (f);
-            fseek (f, 0, SEEK_SET);
-            buffer = safe_malloc(length);
-            fread (buffer, sizeof(uint8_t), length, f);
-            int offset = size - strlen(WENDY_VM_HEADER) - 1;
-            offset_addresses(buffer, length, offset);
-            for (long i = verify_header(buffer); i < length; i++) {
-                if (i == length - 1 && buffer[i] == OP_HALT) break;
-                bytecode[size++] = buffer[i];
-                guarantee_size();
+        if (!has_already_imported_library(library_name)) {
+            add_imported_library(library_name);
+            write_opcode(OP_IMPORT);
+            write_string(library_name);
+            char* path = get_path();
+            long length = 0;
+            uint8_t* buffer;
+            strcat(path, "wendy-lib/");
+            strcat(path, state->op.import_statement.t_data.string);
+            strcat(path, ".wc");
+            //printf("Attempting to open: %s\n", path);
+            FILE * f = fopen(path, "r");
+            if (f) {
+                fseek (f, 0, SEEK_END);
+                length = ftell (f);
+                fseek (f, 0, SEEK_SET);
+                buffer = safe_malloc(length);
+                fread (buffer, sizeof(uint8_t), length, f);
+                int offset = size - strlen(WENDY_VM_HEADER) - 1;
+                offset_addresses(buffer, length, offset);
+                for (long i = verify_header(buffer); i < length; i++) {
+                    if (i == length - 1 && buffer[i] == OP_HALT) break;
+                    bytecode[size++] = buffer[i];
+                    guarantee_size();
+                }
+                safe_free(buffer);
+                fclose (f);
             }
-            safe_free(buffer);
-            fclose (f);
+            else {
+                error_lexer(state->op.import_statement.t_line, 
+                            state->op.import_statement.t_col, 
+                            CODEGEN_REQ_FILE_READ_ERR);
+            }
+            safe_free(path);
         }
-        else {
-            error_lexer(state->op.import_statement.t_line, 
-                        state->op.import_statement.t_col, 
-                        CODEGEN_REQ_FILE_READ_ERR);
-        }
-        safe_free(path);
     }
     else if (state->type == S_STRUCT) {
         int push_size = 2; // For Header and Name
@@ -553,11 +594,13 @@ static void codegen_expr(void* expre) {
 uint8_t* generate_code(statement_list* _ast) {
     // reset
     capacity = CODEGEN_START_SIZE;
+    imported_libraries = 0;
     bytecode = safe_malloc(capacity * sizeof(uint8_t));
     size = 0;
     write_string(WENDY_VM_HEADER);
     codegen_statement_list(_ast);
     write_opcode(OP_HALT);
+    free_imported_libraries_ll();
     return bytecode;
 }
 
@@ -631,7 +674,8 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
                 print_token_inline(&t, buffer);
             }
         }
-        else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW) {
+        else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW || 
+                 op == OP_IMPORT) {
             i++;
             char* c = (char*)(bytecode + i);
             fprintf(buffer, "%.*s ", maxlen, c);
@@ -763,6 +807,12 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
             i++;
             char* c = (char*)(buffer + i);
             i += strlen(c);
+        }
+        else if (op == OP_IMPORT) {
+            i++;
+            char* c = (char*)(buffer + i);
+            i += strlen(c);
+            add_imported_library(c);
         }
         else if (op == OP_SRC) {
             i += sizeof(address);

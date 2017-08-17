@@ -99,13 +99,14 @@
 // 0x23 | SRC    | [int32]   | store the src line number
 // 0x24 | NATIVE | [int32]   | binds to native function
 //                 [string]
+// 0x25 | IMPORT | [string]  | denotes that the library was imported
 
 typedef enum opcode { 
     OP_PUSH, OP_POP, OP_BIN, OP_UNA, OP_CALL, OP_RET, OP_BIND, OP_REQ, OP_WHERE, 
     OP_OUT, OP_OUTL, OP_IN, OP_PLIST, OP_RANGE, OP_READ, OP_WRITE, OP_JMP, 
     OP_JIF, OP_FRM, OP_END, OP_LJMP, OP_LBIND, OP_INC, OP_DEC, OP_NTHPTR, 
     OP_MEMPTR, OP_ASSERT, OP_MPTR, OP_DIN, OP_DOUT, OP_CLOSUR, OP_RBIN, 
-    OP_RBW, OP_CHTYPE, OP_HALT, OP_SRC, OP_NATIVE } 
+    OP_RBW, OP_CHTYPE, OP_HALT, OP_SRC, OP_NATIVE, OP_IMPORT } 
     opcode;
 
 static char* opcode_string[] = {
@@ -113,7 +114,7 @@ static char* opcode_string[] = {
     "where", "out", "outl", "in", "plist", "range", "read", "write", "jmp", 
     "jif", "frm", "end", "ljmp", "lbind", "inc", "dec", "nthptr",
     "memptr", "assert", "mptr", "din", "dout", "closur", "rbin", "rbw", "chtype",
-    "halt", "src", "native"
+    "halt", "src", "native", "import"
 };
 
 // generate_code(ast) generates Wendy ByteCode based on the ast and 

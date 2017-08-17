@@ -102,6 +102,11 @@ void vm_run(uint8_t* bytecode) {
             i += strlen((char*)(bytecode + i));
             memory_register_A = memory_register;
         }
+        else if (op == OP_IMPORT) {
+            // Ignore, for codegen purposes
+            i++;
+            i += strlen((char*)(bytecode + i));
+        }
         else if (op == OP_RET) {
             pop_frame(true, &i);
             memory_register = pop_mem_reg();
