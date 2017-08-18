@@ -3,6 +3,7 @@
 
 #include "global.h"
 #include <stdbool.h>
+#include <stdio.h>
 
 // token.h - Felix Guo
 // This module provides utilities for creating and manipulating tokens for the
