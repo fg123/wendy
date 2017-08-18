@@ -111,12 +111,32 @@ void run(char* input_string) {
     // Generate Bytecode
     //printf("%d\n", ast_error_flag());
     if(!ast_error_flag()) { 
-        uint8_t* bytecode = generate_code(ast);
-        vm_run(bytecode);
+        size_t size;
+        uint8_t* bytecode = generate_code(ast, &size);
+        vm_run(bytecode, size);
         safe_free(bytecode);
     }
     free_ast(ast);
     safe_free(tokens);
+}
+
+bool bracket_check(char* source) {
+    if (!source[0]) return false;
+    // Parentheses, Square, Curly, Single Quote, Double Quote
+    int p = 0, s = 0, c = 0, sq = 0, dq = 0;
+    for (int i = 0; source[i]; i++) {
+        switch(source[i]) {
+            case '(': p++; break;
+            case ')': p--; break;
+            case '[': s++; break;
+            case ']': s--; break;
+            case '{': c++; break;
+            case '}': c--; break;
+            case '"': dq++; break;
+            case '\'': sq++; break;
+        }
+    }
+    return !p && !s && !c && !(dq % 2) && !(sq % 2);
 }
 
 int main(int argc, char** argv) {
@@ -126,25 +146,49 @@ int main(int argc, char** argv) {
         init_source(0, "", 0, false);
         clear_console();
         printf("Welcome to %s created by: Felix Guo\n", WENDY_VERSION);
-        printf("Run `wendy -help` to get help. \nPress Ctrl+D (EOF) to exit REPL.\n");
+        printf("Run `wendy -help` to get help. \n");
+        printf("Press Ctrl+D (EOF) to exit REPL.\n");
         char* path = get_path();
         printf("Path: %s\n", path);
         safe_free(path);
-        char *input_buffer;
+        char* input_buffer;
+        char* source_to_run = safe_malloc(1 * sizeof(char));
         // ENTER REPL MODE
+        set_settings_flag(SETTINGS_NOOP);
+        set_settings_flag(SETTINGS_REPL);        
         push_frame("main", 0, 0);
+
         while (1) {
-            input_buffer = readline("> ");
-            if(!input_buffer) {
-                printf("\n");
-                c_free_memory();
-                return 0;
+            size_t source_size = 1;
+            source_to_run[0] = 0;
+            bool first = true;
+            // Perform bracket check to determine whether or not to execute:
+            while (!bracket_check(source_to_run)) {
+                if (first) {
+                    input_buffer = readline("> ");
+                    first = false;
+                }
+                else {
+                    input_buffer = readline("  ");
+                }
+                if(!input_buffer) {
+                    printf("\n");
+                    c_free_memory();
+                    vm_cleanup_if_repl();
+                    return 0;
+                }
+                source_size += strlen(input_buffer);
+                source_to_run = safe_realloc(source_to_run, 
+                    source_size * sizeof(char));
+                strcat(source_to_run, input_buffer);
+                free(input_buffer);
             }
-            add_history(input_buffer);
-            run(input_buffer);
-            free(input_buffer);
+            add_history(source_to_run);
+            run(source_to_run);
         }
+        safe_free(source_to_run);
         c_free_memory();
+        vm_cleanup_if_repl();
         return 0;
     }
     set_settings_flag(SETTINGS_STRICT_ERROR);
@@ -179,6 +223,7 @@ int main(int argc, char** argv) {
         }
         // File Pointer should be reset
         uint8_t* bytecode_stream;
+        size_t size;
         if (!is_compiled) {
             init_source(file, argv[1], length, true);
             // Text Source
@@ -204,7 +249,7 @@ int main(int argc, char** argv) {
             }
             
             // Generate Bytecode
-            bytecode_stream = generate_code(ast);
+            bytecode_stream = generate_code(ast, &size);
             safe_free(tokens);
             free_ast(ast);
         }
@@ -260,7 +305,7 @@ int main(int argc, char** argv) {
         }
         else {
             push_frame("main", 0, 0);
-            vm_run(bytecode_stream);
+            vm_run(bytecode_stream, size);
             if (!last_printed_newline) {
                 printf("\n");
             }

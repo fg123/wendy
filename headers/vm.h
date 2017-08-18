@@ -9,7 +9,8 @@
 //   interfacing with [memory]
 
 // vm_run(bytecode) runs the given bytecode.
-void vm_run(uint8_t* bytecode);
+void vm_run(uint8_t* bytecode, size_t size);
+void vm_cleanup_if_repl();
 
 // eval_binop(op, a, b) applies the given operator to a and b
 //  a and b must be numbers or boolean

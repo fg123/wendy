@@ -120,7 +120,7 @@ static char* opcode_string[] = {
 // generate_code(ast) generates Wendy ByteCode based on the ast and 
 //   returns the ByteArray
 // effects: allocates memory, caller must free
-uint8_t* generate_code(statement_list* ast);
+uint8_t* generate_code(statement_list* ast, size_t* size);
 
 // print_bytecode(bytecode, buffer) prints the given bytecode into 
 //   a readable format into the buffer.
