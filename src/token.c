@@ -1,11 +1,11 @@
 #include "token.h"
+#include "global.h"
+#include "memory.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
 #include <time.h>
-#include "global.h"
-#include "memory.h"
 
 bool last_printed_newline = false;
 static int line;

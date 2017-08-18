@@ -1,14 +1,14 @@
+#include "codegen.h"
 #include "ast.h"
 #include "global.h"
-#include <stdbool.h>
-#include <stdio.h>
 #include "token.h"
-#include "codegen.h"
 #include "error.h"
-#include <string.h>
 #include "memory.h"
 #include "execpath.h"
 #include "source.h"
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 
 // Implementation of Wendy ByteCode Generator
 

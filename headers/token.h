@@ -1,9 +1,8 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include <stdbool.h>
-#include <stdio.h>
 #include "global.h"
+#include <stdbool.h>
 
 // token.h - Felix Guo
 // This module provides utilities for creating and manipulating tokens for the

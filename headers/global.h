@@ -1,11 +1,11 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-// global.h - Felix Guo
-
-// This file contains information that the majority of WendyScript modules use.
 #include <stdbool.h>
 #include <stdlib.h>
+
+// global.h - Felix Guo
+// This file contains information that the majority of WendyScript modules use.
 
 // Main Information
 #define WENDY_VERSION "Wendy 2.0"

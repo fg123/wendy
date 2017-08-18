@@ -1,8 +1,8 @@
 #include "optimizer.h"
 #include "ast.h"
 #include "global.h"
-#include <string.h>
 #include "error.h"
+#include <string.h>
 #include <math.h>
 #include <stdio.h>
 

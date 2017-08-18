@@ -2,8 +2,8 @@
 #define CODEGEN_H
 
 #include "ast.h"
-#include <stdint.h>
 #include "memory.h"
+#include <stdint.h>
 
 // codegen.h - Felix Guo
 // Generates the bytecode that runs on the WendyVM, based on the

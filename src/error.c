@@ -1,12 +1,12 @@
 #include "error.h"
+#include "memory.h"
+#include "source.h"
+#include "vm.h"
+#include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "memory.h"
-#include <stdarg.h>
-#include <stdbool.h>
-#include "source.h"
-#include "vm.h"
 
 static bool error_flag = false;
 

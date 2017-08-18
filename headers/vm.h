@@ -1,5 +1,6 @@
 #ifndef VM_H
 #define VM_H
+
 #include "token.h"
 #include "stdint.h"
 #include "memory.h"

@@ -5,12 +5,12 @@
 #include "error.h"
 #include "stdint.h"
 #include "math.h"
+#include "global.h"
+#include "native.h"
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include "global.h"
 #include <limits.h>
-#include "native.h"
 
 static address memory_register = 0;
 static address memory_register_A = 0;

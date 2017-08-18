@@ -1,8 +1,8 @@
 #include "memory.h"
-#include <string.h>
 #include "error.h"
-#include <stdio.h>
 #include "global.h"
+#include <string.h>
+#include <stdio.h>
 
 // Memory.c, provides functions for the interpreter to manipulate the local 
 //   WendyScript memory

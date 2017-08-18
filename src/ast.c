@@ -1,10 +1,10 @@
 #include "ast.h"
 #include "token.h"
 #include "error.h"
+#include "global.h"
 #include <stdbool.h>
 #include <stdarg.h>
 #include <string.h>
-#include "global.h"
 
 #define match(...) fnmatch(sizeof((token_type []) {__VA_ARGS__}) / sizeof(token_type), __VA_ARGS__)
 

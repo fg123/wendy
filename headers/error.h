@@ -1,7 +1,8 @@
 #ifndef ERROR_H
 #define ERROR_H
-#include <stdbool.h>
+
 #include "token.h"
+#include <stdbool.h>
 
 // errors.h - Felix Guo
 // Includes all of the error messages in WendyScript

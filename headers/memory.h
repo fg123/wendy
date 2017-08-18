@@ -2,8 +2,8 @@
 #define MEMORY_H
 
 #include "token.h"
-#include <stdbool.h>
 #include "global.h"
+#include <stdbool.h>
 
 // memory.h - Felix Guo
 // This module manages the memory model for WendyScript.

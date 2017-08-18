@@ -1,12 +1,10 @@
-// Implementation of Native
-
 #include "native.h"
 #include "memory.h"
 #include "error.h"
 #include "token.h"
-#include <string.h>
 #include "codegen.h"
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 
 typedef struct native_function {

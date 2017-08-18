@@ -1,10 +1,10 @@
 #include "scanner.h"
-#include <stdbool.h>
 #include "error.h"
-#include <stdio.h>
-#include <string.h>
-#include <execpath.h>
 #include "global.h"
+#include <string.h>
+#include <stdio.h>
+#include <execpath.h>
+#include <stdbool.h>
 
 static size_t source_len;
 static size_t current; // is used to keep track of source current

@@ -1,7 +1,7 @@
 #include "execpath.h"
+#include "global.h"
 #include <stdio.h>
 #include <limits.h>
-#include "global.h"
 
 #define W_MAX_PATH 500
 #ifdef _WOP_IN32

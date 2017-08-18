@@ -1,16 +1,16 @@
-#include <stdio.h>
 #include "memory.h"
 #include "error.h"
 #include "execpath.h"
 #include "global.h"
 #include "scanner.h"
-#include <string.h>
 #include "debugger.h"
 #include "ast.h"
 #include "vm.h"
 #include "codegen.h"
 #include "source.h"
 #include "optimizer.h"
+#include <string.h>
+#include <stdio.h>
 
 #ifdef _WIN32
 char* readline(char* prompt) {
@@ -42,7 +42,7 @@ void clear_console() {
 // main.c: used to handle REPL and calling the interpreter on a file.
 
 void invalid_usage() {
-    printf("usage: wendy [file] [-help] [-nogc] [-c] [-ast] [-disassemble] "/*[-d file b1 b2 ...]*/"\n\n");
+    printf("usage: wendy [file] [-help] [-nogc] [-c] [-ast] [-disassemble] \n\n");
     printf("    file            : is either a compiled WendyScript file, or a raw source file.\n");
     printf("    -h, --help      : shows this message.\n");
     printf("    --nogc          : disables garbage-collection.\n");
