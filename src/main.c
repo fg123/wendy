@@ -151,6 +151,7 @@ int main(int argc, char** argv) {
         char* input_buffer;
         char* source_to_run = safe_malloc(1 * sizeof(char));
         // ENTER REPL MODE
+        set_settings_flag(SETTINGS_NOOP);
         push_frame("main", 0, 0);
 
         while (1) {
