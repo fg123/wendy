@@ -111,8 +111,9 @@ void run(char* input_string) {
     // Generate Bytecode
     //printf("%d\n", ast_error_flag());
     if(!ast_error_flag()) { 
-        uint8_t* bytecode = generate_code(ast);
-        vm_run(bytecode);
+        size_t size;
+        uint8_t* bytecode = generate_code(ast, &size);
+        vm_run(bytecode, size);
         safe_free(bytecode);
     }
     free_ast(ast);
@@ -121,8 +122,8 @@ void run(char* input_string) {
 
 bool bracket_check(char* source) {
     if (!source[0]) return false;
-    // Parentheses, Square, Curly
-    int p = 0, s = 0, c = 0;
+    // Parentheses, Square, Curly, Single Quote, Double Quote
+    int p = 0, s = 0, c = 0, sq = 0, dq = 0;
     for (int i = 0; source[i]; i++) {
         switch(source[i]) {
             case '(': p++; break;
@@ -131,9 +132,11 @@ bool bracket_check(char* source) {
             case ']': s--; break;
             case '{': c++; break;
             case '}': c--; break;
+            case '"': dq++; break;
+            case '\'': sq++; break;
         }
     }
-    return !p && !s && !c;
+    return !p && !s && !c && !(dq % 2) && !(sq % 2);
 }
 
 int main(int argc, char** argv) {
@@ -152,17 +155,27 @@ int main(int argc, char** argv) {
         char* source_to_run = safe_malloc(1 * sizeof(char));
         // ENTER REPL MODE
         set_settings_flag(SETTINGS_NOOP);
+        set_settings_flag(SETTINGS_REPL);
+        set_settings_flag(SETTINGS_STRICT_ERROR);
         push_frame("main", 0, 0);
 
         while (1) {
             size_t source_size = 1;
             source_to_run[0] = 0;
+            bool first = true;
             // Perform bracket check to determine whether or not to execute:
             while (!bracket_check(source_to_run)) {
-                input_buffer = readline("> ");
+                if (first) {
+                    input_buffer = readline("> ");
+                    first = false;
+                }
+                else {
+                    input_buffer = readline("  ");
+                }
                 if(!input_buffer) {
                     printf("\n");
                     c_free_memory();
+                    vm_cleanup_if_repl();
                     return 0;
                 }
                 source_size += strlen(input_buffer);
@@ -176,6 +189,7 @@ int main(int argc, char** argv) {
         }
         safe_free(source_to_run);
         c_free_memory();
+        vm_cleanup_if_repl();
         return 0;
     }
     set_settings_flag(SETTINGS_STRICT_ERROR);
@@ -210,6 +224,7 @@ int main(int argc, char** argv) {
         }
         // File Pointer should be reset
         uint8_t* bytecode_stream;
+        size_t size;
         if (!is_compiled) {
             init_source(file, argv[1], length, true);
             // Text Source
@@ -235,7 +250,7 @@ int main(int argc, char** argv) {
             }
             
             // Generate Bytecode
-            bytecode_stream = generate_code(ast);
+            bytecode_stream = generate_code(ast, &size);
             safe_free(tokens);
             free_ast(ast);
         }
@@ -291,7 +306,7 @@ int main(int argc, char** argv) {
         }
         else {
             push_frame("main", 0, 0);
-            vm_run(bytecode_stream);
+            vm_run(bytecode_stream, size);
             if (!last_printed_newline) {
                 printf("\n");
             }

@@ -6,9 +6,9 @@
 let map => (fn, list)
   if list.size == 0
     ret []
-  else {
+  else 
     ret [fn(list[0])] + map(fn, list[1->list.size])
-  }
+  
 
 let filter => (fn, list)
 	if list.size == 0 ret [];

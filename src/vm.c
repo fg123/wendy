@@ -17,14 +17,48 @@ static address memory_register_A = 0;
 static data data_register; 
 static int line;
 static address i = 0;
+static uint8_t* bytecode = 0;
+static size_t bytecode_size = 0;
 
 address get_instruction_pointer() {
     return i;
 }
 
-void vm_run(uint8_t* bytecode) {
+void vm_cleanup_if_repl() {
+    safe_free(bytecode);
+}
+
+void vm_run(uint8_t* new_bytecode, size_t size) {
     // Verify Header
-    for (i = verify_header(bytecode);; i++) {
+    address start_at;
+    size_t saved_size = bytecode_size;
+    if (!get_settings_flag(SETTINGS_REPL)) {
+        bytecode = new_bytecode;
+        start_at = verify_header(bytecode);
+    }
+    else {
+        // Resize Bytecode Block, Offset New Addresses, Push to End
+        bytecode_size += size;
+        if (bytecode) {
+            // This gets rid of the OP_HALT from the previous chain of BC
+            bytecode_size--;
+            bytecode = safe_realloc(bytecode, bytecode_size * sizeof(uint8_t));
+        }
+        else {
+            bytecode = safe_malloc(bytecode_size * sizeof(uint8_t));
+        }        
+        if (saved_size != 0) {
+            start_at = saved_size - 1; 
+        }
+        else {
+            start_at = 0;
+        }
+        offset_addresses(new_bytecode, size, start_at);
+        for (size_t i = 0; i < size; i++) {
+            bytecode[start_at + i] = new_bytecode[i];
+        }        
+    }
+    for (i = start_at;; i++) {
         reset_error_flag();
         opcode op = bytecode[i];
         //printf("i: %X\n", i);

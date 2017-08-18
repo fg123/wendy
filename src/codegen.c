@@ -591,16 +591,18 @@ static void codegen_expr(void* expre) {
     }
 }
 
-uint8_t* generate_code(statement_list* _ast) {
-    // reset
+uint8_t* generate_code(statement_list* _ast, size_t* size_ptr) {
     capacity = CODEGEN_START_SIZE;
     imported_libraries = 0;
     bytecode = safe_malloc(capacity * sizeof(uint8_t));
     size = 0;
-    write_string(WENDY_VM_HEADER);
+    if (!get_settings_flag(SETTINGS_REPL)) {        
+        write_string(WENDY_VM_HEADER);
+    }
     codegen_statement_list(_ast);
     write_opcode(OP_HALT);
     free_imported_libraries_ll();
+    *size_ptr = size;
     return bytecode;
 }
 
@@ -654,7 +656,11 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
     fprintf(buffer, GRN "\n.code\n");
     int maxlen = 12;
     int baseaddr = 0;
-    for (unsigned int i = verify_header(bytecode);; i++) {
+    unsigned int i = 0;
+    if (!get_settings_flag(SETTINGS_REPL)) {
+        i = verify_header(bytecode);
+    }
+    for (;; i++) {
         unsigned int start = i;
         fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
         opcode op = bytecode[i];
@@ -752,7 +758,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
                 break;
             }
         }
-        if (printSourceLine > 0) {
+        if (printSourceLine > 0 && !get_settings_flag(SETTINGS_REPL)) {
             // Print Source Line
             printf(RESET " %s", get_source_line(printSourceLine));
         }
@@ -785,7 +791,11 @@ static void write_token_at_buffer(token t, uint8_t* buffer, size_t loc) {
 
 // loops through, offsets all addresses based on import linking location
 void offset_addresses(uint8_t* buffer, size_t length, int offset) {
-    for (unsigned int i = verify_header(buffer);; i++) {
+    unsigned int i = 0;
+    if (!get_settings_flag(SETTINGS_REPL)) {
+        i = verify_header(buffer);
+    }
+    for (;; i++) {
         opcode op = buffer[i];
 
         if (op == OP_PUSH) {
