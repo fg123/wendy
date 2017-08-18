@@ -155,8 +155,7 @@ int main(int argc, char** argv) {
         char* source_to_run = safe_malloc(1 * sizeof(char));
         // ENTER REPL MODE
         set_settings_flag(SETTINGS_NOOP);
-        set_settings_flag(SETTINGS_REPL);
-        set_settings_flag(SETTINGS_STRICT_ERROR);
+        set_settings_flag(SETTINGS_REPL);        
         push_frame("main", 0, 0);
 
         while (1) {
