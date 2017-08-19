@@ -1,6 +1,6 @@
 /* list.w: WendyScript 2.0
  * Created by Felix Guo
- * Provides map(), filter(), sort()
+ * Provides map(), filter(), sort(), zip()
  */
 
 let map => (fn, list)
@@ -35,4 +35,19 @@ let sort => (list) {
   let result = [];
   for i:list result = insert(i, result)
 	ret result;
+};
+
+let zip => (list) {
+	let min => (a, b) ret if a < b a else b;
+	let minSize = 100000000000000
+	for l in list {
+		minSize = min(l.size, minSize);
+	};
+	let result = [[]] * minSize;
+	for l in list {
+		for j in 0->minSize {
+			result[j] += l[j]
+		}
+	};
+	ret result
 };
