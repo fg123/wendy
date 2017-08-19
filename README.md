@@ -12,13 +12,16 @@ for i in 1->100 if i % 2 == 1 i
 ```
 or more clearly:
 ```
-for (i in 1->100) {
+for i in 1->100 {
     if (i % 2 == 1) {
         i
     }
 }
 ```
-
+In fact, you can even use the short form keywords and it becomes:
+```
+#i:1->100?i%2==1i
+```
 The syntax for WendyScript can be found at [felixguo.me/wendy](http://felixguo.me/wendy).
 
 WendyScript can be compiled and run online at [felixguo.me/#wendyScript](http://felixguo.me/#wendyScript) courtesy of the University of Waterloo.
