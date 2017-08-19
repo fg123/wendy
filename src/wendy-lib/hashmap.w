@@ -1,4 +1,5 @@
-/* hashmap.w: WendyScript 2.0
+/* 
+ * hashmap.w: WendyScript 2.0
  * Created by Felix Guo
  */
 import data

@@ -646,7 +646,7 @@ static token eval_binop(token op, token a, token b) {
                     }
                 }
             }
-            error_runtime(line, VM_MEMBER_NOT_EXIST);
+            error_runtime(line, VM_MEMBER_NOT_EXIST, b.t_data.string);
             return false_token();
         }
     }

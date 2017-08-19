@@ -63,16 +63,6 @@ void process_options(char** options, int len) {
         ||  strcmp("--compile", options[i]) == 0) {
             set_settings_flag(SETTINGS_COMPILE);
         }
-        /*else if (strcmp("-d", options[i]) == 0) {
-            if (i == len - 1) {
-                invalid_usage();
-            }
-            debug_output_path = options[i + 1];
-            i++;
-            for (; i < len; i++) {
-                add_breakpoint(atoi(options[i]));
-            }
-        }*/ 
         else if (strcmp("--nogc", options[i]) == 0) {
             set_settings_flag(SETTINGS_NOGC);
         }
