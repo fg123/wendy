@@ -12,7 +12,7 @@ for i in 1->100 if i % 2 == 1 i
 ```
 or more clearly:
 ```
-for (i in 1->100) {
+for i in 1->100 {
     if (i % 2 == 1) {
         i
     }
