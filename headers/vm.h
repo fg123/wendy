@@ -35,4 +35,7 @@ static token char_of(token a);
 
 // get_instruction_pointer() returns the current instruction pointer.
 address get_instruction_pointer();
+
+// print_current_bytecode() prints the current executing bytecode
+void print_current_bytecode();
 #endif

@@ -1093,4 +1093,6 @@ static token eval_uniop(token op, token a) {
     }
 }
 
-
+void print_current_bytecode() {
+    print_bytecode(bytecode, stdout);
+}

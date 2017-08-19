@@ -3,10 +3,11 @@
  * Provides system functions
  */
 
-struct System => [printCallStack, printFreeMemory, examineMemory, exec, getc];
+struct System => [printCallStack, printFreeMemory, examineMemory, exec, getc, printBytecode];
 
 System.printCallStack => (numLines) native printCallStack;
 System.printFreeMemory => () native printFreeMemory;
 System.examineMemory => (from, to) native examineMemory;
 System.exec => (command) native exec;
 System.getc => () native getc;
+System.printBytecode => () native printBytecode;

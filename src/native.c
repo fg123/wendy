@@ -3,6 +3,7 @@
 #include "error.h"
 #include "token.h"
 #include "codegen.h"
+#include "vm.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -19,6 +20,7 @@ static token native_stringToInteger(token* args);
 static token native_examineMemory(token* args);
 static token native_exec(token* args);
 static token native_getc(token* args);
+static token native_printBytecode(token* args);
 
 static native_function native_functions[] = {
     { "printCallStack", 1, native_printCallStack },
@@ -26,7 +28,8 @@ static native_function native_functions[] = {
     { "stringToInteger", 1, native_stringToInteger },
     { "examineMemory", 2, native_examineMemory },
     { "exec", 1, native_exec },
-    { "getc", 0, native_getc }
+    { "getc", 0, native_getc },
+    { "printBytecode", 0, native_printBytecode }
 };
 
 static double native_to_numeric(token* t) {
@@ -46,12 +49,17 @@ static token native_getc(token* args) {
 
 static token native_exec(token* args) {
     char* command = native_to_string(args);
-    system(command);
+    //system(command);
     return noneret_token();
 }
 
 static token native_printCallStack(token* args) {
     print_call_stack((int)native_to_numeric(args));
+    return noneret_token();
+}
+
+static token native_printBytecode(token* args) {
+    print_current_bytecode();
     return noneret_token();
 }
 
