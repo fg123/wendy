@@ -2,7 +2,7 @@
  * hashmap.w: WendyScript 2.0
  * Created by Felix Guo
  */
-import data
+import data;
 struct hashmap => (buckets, mod) [add, remove, exist, print];
 hashmap.init => (mod) {
   this.buckets = [[]] * mod

@@ -6,7 +6,6 @@
 
 // Memory.c, provides functions for the interpreter to manipulate the local 
 //   WendyScript memory
-
 address frame_pointer = 0;
 address stack_pointer = 0;
 address arg_pointer = 0;

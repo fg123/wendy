@@ -59,8 +59,8 @@ void invalid_usage() {
 
 void process_options(char** options, int len) {
     for (int i = 0; i < len; i++) {
-        if (strcmp("-c", options[i]) == 0 
-        ||  strcmp("--compile", options[i]) == 0) {
+        if (strcmp("-c", options[i]) == 0 ||  
+            strcmp("--compile", options[i]) == 0) {
             set_settings_flag(SETTINGS_COMPILE);
         }
         else if (strcmp("--nogc", options[i]) == 0) {
