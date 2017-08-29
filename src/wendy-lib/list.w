@@ -37,6 +37,14 @@ let sort => (list) {
 	ret result;
 };
 
+let unique => (list) {
+	let sublist = []
+	for i in list 
+		if !(i ~ sublist) 
+			sublist += i
+	ret sublist
+};
+
 let zip => (list) {
 	let min => (a, b) ret if a < b a else b;
 	let minSize = 100000000000000
@@ -50,4 +58,26 @@ let zip => (list) {
 		}
 	};
 	ret result
+};
+
+let sum => (list) {
+	let a = 0
+	for i in list a += i
+	ret a
+};
+
+let intersect => (list_a, list_b) {
+	let result = [];
+	for i in list_b 
+		if i ~ list_a 
+			result += i
+	ret unique(result)
+};
+
+let difference => (list_a, list_b) {
+	let result = [];
+	for i in list_b
+		if !(i ~ list_a)
+			result += i
+	ret unique(result)
 };
