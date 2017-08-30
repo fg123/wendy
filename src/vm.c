@@ -19,6 +19,7 @@ static int line;
 static address i = 0;
 static uint8_t* bytecode = 0;
 static size_t bytecode_size = 0;
+static token last_pushed_identifier;
 
 address get_instruction_pointer() {
     return i;
@@ -73,9 +74,10 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
             }
             else if (t.t_type == T_MEMBER) {
                 t.t_type = T_IDENTIFIER;
-            }
-            push_arg(t, line);
-        }
+			}
+			last_pushed_identifier = t;
+			push_arg(t, line);
+		}
         else if (op == OP_SRC) {
             void* ad = &bytecode[i + 1];
             line = get_address(ad);
@@ -262,20 +264,26 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
             i++;
         }
         else if (op == OP_RBW) {
-            // REQUEST OP_OP_OP_BOP_IND AND OP_WRITE
+            // REQUEST BIND AND WRITE
             memory_register = pls_give_memory(1, line);
-            i++;
-            if (id_exist((char*)(bytecode + i), false)) {
-                address a = get_stack_pos_of_id((char*)(bytecode + i), line);
+			i++;
+			char* bind_name = (char*)(bytecode + i);
+            if (id_exist(bind_name, false)) {
+                address a = get_stack_pos_of_id(bind_name, line);
                 if (!call_stack[a].is_closure) {
-                    error_runtime(line, VM_VAR_DECLARED_ALREADY, 
-                                (char*)(bytecode + i)); 
+                    error_runtime(line, VM_VAR_DECLARED_ALREADY, bind_name); 
                 }
             }
-            push_stack_entry((char*)(bytecode + i), memory_register, line); 
-            i += strlen((char*)(bytecode + i));
-            memory[memory_register] = pop_arg(line);
-        }
+            push_stack_entry(bind_name, memory_register, line); 
+			i += strlen(bind_name);
+			token value = pop_arg(line);
+			if (value.t_type == T_FUNCTION) {
+				// Modify Name to be the base_name
+				address fn_adr = value.t_data.number;
+				strcpy(memory[fn_adr + 2].t_data.string, bind_name);
+			}
+			memory[memory_register] = value;
+		}
         else if (op == OP_PLIST) {
             i++;
             int size = bytecode[i];
@@ -446,14 +454,27 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
                     copy_stack_entry(closure_list[cloc][i], line);
                     //printf("COPIED: %s\n", closure_list[cloc][i].id);
                 }
-            }
-        }
-        else if (op == OP_READ) {
+			}
+			token boundName = memory[loc + 2];
+			address adr = push_memory(top);
+			if (strcmp(boundName.t_data.string, "self") != 0) {
+				push_stack_entry("self", adr, line);
+			}
+			push_stack_entry(boundName.t_data.string, adr, line);
+		}
+		else if (op == OP_READ) {
             push_arg(memory[memory_register], line);
         }
         else if (op == OP_WRITE) {
-            memory[memory_register] = pop_arg(line);
-        }
+			token value = pop_arg(line);
+			if (value.t_type == T_FUNCTION) {
+				// Write Name to Function
+				char* bind_name = last_pushed_identifier.t_data.string;
+				address fn_adr = value.t_data.number;
+				strcpy(memory[fn_adr + 2].t_data.string, bind_name);
+			}
+			memory[memory_register] = value;
+		}
         else if (op == OP_OUT) {
             token t = pop_arg(line);
             if (t.t_type != T_NONERET) {

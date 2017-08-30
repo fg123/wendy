@@ -580,12 +580,14 @@ static void codegen_expr(void* expre) {
         }
         write_address_at(size, writeSizeLoc);
         write_opcode(OP_PUSH);
-        write_token(make_token(T_ADDRESS, make_data_num(startAddr)));
-        write_opcode(OP_CLOSUR);
-        write_opcode(OP_REQ);
-        bytecode[size++] = 2;
+		write_token(make_token(T_ADDRESS, make_data_num(startAddr)));
+		write_opcode(OP_CLOSUR);
+		write_opcode(OP_PUSH);
+		write_token(make_token(T_STRING, make_data_str("self")));
+		write_opcode(OP_REQ);
+        bytecode[size++] = 3;
         write_opcode(OP_PLIST);
-        bytecode[size++] = 2;
+        bytecode[size++] = 3;
         write_opcode(OP_CHTYPE);
         bytecode[size++] = T_FUNCTION;
     }
