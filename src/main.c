@@ -15,8 +15,8 @@
 #ifdef _WIN32
 char* readline(char* prompt) {
     fputs(prompt, stdout);
-    char* cpy = safe_malloc(OP_INPUT_BUFFER_SIZE);
-    fgets(cpy, OP_INPUT_BUFFER_SIZE, stdin);
+    char* cpy = safe_malloc(INPUT_BUFFER_SIZE);
+    fgets(cpy, INPUT_BUFFER_SIZE, stdin);
     return cpy;
 }
 
@@ -42,12 +42,13 @@ void clear_console() {
 // main.c: used to handle REPL and calling the interpreter on a file.
 
 void invalid_usage() {
-    printf("usage: wendy [file] [-help] [-nogc] [-c] [-ast] [-disassemble] \n\n");
-    printf("    file            : is either a compiled WendyScript file, or a raw source file.\n");
+    printf("usage: wendy [file|string] [-help] [-nogc] [-c] [-ast] [-disassemble] \n\n");
+    printf("    file|string     : is either a compiled WendyScript file, a raw source file, or a source string to run.\n");
     printf("    -h, --help      : shows this message.\n");
     printf("    --nogc          : disables garbage-collection.\n");
     printf("    --noop          : disables optimization algorithm.\n");
-    printf("    -c, --compile   : compiles the given file but does not run.\n");
+	printf("    -c, --compile   : compiles the given file but does not run.\n");
+	printf("    -v, --verbose   : displays extra information on error.\n");
     printf("    --ast           : prints out the constructed AST.\n");
     printf("    --toklst        : prints out the parsed tokens.\n");
     printf("    --disassemble   : prints out the disassembled bytecode.\n");
@@ -59,10 +60,14 @@ void invalid_usage() {
 
 void process_options(char** options, int len) {
     for (int i = 0; i < len; i++) {
-        if (strcmp("-c", options[i]) == 0 
-        ||  strcmp("--compile", options[i]) == 0) {
+		if (strcmp("-c", options[i]) == 0 ||  
+			strcmp("--compile", options[i]) == 0) {
             set_settings_flag(SETTINGS_COMPILE);
-        }
+		}
+		else if (strcmp("-v", options[i]) == 0 ||  
+			strcmp("--verbose", options[i]) == 0) {
+			set_settings_flag(SETTINGS_VERBOSE);
+		}
         else if (strcmp("--nogc", options[i]) == 0) {
             set_settings_flag(SETTINGS_NOGC);
         }
@@ -97,9 +102,6 @@ void run(char* input_string) {
     if (!get_settings_flag(SETTINGS_NOOP)) {
         ast = optimize_ast(ast);
     }
-    //print_ast(ast);   
-    // Generate Bytecode
-    //printf("%d\n", ast_error_flag());
     if(!ast_error_flag()) { 
         size_t size;
         uint8_t* bytecode = generate_code(ast, &size);
@@ -189,15 +191,19 @@ int main(int argc, char** argv) {
         invalid_usage();
     }
     else if (argc >= 2) {
-        // FILE OP_READ MODE
+        // FILE READ MODE
         long length = 0;
         int file_name_length = strlen(argv[1]);
         FILE *file = fopen(argv[1], "r");
         if (!file) {
-            printf("Error opening file to determine type.\n");
-            safe_exit(1);
-        }
-        // Compute File Size
+			// Attempt to run as source.
+			push_frame("main", 0, 0);
+            run(argv[1]);
+			c_free_memory();
+			check_leak();
+			return 0;
+		}
+		// Compute File Size
         fseek(file, 0, SEEK_END);
         length = ftell(file);
         fseek (file, 0, SEEK_SET);

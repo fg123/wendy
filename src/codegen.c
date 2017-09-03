@@ -6,6 +6,7 @@
 #include "memory.h"
 #include "execpath.h"
 #include "source.h"
+#include "imports.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,13 +18,6 @@ static size_t capacity = 0;
 static size_t size = 0;
 static int global_loop_id = 0;
 
-typedef struct import_node {
-    char* name;
-    struct import_node* next;
-} import_node;
-
-import_node* imported_libraries = 0;
-
 int verify_header(uint8_t* bytecode) {
     char* start = (char*)bytecode;
     if (strcmp(WENDY_VM_HEADER, start) == 0) {
@@ -33,35 +27,6 @@ int verify_header(uint8_t* bytecode) {
         error_general(GENERAL_INVALID_HEADER); 
     }
     return 0;
-}
-
-static void add_imported_library(char* name) {
-    import_node* new_node = safe_malloc(sizeof(import_node));
-    new_node->name = safe_malloc(sizeof(char) * (strlen(name) + 1));
-    strcpy(new_node->name, name);
-    new_node->next = imported_libraries;
-    imported_libraries = new_node;
-} 
-
-static void free_imported_libraries_ll() {
-    import_node* curr = imported_libraries;
-    while (curr) {
-        safe_free(curr->name);
-        import_node* next = curr->next;
-        safe_free(curr);
-        curr = next;
-    }
-}
-
-static bool has_already_imported_library(char* name) {
-    import_node* curr = imported_libraries;
-    while (curr) {
-        if (strcmp(curr->name, name) == 0) {
-            return true;
-        }
-        curr = curr->next;
-    }
-    return false;
 }
 
 static void guarantee_size() {
@@ -260,7 +225,10 @@ static void codegen_statement(void* expre) {
         if (!has_already_imported_library(library_name)) {
             add_imported_library(library_name);
             write_opcode(OP_IMPORT);
-            write_string(library_name);
+			write_string(library_name);
+			int jumpLoc = size;
+			size += sizeof(address);
+
             char* path = get_path();
             long length = 0;
             uint8_t* buffer;
@@ -271,7 +239,7 @@ static void codegen_statement(void* expre) {
             FILE * f = fopen(path, "r");
             if (f) {
                 fseek (f, 0, SEEK_END);
-                length = ftell (f);
+                length = ftell(f);
                 fseek (f, 0, SEEK_SET);
                 buffer = safe_malloc(length);
                 fread (buffer, sizeof(uint8_t), length, f);
@@ -290,9 +258,10 @@ static void codegen_statement(void* expre) {
                             state->op.import_statement.t_col, 
                             CODEGEN_REQ_FILE_READ_ERR);
             }
-            safe_free(path);
-        }
-    }
+			safe_free(path);
+			write_address_at(size, jumpLoc);
+		}
+	}
     else if (state->type == S_STRUCT) {
         int push_size = 2; // For Header and Name
         char* struct_name = state->op.struct_statement.name.t_data.string;
@@ -595,9 +564,9 @@ static void codegen_expr(void* expre) {
 
 uint8_t* generate_code(statement_list* _ast, size_t* size_ptr) {
     capacity = CODEGEN_START_SIZE;
-    imported_libraries = 0;
-    bytecode = safe_malloc(capacity * sizeof(uint8_t));
-    size = 0;
+	init_imported_libraries_ll();
+	bytecode = safe_malloc(capacity * sizeof(uint8_t));
+	size = 0;
     if (!get_settings_flag(SETTINGS_REPL)) {        
         write_string(WENDY_VM_HEADER);
     }
@@ -691,7 +660,13 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
                 fprintf(buffer, ">");
             }
 
-            i += strlen(c);
+			i += strlen(c);
+			if (OP_IMPORT) {
+				// i is at null term
+				void* loc = &bytecode[i + 1];
+				i += sizeof(address);
+				fprintf(buffer, "0x%X", get_address(loc));
+			}
         }
         else if (op == OP_CHTYPE) {
             i++;
@@ -824,9 +799,13 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
             i++;
             char* c = (char*)(buffer + i);
             i += strlen(c);
-            add_imported_library(c);
-        }
-        else if (op == OP_SRC) {
+			add_imported_library(c);
+			address loc = get_address(&buffer[i + 1]);
+            loc += offset;
+            write_address_at_buffer(loc, buffer, i + 1);
+            i += sizeof(address);
+		}
+		else if (op == OP_SRC) {
             i += sizeof(address);
         }
         else if (op == OP_JMP || op == OP_JIF) {            

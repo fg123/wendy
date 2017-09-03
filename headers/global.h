@@ -32,7 +32,7 @@
 #define MEMREGSTACK_SIZE 100
 
 // Compiler/VM Settings
-#define SETTINGS_COUNT 8
+#define SETTINGS_COUNT 9
 
 typedef enum {
     SETTINGS_COMPILE = 0, 
@@ -42,7 +42,8 @@ typedef enum {
     SETTINGS_STRICT_ERROR = 4,
     SETTINGS_TOKEN_LIST_PRINT = 5, 
     SETTINGS_NOOP = 6,
-    SETTINGS_REPL = 7 } settings_flags; 
+	SETTINGS_REPL = 7,
+	SETTINGS_VERBOSE = 8 } settings_flags; 
 
 void set_settings_flag(settings_flags flag);
 bool get_settings_flag(settings_flags flag);

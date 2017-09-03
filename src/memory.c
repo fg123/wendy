@@ -21,6 +21,12 @@ static const char RA_START_CHAR = '#';
 // pointer to the end of the main frame
 address main_end_pointer = 0; 
 
+void mark_locations(bool* marked, address start, size_t block_size) {
+	for (int j = start; j < start + block_size; j++) {
+		marked[j] = true;
+	}
+}
+
 bool garbage_collect(int size) {
     if (get_settings_flag(SETTINGS_NOGC)) { 
         return has_memory(size); 
@@ -33,33 +39,40 @@ bool garbage_collect(int size) {
     }
     for (int i = 0; i < stack_pointer; i++) {
         if (call_stack[i].id[0] != FUNCTION_START_CHAR && 
-            call_stack[i].id[0] != AUTOFRAME_START_CHAR) {
+			call_stack[i].id[0] != AUTOFRAME_START_CHAR && 
+			call_stack[i].id[0] != RA_START_CHAR) {
 
             address a = call_stack[i].val;
-            // Check for array header because we need to mark all of the size.
-            int block_size = 1;
-            if (memory[a].t_type == T_LIST || memory[a].t_type == T_STRUCT) {
-                marked[a] = true;
-                // Traverse to list header.
-                a = memory[a].t_data.number;
-                block_size += memory[a].t_data.number;
-            }
-            else if (memory[a].t_type == T_STRUCT_INSTANCE) {
-                marked[a] = true;
-                // This means that the original struct metadata must also
-                //   persist as well as the corresponding fields.
-                address metadata = memory[a].t_data.number;
-                /* TODO */
-            }
-            // We'll mark the location it points to. If it's an address, we'll
-            //   recursively mark that one too.
-            for (int j = 0; j < block_size; j++) marked[a + j] = true;
-            while (memory[a].t_type == T_ADDRESS) {
-                a = memory[a].t_data.number;
-                marked[a] = true;
-            }
-        }
-    }
+			// Mark it!
+			marked[a] = true;
+			// Check if it's a pointer type?
+			if (memory[a].t_type == T_LIST || memory[a].t_type == T_STRUCT) {
+				a = memory[a].t_data.number;
+				mark_locations(marked, a, memory[a].t_data.number);
+			}
+			else if (memory[a].t_type == T_FUNCTION) {
+				a = memory[a].t_data.number;
+				mark_locations(marked, a, 3);
+			}
+			else if (memory[a].t_type == T_STRUCT_INSTANCE) {
+				a = memory[a].t_data.number;
+				// a points to T_STRUCT_INSTANCE_HEAD
+				address meta_loc = memory[a].t_data.number;
+				// meta_loc points to T_STRUCT_METADATA, mark the metadata
+				size_t meta_size = memory[meta_loc].t_data.number;
+				mark_locations(marked, meta_loc, meta_size);
+				// count parameters
+				size_t params = 0;
+				for (address i = meta_loc; i < meta_loc + meta_size; i++) {
+					if (memory[i].t_type == T_STRUCT_PARAM) {
+						params++;
+					}
+				}
+				// Mark parameters, +1 for T_STRUCT_INSTANCE_HEAD
+				mark_locations(marked, a, params + 1);
+			}
+		}
+	}
 
     for (int i = 0; i < MEMORY_SIZE; i++) {
         if (!marked[i]) {
@@ -175,12 +188,17 @@ address pls_give_memory(int size, int line) {
 }
 
 void here_u_go(address a, int size) {
-    // Returned memory! Yay!
-    // Returned memory could also be already freed.
-    // We'll look to see if the returned memory can be appended to another
-    //   free block. If not, then we append to the front. Memory could be
-    //   in front of an existing or behind.
-    mem_block* c = free_memory;
+	/* Clear Memory */
+	for (address i = a; i < a + size; i++) {
+		memory[i].t_type = T_EMPTY;
+	}
+
+	// Returned memory! Yay!
+	// Returned memory could also be already freed.
+	// We'll look to see if the returned memory can be appended to another
+	//   free block. If not, then we append to the front. Memory could be
+	//   in front of an existing or behind.
+	mem_block *c = free_memory;
     address end = a + size;
     while (c) {
         if (a >= c->start && a + size <= c->start + c->size) {
@@ -218,7 +236,7 @@ void print_free_memory() {
     printf("Free Memory Blocks:\n");
     mem_block* c = free_memory;
     while(c) {
-        printf("Block from %d with size %d.\n", c->start, c->size);
+        printf("Block from %d(0x%X) with size %d.\n", c->start, c->start, c->size);
         c = c->next;
     }
     printf("=============\n");

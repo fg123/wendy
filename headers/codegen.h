@@ -100,6 +100,7 @@
 // 0x24 | NATIVE | [int32]   | binds to native function
 //                 [string]
 // 0x25 | IMPORT | [string]  | denotes that the library was imported
+//               | [address] |   jumps if already imported
 
 typedef enum opcode { 
     OP_PUSH, OP_POP, OP_BIN, OP_UNA, OP_CALL, OP_RET, OP_BIND, OP_REQ, OP_WHERE, 

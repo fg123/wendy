@@ -7,6 +7,7 @@
 #include "math.h"
 #include "global.h"
 #include "native.h"
+#include "imports.h"
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -32,9 +33,10 @@ void vm_cleanup_if_repl() {
 void vm_run(uint8_t* new_bytecode, size_t size) {
     // Verify Header
     address start_at;
-    size_t saved_size = bytecode_size;
-    if (!get_settings_flag(SETTINGS_REPL)) {
-        bytecode = new_bytecode;
+	size_t saved_size = bytecode_size;
+	init_imported_libraries_ll();
+	if (!get_settings_flag(SETTINGS_REPL)) {
+		bytecode = new_bytecode;
         start_at = verify_header(bytecode);
     }
     else {
@@ -62,7 +64,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
     for (i = start_at;; i++) {
         reset_error_flag();
         opcode op = bytecode[i];
-        //printf("i: %X\n", i);
+        // printf("i: %X\n", i);
         if (op == OP_PUSH) {
             i++;
             token t = get_token(&bytecode[i], &i);
@@ -140,10 +142,19 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
         }
         else if (op == OP_IMPORT) {
             // Ignore, for codegen purposes
-            i++;
-            i += strlen((char*)(bytecode + i));
-        }
-        else if (op == OP_RET) {
+			i++;
+			char* name = (char *)(bytecode + i);
+			i += strlen(name);
+			address a = get_address(&bytecode[i + 1]);
+			i += sizeof(address);
+			if (has_already_imported_library(name)) {
+				i = a;
+			}
+			else {
+				add_imported_library(name);
+			}
+		}
+		else if (op == OP_RET) {
             pop_frame(true, &i);
             memory_register = pop_mem_reg();
             i--;
@@ -391,13 +402,20 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
             }
         }
         else if (op == OP_CALL) {
+			token top = pop_arg(line);
+			int loc = top.t_data.number;
+			token boundName = memory[loc + 2];
             char* function_disp = safe_malloc(128 * sizeof(char));
-            function_disp[0] = 0;
-            sprintf(function_disp, "function(0x%X)", i);
+			function_disp[0] = 0;
+			if (strcmp(boundName.t_data.string, "self") == 0) {
+				sprintf(function_disp, "annonymous:0x%X", i);
+			}
+			else {
+				sprintf(function_disp, "%s:0x%X", boundName.t_data.string, i);
+			}
             push_frame(function_disp, i + 1, line);
             safe_free(function_disp);
             push_mem_reg(memory_register);
-            token top = pop_arg(line);
             if (top.t_type == T_STRUCT) {
                 address j = top.t_data.number;
                 top = memory[j + 3];
@@ -442,8 +460,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
                 }
                 push_stack_entry("this", push_memory(make_token(
                     t, make_data_num(memory_register_A))), line);  
-            }
-            int loc = top.t_data.number;
+			}
+			// Top might have changed, reload
+            loc = top.t_data.number;
             address addr = memory[loc].t_data.number;
             i = addr - 1;
             // push closure variables
@@ -455,7 +474,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
                     //printf("COPIED: %s\n", closure_list[cloc][i].id);
                 }
 			}
-			token boundName = memory[loc + 2];
 			address adr = push_memory(top);
 			if (strcmp(boundName.t_data.string, "self") != 0) {
 				push_stack_entry("self", adr, line);
@@ -520,7 +538,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
             clear_arg_stack();
             break;
         }
-    }
+	}
+	free_imported_libraries_ll();
 }
 
 static token eval_binop(token op, token a, token b) {
@@ -1026,7 +1045,9 @@ static token type_of(token a) {
         case T_NONE:
             return make_token(T_OBJ_TYPE, make_data_str("none"));
         case T_ADDRESS:
-            return make_token(T_OBJ_TYPE, make_data_str("address"));
+			return make_token(T_OBJ_TYPE, make_data_str("address"));
+		case T_RANGE:
+            return make_token(T_OBJ_TYPE, make_data_str("range"));
         case T_LIST:
             return make_token(T_OBJ_TYPE, make_data_str("list"));
         case T_STRUCT:

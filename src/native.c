@@ -21,6 +21,8 @@ static token native_examineMemory(token* args);
 static token native_exec(token* args);
 static token native_getc(token* args);
 static token native_printBytecode(token* args);
+static token native_garbageCollect(token* args);
+static token native_printFreeMemory(token* args);
 
 static native_function native_functions[] = {
     { "printCallStack", 1, native_printCallStack },
@@ -29,7 +31,9 @@ static native_function native_functions[] = {
     { "examineMemory", 2, native_examineMemory },
     { "exec", 1, native_exec },
     { "getc", 0, native_getc },
-    { "printBytecode", 0, native_printBytecode }
+	{ "printBytecode", 0, native_printBytecode },
+	{ "garbageCollect", 0, native_garbageCollect },
+	{ "printFreeMemory", 0, native_printFreeMemory }
 };
 
 static double native_to_numeric(token* t) {
@@ -38,6 +42,16 @@ static double native_to_numeric(token* t) {
 
 static char* native_to_string(token* t) {
     return t->t_data.string;
+}
+
+static token native_garbageCollect(token* args) {
+	garbage_collect(0);
+	return noneret_token();
+}
+
+static token native_printFreeMemory(token* args) {
+	print_free_memory();
+	return noneret_token();
 }
 
 static token native_getc(token* args) {
