@@ -64,7 +64,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
     for (i = start_at;; i++) {
         reset_error_flag();
         opcode op = bytecode[i];
-        // printf("i: %X\n", i);
         if (op == OP_PUSH) {
             i++;
             token t = get_token(&bytecode[i], &i);
