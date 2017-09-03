@@ -11,7 +11,7 @@ CFLAGSNOLINK = -I $(INCDIR) -g
 _DEPS = scanner.h token.h error.h memory.h execpath.h global.h debugger.h ast.h vm.h codegen.h source.h native.h optimizer.h imports.h
 DEPS = $(patsubst %,$(INCDIR)/%,$(_DEPS))
 
-_OBJ = main.o debugger.o scanner.o token.o memory.o error.o execpath.o ast.o codegen.o vm.o global.o source.o native.o optimizer.o imports.c
+_OBJ = main.o debugger.o scanner.o token.o memory.o error.o execpath.o ast.o codegen.o vm.o global.o source.o native.o optimizer.o imports.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 

@@ -1,6 +1,8 @@
 #ifndef IMPORTS_H
 #define IMPORTS_H
 
+#include <stdbool.h>
+
 // imports.h - Felix Guo
 // Tracks a linked list of imported libraries both during codegen
 //   and VM execution

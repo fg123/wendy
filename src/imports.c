@@ -1,5 +1,8 @@
 #include "imports.h"
+#include "global.h"
+
 #include <stdbool.h>
+#include <string.h>
 
 typedef struct import_node {
     char* name;
