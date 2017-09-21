@@ -14,8 +14,8 @@ let pow => (base, expt)
 	if(expt < 0) ret 1 / pow(base, -expt);
 	else if (expt == 0) ret 1;
 	else if (expt % 2 == 0) {
-        let half_pow = pow(base, expt / 2);
-        ret half_pow * half_pow;
+            let half_pow = pow(base, expt / 2);
+            ret half_pow * half_pow;
 	}
 	else ret base * pow(base, expt - 1);
 
@@ -36,4 +36,4 @@ let root => (num, rt) {
 };
 let sqrt => (n) root(n, 2)
 let is_even => (x) x % 2 == 0
-let is_odd => (x) x % 2 == 0
+let is_odd => (x) x % 2 == 1
