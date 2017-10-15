@@ -149,7 +149,7 @@ int main(int argc, char** argv) {
         set_settings_flag(SETTINGS_NOOP);
         set_settings_flag(SETTINGS_REPL);        
         push_frame("main", 0, 0);
-
+		bool has_run = false;
         while (1) {
             size_t source_size = 1;
             source_to_run[0] = 0;
@@ -176,11 +176,14 @@ int main(int argc, char** argv) {
                 free(input_buffer);
             }
             add_history(source_to_run);
-            run(source_to_run);
+			run(source_to_run);
+			has_run = true;
         }
         safe_free(source_to_run);
-        c_free_memory();
-        vm_cleanup_if_repl();
+		c_free_memory();
+		if (has_run) {
+			vm_cleanup_if_repl();
+		}
         return 0;
     }
     set_settings_flag(SETTINGS_STRICT_ERROR);
