@@ -1,4 +1,4 @@
-#define _GNU_SOURCE 
+#define _GNU_SOURCE
 #include "error.h"
 #include "memory.h"
 #include "source.h"
@@ -21,22 +21,22 @@ bool get_error_flag() {
 
 // Error Functions:
 void print_verbose_info() {
-	if (get_settings_flag(SETTINGS_VERBOSE)) {
-		printf(RED "VERBOSE ERROR DUMP\n" RESET);
-		printf(GRN "Limits\n" RESET);
-		printf("MEMORY_SIZE %d\n", MEMORY_SIZE);
-		printf("STACK_SIZE %d\n", STACK_SIZE);
-		printf("ARGSTACK_SIZE %d\n", ARGSTACK_SIZE);
-		printf("RESERVED_MEMORY %d\n", RESERVED_MEMORY);
-		printf("CLOSURES_SIZE %d\n", CLOSURES_SIZE);
-		printf("MEMREGSTACK_SIZE %d\n", MEMREGSTACK_SIZE);
-		printf(GRN "Memory\n" RESET);
-		printf("FP: %d %x\n", frame_pointer, frame_pointer);
-		printf("SP: %d %x\n", stack_pointer, stack_pointer);
-		printf("AP: %d %x\n", arg_pointer, arg_pointer);
-		printf("CP: %d %x\n", closure_list_pointer, closure_list_pointer);
-		print_free_memory();
-	}
+    if (get_settings_flag(SETTINGS_VERBOSE)) {
+        printf(RED "VERBOSE ERROR DUMP\n" RESET);
+        printf(GRN "Limits\n" RESET);
+        printf("MEMORY_SIZE %d\n", MEMORY_SIZE);
+        printf("STACK_SIZE %d\n", STACK_SIZE);
+        printf("ARGSTACK_SIZE %d\n", ARGSTACK_SIZE);
+        printf("RESERVED_MEMORY %d\n", RESERVED_MEMORY);
+        printf("CLOSURES_SIZE %d\n", CLOSURES_SIZE);
+        printf("MEMREGSTACK_SIZE %d\n", MEMREGSTACK_SIZE);
+        printf(GRN "Memory\n" RESET);
+        printf("FP: %d %x\n", frame_pointer, frame_pointer);
+        printf("SP: %d %x\n", stack_pointer, stack_pointer);
+        printf("AP: %d %x\n", arg_pointer, arg_pointer);
+        printf("CP: %d %x\n", closure_list_pointer, closure_list_pointer);
+        print_free_memory();
+    }
 }
 
 char* error_message(char* message, va_list args) {
@@ -49,12 +49,12 @@ void error_general(char* message, ...) {
     va_list args;
     va_start(args, message);
 
-    char* msg = error_message(message, args); 
+    char* msg = error_message(message, args);
     printf(RED "Fatal Error: " RESET "%s\n", msg);
-	print_verbose_info();
-	
-	// Cannot be safe, because vasprintf uses malloc!
-	free(msg);
+    print_verbose_info();
+
+    // Cannot be safe, because vasprintf uses malloc!
+    free(msg);
     if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
         safe_exit(1);
     }
@@ -65,16 +65,16 @@ void error_lexer(int line, int col, char* message, ...) {
     va_start(args, message);
 
     char* msg = error_message(message, args);
-    printf(RED "Parser Error" RESET " on line " YEL "%d" RESET ": %s\n", 
+    printf(RED "Parser Error" RESET " on line " YEL "%d" RESET ": %s\n",
         line, msg);
-    
+
     if (has_source()) {
         printf("==========================\n%5s %s (%s)\n", "Line", "Source",
             get_source_name());
         printf("%5d " RED "%s\n" RESET, line, get_source_line(line));
         printf("      %*c^\n", col, ' ');
     }
-	print_verbose_info();
+    print_verbose_info();
     free(msg);
     if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
         safe_exit(1);
@@ -87,16 +87,16 @@ void error_compile(int line, int col, char* message, ...) {
     va_start(args, message);
 
     char* msg = error_message(message, args);
-    printf(RED "Compile Error (Optimize)" RESET " on line " YEL "%d" RESET ": %s\n", 
+    printf(RED "Compile Error (Optimize)" RESET " on line " YEL "%d" RESET ": %s\n",
         line, msg);
-    
+
     if (has_source()) {
         printf("==========================\n%5s %s (%s)\n", "Line", "Source",
             get_source_name());
         printf("%5d " RED "%s\n" RESET, line, get_source_line(line));
         printf("      %*c^\n", col, ' ');
     }
-	print_verbose_info();
+    print_verbose_info();
     free(msg);
     if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
         safe_exit(1);
@@ -110,7 +110,7 @@ void error_runtime(int line, char* message, ...) {
     char* msg = error_message(message, args);
     printf(RED "Runtime Error" RESET " on line " YEL "%d" RESET" (" YEL "0x%X"
         RESET "): %s\n", line, get_instruction_pointer(), msg);
-    
+
     if (has_source()) {
         if (!is_source_accurate()) {
             printf(YEL "Note: " RESET "Source was automatically loaded "
@@ -125,7 +125,7 @@ void error_runtime(int line, char* message, ...) {
                 if (i == line) {
                     printf("%5d " RED "%s\n" RESET, i, get_source_line(i));
                 }
-                else {  
+                else {
                     printf("%5d %s\n" RESET, i, get_source_line(i));
                 }
             }
@@ -133,8 +133,8 @@ void error_runtime(int line, char* message, ...) {
         printf("==========================\n");
     }
     free(msg);
-	print_call_stack(20);
-	print_verbose_info();
+    print_call_stack(20);
+    print_verbose_info();
     fflush(stdout);
     if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
         safe_exit(1);

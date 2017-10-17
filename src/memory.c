@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-// Memory.c, provides functions for the interpreter to manipulate the local 
+// Memory.c, provides functions for the interpreter to manipulate the local
 //   WendyScript memory
 address frame_pointer = 0;
 address stack_pointer = 0;
@@ -18,17 +18,17 @@ static const char AUTOFRAME_START_CHAR = '<';
 static const char RA_START_CHAR = '#';
 
 // pointer to the end of the main frame
-address main_end_pointer = 0; 
+address main_end_pointer = 0;
 
 void mark_locations(bool* marked, address start, size_t block_size) {
-	for (int j = start; j < start + block_size; j++) {
-		marked[j] = true;
-	}
+    for (int j = start; j < start + block_size; j++) {
+        marked[j] = true;
+    }
 }
 
 bool garbage_collect(int size) {
-    if (get_settings_flag(SETTINGS_NOGC)) { 
-        return has_memory(size); 
+    if (get_settings_flag(SETTINGS_NOGC)) {
+        return has_memory(size);
     }
     // Garbage! We'll implement the most basic mark and sweep algo.
     bool *marked = safe_calloc(MEMORY_SIZE, sizeof(bool));
@@ -37,41 +37,41 @@ bool garbage_collect(int size) {
         marked[i] = true;
     }
     for (int i = 0; i < stack_pointer; i++) {
-        if (call_stack[i].id[0] != FUNCTION_START_CHAR && 
-			call_stack[i].id[0] != AUTOFRAME_START_CHAR && 
-			call_stack[i].id[0] != RA_START_CHAR) {
+        if (call_stack[i].id[0] != FUNCTION_START_CHAR &&
+            call_stack[i].id[0] != AUTOFRAME_START_CHAR &&
+            call_stack[i].id[0] != RA_START_CHAR) {
 
             address a = call_stack[i].val;
-			// Mark it!
-			marked[a] = true;
-			// Check if it's a pointer type?
-			if (memory[a].t_type == T_LIST || memory[a].t_type == T_STRUCT) {
-				a = memory[a].t_data.number;
-				mark_locations(marked, a, memory[a].t_data.number);
-			}
-			else if (memory[a].t_type == T_FUNCTION) {
-				a = memory[a].t_data.number;
-				mark_locations(marked, a, 3);
-			}
-			else if (memory[a].t_type == T_STRUCT_INSTANCE) {
-				a = memory[a].t_data.number;
-				// a points to T_STRUCT_INSTANCE_HEAD
-				address meta_loc = memory[a].t_data.number;
-				// meta_loc points to T_STRUCT_METADATA, mark the metadata
-				size_t meta_size = memory[meta_loc].t_data.number;
-				mark_locations(marked, meta_loc, meta_size);
-				// count parameters
-				size_t params = 0;
-				for (address i = meta_loc; i < meta_loc + meta_size; i++) {
-					if (memory[i].t_type == T_STRUCT_PARAM) {
-						params++;
-					}
-				}
-				// Mark parameters, +1 for T_STRUCT_INSTANCE_HEAD
-				mark_locations(marked, a, params + 1);
-			}
-		}
-	}
+            // Mark it!
+            marked[a] = true;
+            // Check if it's a pointer type?
+            if (memory[a].t_type == T_LIST || memory[a].t_type == T_STRUCT) {
+                a = memory[a].t_data.number;
+                mark_locations(marked, a, memory[a].t_data.number);
+            }
+            else if (memory[a].t_type == T_FUNCTION) {
+                a = memory[a].t_data.number;
+                mark_locations(marked, a, 3);
+            }
+            else if (memory[a].t_type == T_STRUCT_INSTANCE) {
+                a = memory[a].t_data.number;
+                // a points to T_STRUCT_INSTANCE_HEAD
+                address meta_loc = memory[a].t_data.number;
+                // meta_loc points to T_STRUCT_METADATA, mark the metadata
+                size_t meta_size = memory[meta_loc].t_data.number;
+                mark_locations(marked, meta_loc, meta_size);
+                // count parameters
+                size_t params = 0;
+                for (address i = meta_loc; i < meta_loc + meta_size; i++) {
+                    if (memory[i].t_type == T_STRUCT_PARAM) {
+                        params++;
+                    }
+                }
+                // Mark parameters, +1 for T_STRUCT_INSTANCE_HEAD
+                mark_locations(marked, a, params + 1);
+            }
+        }
+    }
 
     for (int i = 0; i < MEMORY_SIZE; i++) {
         if (!marked[i]) {
@@ -85,8 +85,8 @@ bool garbage_collect(int size) {
 address create_closure() {
     address location = closure_list_pointer;
     // Things to reserve.
-    size_t size = stack_pointer - main_end_pointer; 
-    
+    size_t size = stack_pointer - main_end_pointer;
+
     stack_entry* closure = safe_malloc(sizeof(stack_entry) * size);
     size_t actual_size = 0;
     for (int i = main_end_pointer; i < stack_pointer; i++) {
@@ -107,25 +107,25 @@ address create_closure() {
     closure = safe_realloc(closure, actual_size * sizeof(stack_entry));
     closure_list[closure_list_pointer] = closure;
     closure_list_sizes[closure_list_pointer] = actual_size;
-    closure_list_pointer++; 
+    closure_list_pointer++;
 
     if (closure_list_pointer == closure_list_size) {
         // Resize for more storage
         closure_list_size *= 2;
-        closure_list = safe_realloc(closure_list, 
+        closure_list = safe_realloc(closure_list,
             closure_list_size * sizeof(stack_entry*));
         // Reset 0s
         for (int i = closure_list_pointer; i < closure_list_size; i++) {
             closure_list[i] = 0;
         }
-        closure_list_sizes = safe_realloc(closure_list_sizes, 
+        closure_list_sizes = safe_realloc(closure_list_sizes,
             closure_list_size * sizeof(size_t));
     }
     return location;
 }
 
 bool has_memory(int size) {
-    // Do we have memory?? 
+    // Do we have memory??
     mem_block* c = free_memory;
     mem_block* p = 0;
     while (c) {
@@ -137,18 +137,18 @@ bool has_memory(int size) {
             if (c->size == 0) {
                 // What is this free block doing here with size 0? Atrocious!
                 if (p) p->next = c->next;
-                else free_memory = c->next;  
+                else free_memory = c->next;
 
                 // Remove that memory block!
                 safe_free(c);
 
                 // Next one!
                 if (p) c = p->next;
-                else c = free_memory;  
+                else c = free_memory;
             }
             else {
                 p = c;
-                c = c->next; 
+                c = c->next;
             }
         }
     }
@@ -156,7 +156,7 @@ bool has_memory(int size) {
 }
 
 address pls_give_memory(int size, int line) {
-    // Do we have memory?? 
+    // Do we have memory??
     if (has_memory(size)) {
         mem_block* c = free_memory;
         while (c) {
@@ -170,11 +170,11 @@ address pls_give_memory(int size, int line) {
             }
             else {
                 // Try next block...
-                c = c->next; 
+                c = c->next;
             }
         }
     }
-    // No free memory blocks??? 
+    // No free memory blocks???
 //  printf("Test: %d\b", garbage_collect(size));
     if(garbage_collect(size)) {
         // try again
@@ -187,17 +187,17 @@ address pls_give_memory(int size, int line) {
 }
 
 void here_u_go(address a, int size) {
-	/* Clear Memory */
-	for (address i = a; i < a + size; i++) {
-		memory[i].t_type = T_EMPTY;
-	}
+    /* Clear Memory */
+    for (address i = a; i < a + size; i++) {
+        memory[i].t_type = T_EMPTY;
+    }
 
-	// Returned memory! Yay!
-	// Returned memory could also be already freed.
-	// We'll look to see if the returned memory can be appended to another
-	//   free block. If not, then we append to the front. Memory could be
-	//   in front of an existing or behind.
-	mem_block *c = free_memory;
+    // Returned memory! Yay!
+    // Returned memory could also be already freed.
+    // We'll look to see if the returned memory can be appended to another
+    //   free block. If not, then we append to the front. Memory could be
+    //   in front of an existing or behind.
+    mem_block *c = free_memory;
     address end = a + size;
     while (c) {
         if (a >= c->start && a + size <= c->start + c->size) {
@@ -262,7 +262,7 @@ void init_memory() {
     closure_list_sizes = safe_malloc(sizeof(size_t) * CLOSURES_SIZE);
     closure_list_size = CLOSURES_SIZE;
 
-    // ADDRESS 0 REFERS TO NONE_TOKEN  
+    // ADDRESS 0 REFERS TO NONE_TOKEN
     push_memory(none_token());
     // ADDRESS 1 REFERS TO EMPTY RETURNS TOKEN
     push_memory(make_token(T_NONERET, make_data_str("<noneret>")));
@@ -276,7 +276,7 @@ void c_free_memory() {
     safe_free(memory);
     safe_free(call_stack);
     safe_free(mem_reg_stack);
-    
+
     // Clear all the free_memory blocks.
     mem_block* c = free_memory;
     while (c) {
@@ -297,11 +297,11 @@ void check_memory(int line) {
     // Check stack
     if (stack_pointer >= STACK_SIZE) {
         printf("Call stack at %d with limit %d!", stack_pointer, STACK_SIZE);
-        error_runtime(line, MEMORY_STACK_OVERFLOW); 
-    } 
+        error_runtime(line, MEMORY_STACK_OVERFLOW);
+    }
     // Check memory, if the two ends overlap
     if (arg_pointer <= MEMORY_SIZE - ARGSTACK_SIZE) {
-        printf("Internal Stack out of memory! %d with limit %d.\n", 
+        printf("Internal Stack out of memory! %d with limit %d.\n",
                 MEMORY_SIZE - arg_pointer, ARGSTACK_SIZE);
         error_runtime(line, MEMORY_STACK_OVERFLOW);
     }
@@ -322,7 +322,7 @@ void push_frame(char* name, address ret, int line) {
     stack_entry new_entry = { "> ", frame_pointer };
     strcat(new_entry.id, name);
     strcat(new_entry.id, "()");
-    // this new entry will be stored @ location stack_pointer, so we move the 
+    // this new entry will be stored @ location stack_pointer, so we move the
     //   frame pointer to this location
     frame_pointer = stack_pointer;
     // add and increment stack_pointer
@@ -332,7 +332,7 @@ void push_frame(char* name, address ret, int line) {
     ne2.id[0] = RA_START_CHAR;
     call_stack[stack_pointer++] = ne2;
     check_memory(line);
-    // pointer to self  
+    // pointer to self
 }
 
 void push_auto_frame(address ret, char* type, int line) {
@@ -343,10 +343,10 @@ void push_auto_frame(address ret, char* type, int line) {
 
     frame_pointer = stack_pointer;
     call_stack[stack_pointer++] = new_entry;
-    
+
     check_memory(line);
 
-    stack_entry ne2 = { "RET", ret }; 
+    stack_entry ne2 = { "RET", ret };
     call_stack[stack_pointer++] = ne2;
     check_memory(line);
 }
@@ -354,7 +354,7 @@ void push_auto_frame(address ret, char* type, int line) {
 bool pop_frame(bool is_ret, address* ret) {
     //printf("POPPED RET:%d\n", is_ret);
     //print_call_stack();
-    // trace back until we hit a FUNC 
+    // trace back until we hit a FUNC
     address trace = frame_pointer;
     if (is_ret) {
         // character [ is a function frame pointer, we trace until we find it
@@ -378,7 +378,7 @@ void write_state(FILE* fp) {
             fprintf(fp, ">%s %d\n", call_stack[i].id, call_stack[i].val);
         }
         else {
-            fprintf(fp, "%s %d\n", call_stack[i].id, call_stack[i].val);        
+            fprintf(fp, "%s %d\n", call_stack[i].id, call_stack[i].val);
         }
     }
     fprintf(fp, "Memory: %d\n", MEMORY_SIZE);
@@ -388,7 +388,7 @@ void write_state(FILE* fp) {
             print_token_inline(&memory[i], fp);
             fprintf(fp, "\n");
         }
-    } 
+    }
 }
 
 void print_call_stack(int maxlines) {
@@ -400,11 +400,11 @@ void print_call_stack(int maxlines) {
         if (call_stack[i].id[0] != '$' && call_stack[i].id[0] != '~') {
             if (frame_pointer == i) {
                 if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
-                    printf("%5d FP-> [" BLU "%s" RESET " -> 0x%04X", i, 
+                    printf("%5d FP-> [" BLU "%s" RESET " -> 0x%04X", i,
                             call_stack[i].id, call_stack[i].val);
                 }
                 else {
-                    printf("%5d FP-> [%s -> 0x%04X", i, call_stack[i].id, 
+                    printf("%5d FP-> [%s -> 0x%04X", i, call_stack[i].id,
                             call_stack[i].val);
                 }
 //              print_token_inline(&memory[call_stack[i].val], stdout);
@@ -412,20 +412,20 @@ void print_call_stack(int maxlines) {
             }
             else {
                 if (call_stack[i].id[0] == FUNCTION_START_CHAR) {
-                    printf("%5d      [" BLU "%s" RESET " -> 0x%04X: ", i, 
+                    printf("%5d      [" BLU "%s" RESET " -> 0x%04X: ", i,
                             call_stack[i].id, call_stack[i].val);
                 }
                 else if (call_stack[i].is_closure) {
-                    printf("%5d  C-> [%s -> 0x%04X: ",i, 
+                    printf("%5d  C-> [%s -> 0x%04X: ",i,
                             call_stack[i].id, call_stack[i].val);
                 }
                 else {
-                    printf("%5d      [%s -> 0x%04X: ",i, 
+                    printf("%5d      [%s -> 0x%04X: ",i,
                             call_stack[i].id, call_stack[i].val);
                 }
                 print_token_inline(&memory[call_stack[i].val], stdout);
                 printf("]\n");
-                
+
             }
         }
     }
@@ -450,7 +450,7 @@ token* top_arg(int line) {
 token pop_arg(int line) {
     if (arg_pointer != MEMORY_SIZE - 1) {
         token ret = memory[++arg_pointer];
-        memory[arg_pointer].t_type = 0; 
+        memory[arg_pointer].t_type = 0;
         return ret;
     }
     error_runtime(line, MEMORY_STACK_UNDERFLOW);
@@ -470,7 +470,7 @@ address push_memory_s(token t, int size) {
     address loc = pls_give_memory(size + 1, t.t_line);
     memory[loc] = list_header_token(size);
 //  printf("pushmemsize: %s\n", memory[loc].t_data.string);
-//  memory[loc].t_data.number = size; 
+//  memory[loc].t_data.number = size;
     for (int i = 0; i < size; i++) {
         memory[loc + i + 1] = t;
     }
@@ -482,7 +482,7 @@ address push_memory_a(token* a, int size) {
     address loc = pls_give_memory(size + 1, a[0].t_line);
     memory[loc] = list_header_token(size);
 //  printf("pushmemsize: %s\n", memory[loc].t_data.string);
-//  memory[loc].t_data.number = size; 
+//  memory[loc].t_data.number = size;
     for (int i = 0; i < size; i++) {
         memory[loc + i + 1] = a[i];
     }
@@ -561,12 +561,12 @@ address get_address_of_id(char* id, int line) {
     for (int i = stack_pointer - 1; i > frame_ptr; i--) {
     //for (int i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
         if (strcmp(id, call_stack[i].id) == 0) {
-            return call_stack[i].val;   
+            return call_stack[i].val;
         }
     }
     for (int i = 0; i < main_end_pointer; i++) {
         if (strcmp(id, call_stack[i].id) == 0) {
-            return call_stack[i].val;   
+            return call_stack[i].val;
         }
     }
     return 0;
@@ -574,7 +574,7 @@ address get_address_of_id(char* id, int line) {
 
 address get_stack_pos_of_id(char* id, int line) {
     if (!id_exist(id, true)) {
-        
+
         error_runtime(line, MEMORY_ID_NOT_FOUND, id);
         return 0;
     }

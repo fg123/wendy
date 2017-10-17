@@ -15,7 +15,7 @@
 
 static address memory_register = 0;
 static address memory_register_A = 0;
-static data data_register; 
+static data data_register;
 static int line;
 static address i = 0;
 static uint8_t* bytecode = 0;
@@ -33,10 +33,10 @@ void vm_cleanup_if_repl() {
 void vm_run(uint8_t* new_bytecode, size_t size) {
     // Verify Header
     address start_at;
-	size_t saved_size = bytecode_size;
-	init_imported_libraries_ll();
-	if (!get_settings_flag(SETTINGS_REPL)) {
-		bytecode = new_bytecode;
+    size_t saved_size = bytecode_size;
+    init_imported_libraries_ll();
+    if (!get_settings_flag(SETTINGS_REPL)) {
+        bytecode = new_bytecode;
         start_at = verify_header(bytecode);
     }
     else {
@@ -49,9 +49,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
         }
         else {
             bytecode = safe_malloc(bytecode_size * sizeof(uint8_t));
-        }        
+        }
         if (saved_size != 0) {
-            start_at = saved_size - 1; 
+            start_at = saved_size - 1;
         }
         else {
             start_at = 0;
@@ -59,519 +59,519 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
         offset_addresses(new_bytecode, size, start_at);
         for (size_t i = 0; i < size; i++) {
             bytecode[start_at + i] = new_bytecode[i];
-        }        
+        }
     }
     for (i = start_at;; i++) {
-		reset_error_flag();
-		switch (bytecode[i]) {
-			case OP_PUSH: {
-				i++;
-				token t = get_token(&bytecode[i], &i);
-				if (t.t_type == T_TIME) {   
-					t = time_token();
-				}
-				else if (t.t_type == T_IDENTIFIER) {
-					t = *get_value_of_id(t.t_data.string, line);
-				}
-				else if (t.t_type == T_MEMBER) {
-					t.t_type = T_IDENTIFIER;
-				}
-				last_pushed_identifier = t;
-				push_arg(t, line);
-				break;
-			}
-			case OP_SRC: {
-				void* ad = &bytecode[i + 1];
-				line = get_address(ad);
-				i += sizeof(int);
-				break;
-			}
-			case OP_POP: {
-				token t = pop_arg(line);    
-				break;
-			}
-			case OP_BIN: {
-				i++;
-				token operator = get_token(&bytecode[i], &i);
-				token b = pop_arg(line);
-				token a = pop_arg(line);
-				push_arg(eval_binop(operator, a, b), line);
-				break;
-			}
-			case OP_RBIN: {
-				i++;
-				token operator = get_token(&bytecode[i], &i);
-				token a = pop_arg(line);
-				token b = pop_arg(line);
-				push_arg(eval_binop(operator, a, b), line);
-				break;
-			}
-			case OP_NATIVE: {
-				i++;
-				void* ag = &bytecode[i];
-				address args = get_address(ag);
-				i += sizeof(address);
-				char* name = (char*)(bytecode + i);
-				i += strlen(name);
-				native_call(name, args, line);
-				break;
-			}
-			case OP_UNA: {
-				i++;
-				token operator = get_token(&bytecode[i], &i);
-				token a = pop_arg(line);
-				push_arg(eval_uniop(operator, a), line);
-				break;
-			}
-			case OP_CHTYPE: {
-				i++;
-				token* t = top_arg(line);
-				t->t_type = bytecode[i];
-				break;
-			}
-			case OP_BIND: {
-				i++;
-				if (id_exist((char*)(bytecode + i), false)) {
-					error_runtime(line, VM_VAR_DECLARED_ALREADY, 
-									(char*)(bytecode + i)); 
-				}
-				else {
-					push_stack_entry((char*)(bytecode + i), memory_register, line); 
-					i += strlen((char*)(bytecode + i));
-				}
-				break;
-			}
-			case OP_WHERE: {
-				i++;
-				memory_register = get_address_of_id((char*)(bytecode + i), i);
-				i += strlen((char*)(bytecode + i));
-				memory_register_A = memory_register;
-				break;
-			}
-			case OP_IMPORT: {
-				i++;
-				char* name = (char *)(bytecode + i);
-				i += strlen(name);
-				address a = get_address(&bytecode[i + 1]);
-				i += sizeof(address);
-				if (has_already_imported_library(name)) {
-					i = a - 1;
-				}
-				else {
-					add_imported_library(name);
-				}
-				break;
-			}
-			case OP_RET: {
-				pop_frame(true, &i);
-				memory_register = pop_mem_reg();
-				i--;
-				break;
-			}
-			case OP_DIN: {
-				token* t = top_arg(line);
-				data_register = t->t_data;
-				break;
-			}
-			case OP_DOUT: {
-				token* t = top_arg(line);
-				t->t_data = data_register;  
-				break;
-			}
-			case OP_LJMP: {
-				// L_JMP Address LoopIndexString
-				void* ad = &bytecode[i + 1];
-				address end_of_loop = get_address(ad);
-				i += sizeof(address);
-				char* loop_index_string = (char*)(bytecode + (++i));
-				i += strlen((char*)(bytecode + i));
-				token loop_index_token = *(get_value_of_id(loop_index_string, line));
-				int index = loop_index_token.t_data.number;
-				token condition = *top_arg(line);
-				bool jump = false;
-				if (condition.t_type == T_TRUE) {
-					// Do Nothing
-				}
-				else if (condition.t_type == T_LIST) {
-					address lst = condition.t_data.number;
-					int lst_size = memory[lst].t_data.number;
-					if (index >= lst_size) jump = true;
-				}
-				else if (condition.t_type == T_RANGE) {
-					int end = range_end(condition);
-					int start = range_start(condition);
-					if (start < end) {
-						if (start + index >= end) jump = true;
-					}
-					else {
-						if (start - index <= end) jump = true;
-					}
-				}
-				else if (condition.t_type == T_STRING) {
-					int size = strlen(condition.t_data.string);
-					if (index >= size) jump = true;
-				}
-				else {
-					jump = true;
-				}
-				if (jump)  {
-					// Pop Condition too!
-					pop_arg(line);
-					i = end_of_loop - 1;
-				}
-				break;
-			}
-			case OP_LBIND: {
-				char* user_index = (char*)(bytecode + (++i));
-				i += strlen((char*)(bytecode + i));
-				char* loop_index_string = (char*)(bytecode + (++i));
-				i += strlen((char*)(bytecode + i));
-				token loop_index_token = *(get_value_of_id(loop_index_string, i));
-				int index = loop_index_token.t_data.number;
-				token condition = pop_arg(line);
-				token res = loop_index_token;
-				if (condition.t_type == T_LIST) {       
-					address lst = condition.t_data.number;
-					res = memory[lst + 1 + index];
-				}
-				else if (condition.t_type == T_RANGE) {
-					int end = range_end(condition);
-					int start = range_start(condition);
-					if (start < end) {
-						res = make_token(T_NUMBER, make_data_num(start + index));
-					}
-					else {
-						res = make_token(T_NUMBER, make_data_num(start - index));
-					}
-				}
-				else if (condition.t_type == T_STRING) {
-					token r = make_token(T_STRING, make_data_str(""));
-					r.t_data.string[0] = condition.t_data.string[index];
-					r.t_data.string[1] = 0;
-					res = r;
-				}
-				address mem_to_mod = get_address_of_id(user_index, i);
-				memory[mem_to_mod] = res;
-				break;
-			}
-			case OP_INC: {
-				memory[memory_register].t_data.number++;
-				break;
-			}
-			case OP_DEC: {
-				memory[memory_register].t_data.number--;
-				break;
-			}
-			case OP_ASSERT: {
-				i++;
-				token_type matching = bytecode[i];
-				i++;
-				char* c = (char*) (bytecode + i);
-				if (memory[memory_register].t_type != matching) {
-					error_runtime(line, c);
-				}
-				i += strlen(c);
-				break;
-			}
-			case OP_FRM: {
-				push_auto_frame(i + 1, "automatic", line);
-				push_mem_reg(memory_register);
-				break;
-			}
-			case OP_MPTR: {
-				memory_register = (address)memory[memory_register].t_data.number;
-				break;
-			}
-			case OP_END: {
-				pop_frame(false, &i);
-				memory_register = pop_mem_reg();
-				break;
-			}  
-			case OP_REQ: { 
-				// Memory Request Instruction
-				memory_register = pls_give_memory(bytecode[i + 1], line);
-				i++;
-				break;
-			}
-			case OP_RBW: {
-				// REQUEST BIND AND WRITE
-				memory_register = pls_give_memory(1, line);
-				i++;
-				char* bind_name = (char*)(bytecode + i);
-				if (id_exist(bind_name, false)) {
-					address a = get_stack_pos_of_id(bind_name, line);
-					if (!call_stack[a].is_closure) {
-						error_runtime(line, VM_VAR_DECLARED_ALREADY, bind_name); 
-					}
-				}
-				push_stack_entry(bind_name, memory_register, line); 
-				i += strlen(bind_name);
-				token value = pop_arg(line);
-				if (value.t_type == T_FUNCTION) {
-					// Modify Name to be the base_name
-					address fn_adr = value.t_data.number;
-					strcpy(memory[fn_adr + 2].t_data.string, bind_name);
-				}
-				memory[memory_register] = value;
-				break;
-			}
-			case OP_PLIST: {
-				i++;
-				int size = bytecode[i];
-				for (int j = memory_register + size - 1; 
-						j >= memory_register; j--) {
-					memory[j] = pop_arg(line);
-				}
-				push_arg(make_token(T_LIST, make_data_num(memory_register)), line);
-				break;
-			}
-			case OP_NTHPTR: {
-				// Should be a list at the memory register.
-				token lst = memory[memory_register];
-				if (lst.t_type != T_LIST) {
-					error_runtime(line, VM_NOT_A_LIST); 
-				}
-				address lst_start = lst.t_data.number;
-				token in = pop_arg(line);
-				if (in.t_type != T_NUMBER) {
-					error_runtime(line, VM_INVALID_LVALUE_LIST_SUBSCRIPT);
-				}
-				int lst_size = memory[lst_start].t_data.number;
-				int index = in.t_data.number;
-				if (index >= lst_size) {
-					error_runtime(line, VM_LIST_REF_OUT_RANGE);
-				}
-				memory_register = lst_start + index + 1;
-				break;
-			}
-			case OP_CLOSUR: {
-				push_arg(make_token(T_CLOSURE, make_data_num(create_closure())), line);
-				break;
-			}
-			case OP_MEMPTR: {
-				// Member Pointer
-				// Structs can only modify Static members, instances modify instance 
-				//   members.
-				// Either will be allowed to look through static parameters.
-				token t = memory[memory_register];
-				token e = pop_arg(line);
-				if (t.t_type != T_STRUCT && t.t_type != T_STRUCT_INSTANCE) {
-					error_runtime(line, VM_NOT_A_STRUCT);
-				}
-				int params_passed = 0;
-				address metadata = (int)(t.t_data.number);
-				if (t.t_type == T_STRUCT_INSTANCE) {
-					// metadata actually points to the STRUCT_INSTANCE_HEAD
-					//   right now.
-					metadata = (address)(memory[metadata].t_data.number);
-				}
-				token_type struct_type = t.t_type;
-				address struct_header = t.t_data.number;
-				bool found = false;
-				while(!found) {
-					int params_passed = 0;
-					int size = (int)(memory[metadata].t_data.number);
-					for (int i = 0; i < size; i++) {
-						token mdata = memory[metadata + i];
-						if (mdata.t_type == T_STRUCT_STATIC &&
-							strcmp(mdata.t_data.string, e.t_data.string) == 0) {
-							// Found the static member we were looking for.
-							memory_register = metadata + i + 1;
-							found = true;
-							if (memory[memory_register].t_type == T_FUNCTION) {
-								memory[memory_register].t_type = T_STRUCT_FUNCTION;
-							}
-							break;
-						}
-						else if (mdata.t_type == T_STRUCT_PARAM) {
-							if (struct_type == T_STRUCT_INSTANCE && 
-								strcmp(mdata.t_data.string, e.t_data.string) == 0) {
-								// Found the instance member we were looking for.
-								// Address of the STRUCT_INSTANCE_HEADER offset by
-								//   params_passed + 1;
-								address loc = struct_header + params_passed + 1;
-								memory_register = loc;
-								found = true;
-								if (memory[memory_register].t_type == T_FUNCTION) {
-									memory[memory_register].t_type = T_STRUCT_FUNCTION;
-								}
-								break;
-							}
-							params_passed++;
-						}
-					}
-					if (found) break;
-					error_runtime(line, VM_MEMBER_NOT_EXIST, e.t_data.string);
-				}
-				break;
-			}
-			case OP_JMP: {
-				void* ad = &bytecode[i + 1];
-				address addr = get_address(ad);
-				i = addr - 1;
-				break;
-			}
-			case OP_JIF: {
-				// Jump IF False Instruction
-				token top = pop_arg(line);
-	
-				void* ad = &bytecode[i + 1];
-				address addr = get_address(ad);
-				i += sizeof(address);
-	
-				if (top.t_type != T_TRUE && top.t_type != T_FALSE) {
-					error_runtime(line, VM_COND_EVAL_NOT_BOOL);         
-				}
-				if (top.t_type == T_FALSE) {
-					i = addr - 1;
-				}
-				break;
-			}
-			case OP_CALL: {
-				token top = pop_arg(line);
-				int loc = top.t_data.number;
-				token boundName = memory[loc + 2];
-				char* function_disp = safe_malloc(128 * sizeof(char));
-				function_disp[0] = 0;
-				if (strcmp(boundName.t_data.string, "self") == 0) {
-					sprintf(function_disp, "annonymous:0x%X", i);
-				}
-				else {
-					sprintf(function_disp, "%s:0x%X", boundName.t_data.string, i);
-				}
-				push_frame(function_disp, i + 1, line);
-				safe_free(function_disp);
-				push_mem_reg(memory_register);
-				if (top.t_type == T_STRUCT) {
-					address j = top.t_data.number;
-					top = memory[j + 3];
-					top.t_type = T_STRUCT_FUNCTION;
-					// grab the size of the metadata chain also check if there's an
-					//   overloaded init.
-					int m_size = memory[j].t_data.number;
-					int params = 0;
-					for (int i = 0; i < m_size; i++) {
-						if (memory[j + i].t_type == T_STRUCT_PARAM) {
-							params++;
-						}
-					}       
-	
-					int si_size = 0;
-					token* struct_instance = 
-						safe_malloc(MAX_STRUCT_META_LEN * sizeof(token));
-				
-					si_size = params + 1; // + 1 for the header
-					struct_instance[0] = make_token(T_STRUCT_INSTANCE_HEAD, 
-							make_data_num(j));
-					int offset = params;
-					for (int i = 0; i < params; i++) {  
-						struct_instance[offset - i] = none_token();
-					}
-					// Struct instance is done.
-					address a = push_memory_array(struct_instance, si_size);
-					safe_free(struct_instance);
-					memory_register_A = a;
-				}
-	
-				if (top.t_type != T_FUNCTION && top.t_type != T_STRUCT_FUNCTION) {
-					error_runtime(line, VM_FN_CALL_NOT_FN); 
-				}
-				if (top.t_type == T_STRUCT_FUNCTION) {
-					token_type t;
-					if (memory[memory_register_A].t_type == T_STRUCT_INSTANCE_HEAD) { 
-						t = T_STRUCT_INSTANCE;
-					}
-					else {
-						t = T_STRUCT;
-					}
-					push_stack_entry("this", push_memory(make_token(
-						t, make_data_num(memory_register_A))), line);  
-				}
-				// Top might have changed, reload
-				loc = top.t_data.number;
-				address addr = memory[loc].t_data.number;
-				i = addr - 1;
-				// push closure variables
-				address cloc = memory[loc + 1].t_data.number;
-				if (cloc != -1) {
-					size_t size = closure_list_sizes[cloc];
-					for (int i = 0; i < size; i++) {
-						copy_stack_entry(closure_list[cloc][i], line);
-						//printf("COPIED: %s\n", closure_list[cloc][i].id);
-					}
-				}
-				address adr = push_memory(top);
-				if (strcmp(boundName.t_data.string, "self") != 0) {
-					push_stack_entry("self", adr, line);
-				}
-				push_stack_entry(boundName.t_data.string, adr, line);
-				break;
-			}
-			case OP_READ: {
-				push_arg(memory[memory_register], line);
-				break;
-			}
-			case OP_WRITE: {
-				token value = pop_arg(line);
-				if (value.t_type == T_FUNCTION) {
-					// Write Name to Function
-					char* bind_name = last_pushed_identifier.t_data.string;
-					address fn_adr = value.t_data.number;
-					strcpy(memory[fn_adr + 2].t_data.string, bind_name);
-				}
-				memory[memory_register] = value;
-				break;
-			}
-			case OP_OUT: {
-				token t = pop_arg(line);
-				if (t.t_type != T_NONERET) {
-					print_token(&t);
-				}
-				break;
-			}
-			case OP_OUTL: {
-				token t = pop_arg(line);
-				if (t.t_type != T_NONERET) {
-					print_token_inline(&t, stdout);
-				}
-				break;
-			}
-			case OP_IN: {
-				// Scan one line from the input.
-				char buffer[MAX_STRING_LEN];
-				while(!fgets(buffer, MAX_STRING_LEN, stdin)) {};
-						
-				token* t = &memory[memory_register]; 
-				char* end_ptr = buffer;
-				errno = 0;
-				double d = strtod(buffer, &end_ptr);
-				// null terminator or newline character
-				if (errno != 0 || (*end_ptr != 0 && *end_ptr != 10)) {
-					t->t_type = T_STRING;
-					size_t len = strlen(buffer);
-					// remove last newline
-					buffer[len - 1] = 0;
-					strcpy(t->t_data.string, buffer);
-				}
-				else {
-					// conversion successful
-					t->t_type = T_NUMBER;
-					t->t_data.number = d;
-				}
-				break;
-			}
-			case OP_HALT:
-				goto HALT_EXIT;
-			default:
-				error_runtime(line, VM_INVALID_OPCODE, bytecode[i], i);
-		}
+        reset_error_flag();
+        switch (bytecode[i]) {
+            case OP_PUSH: {
+                i++;
+                token t = get_token(&bytecode[i], &i);
+                if (t.t_type == T_TIME) {
+                    t = time_token();
+                }
+                else if (t.t_type == T_IDENTIFIER) {
+                    t = *get_value_of_id(t.t_data.string, line);
+                }
+                else if (t.t_type == T_MEMBER) {
+                    t.t_type = T_IDENTIFIER;
+                }
+                last_pushed_identifier = t;
+                push_arg(t, line);
+                break;
+            }
+            case OP_SRC: {
+                void* ad = &bytecode[i + 1];
+                line = get_address(ad);
+                i += sizeof(int);
+                break;
+            }
+            case OP_POP: {
+                token t = pop_arg(line);
+                break;
+            }
+            case OP_BIN: {
+                i++;
+                token operator = get_token(&bytecode[i], &i);
+                token b = pop_arg(line);
+                token a = pop_arg(line);
+                push_arg(eval_binop(operator, a, b), line);
+                break;
+            }
+            case OP_RBIN: {
+                i++;
+                token operator = get_token(&bytecode[i], &i);
+                token a = pop_arg(line);
+                token b = pop_arg(line);
+                push_arg(eval_binop(operator, a, b), line);
+                break;
+            }
+            case OP_NATIVE: {
+                i++;
+                void* ag = &bytecode[i];
+                address args = get_address(ag);
+                i += sizeof(address);
+                char* name = (char*)(bytecode + i);
+                i += strlen(name);
+                native_call(name, args, line);
+                break;
+            }
+            case OP_UNA: {
+                i++;
+                token operator = get_token(&bytecode[i], &i);
+                token a = pop_arg(line);
+                push_arg(eval_uniop(operator, a), line);
+                break;
+            }
+            case OP_CHTYPE: {
+                i++;
+                token* t = top_arg(line);
+                t->t_type = bytecode[i];
+                break;
+            }
+            case OP_BIND: {
+                i++;
+                if (id_exist((char*)(bytecode + i), false)) {
+                    error_runtime(line, VM_VAR_DECLARED_ALREADY,
+                                    (char*)(bytecode + i));
+                }
+                else {
+                    push_stack_entry((char*)(bytecode + i), memory_register, line);
+                    i += strlen((char*)(bytecode + i));
+                }
+                break;
+            }
+            case OP_WHERE: {
+                i++;
+                memory_register = get_address_of_id((char*)(bytecode + i), i);
+                i += strlen((char*)(bytecode + i));
+                memory_register_A = memory_register;
+                break;
+            }
+            case OP_IMPORT: {
+                i++;
+                char* name = (char *)(bytecode + i);
+                i += strlen(name);
+                address a = get_address(&bytecode[i + 1]);
+                i += sizeof(address);
+                if (has_already_imported_library(name)) {
+                    i = a - 1;
+                }
+                else {
+                    add_imported_library(name);
+                }
+                break;
+            }
+            case OP_RET: {
+                pop_frame(true, &i);
+                memory_register = pop_mem_reg();
+                i--;
+                break;
+            }
+            case OP_DIN: {
+                token* t = top_arg(line);
+                data_register = t->t_data;
+                break;
+            }
+            case OP_DOUT: {
+                token* t = top_arg(line);
+                t->t_data = data_register;
+                break;
+            }
+            case OP_LJMP: {
+                // L_JMP Address LoopIndexString
+                void* ad = &bytecode[i + 1];
+                address end_of_loop = get_address(ad);
+                i += sizeof(address);
+                char* loop_index_string = (char*)(bytecode + (++i));
+                i += strlen((char*)(bytecode + i));
+                token loop_index_token = *(get_value_of_id(loop_index_string, line));
+                int index = loop_index_token.t_data.number;
+                token condition = *top_arg(line);
+                bool jump = false;
+                if (condition.t_type == T_TRUE) {
+                    // Do Nothing
+                }
+                else if (condition.t_type == T_LIST) {
+                    address lst = condition.t_data.number;
+                    int lst_size = memory[lst].t_data.number;
+                    if (index >= lst_size) jump = true;
+                }
+                else if (condition.t_type == T_RANGE) {
+                    int end = range_end(condition);
+                    int start = range_start(condition);
+                    if (start < end) {
+                        if (start + index >= end) jump = true;
+                    }
+                    else {
+                        if (start - index <= end) jump = true;
+                    }
+                }
+                else if (condition.t_type == T_STRING) {
+                    int size = strlen(condition.t_data.string);
+                    if (index >= size) jump = true;
+                }
+                else {
+                    jump = true;
+                }
+                if (jump)  {
+                    // Pop Condition too!
+                    pop_arg(line);
+                    i = end_of_loop - 1;
+                }
+                break;
+            }
+            case OP_LBIND: {
+                char* user_index = (char*)(bytecode + (++i));
+                i += strlen((char*)(bytecode + i));
+                char* loop_index_string = (char*)(bytecode + (++i));
+                i += strlen((char*)(bytecode + i));
+                token loop_index_token = *(get_value_of_id(loop_index_string, i));
+                int index = loop_index_token.t_data.number;
+                token condition = pop_arg(line);
+                token res = loop_index_token;
+                if (condition.t_type == T_LIST) {
+                    address lst = condition.t_data.number;
+                    res = memory[lst + 1 + index];
+                }
+                else if (condition.t_type == T_RANGE) {
+                    int end = range_end(condition);
+                    int start = range_start(condition);
+                    if (start < end) {
+                        res = make_token(T_NUMBER, make_data_num(start + index));
+                    }
+                    else {
+                        res = make_token(T_NUMBER, make_data_num(start - index));
+                    }
+                }
+                else if (condition.t_type == T_STRING) {
+                    token r = make_token(T_STRING, make_data_str(""));
+                    r.t_data.string[0] = condition.t_data.string[index];
+                    r.t_data.string[1] = 0;
+                    res = r;
+                }
+                address mem_to_mod = get_address_of_id(user_index, i);
+                memory[mem_to_mod] = res;
+                break;
+            }
+            case OP_INC: {
+                memory[memory_register].t_data.number++;
+                break;
+            }
+            case OP_DEC: {
+                memory[memory_register].t_data.number--;
+                break;
+            }
+            case OP_ASSERT: {
+                i++;
+                token_type matching = bytecode[i];
+                i++;
+                char* c = (char*) (bytecode + i);
+                if (memory[memory_register].t_type != matching) {
+                    error_runtime(line, c);
+                }
+                i += strlen(c);
+                break;
+            }
+            case OP_FRM: {
+                push_auto_frame(i + 1, "automatic", line);
+                push_mem_reg(memory_register);
+                break;
+            }
+            case OP_MPTR: {
+                memory_register = (address)memory[memory_register].t_data.number;
+                break;
+            }
+            case OP_END: {
+                pop_frame(false, &i);
+                memory_register = pop_mem_reg();
+                break;
+            }
+            case OP_REQ: {
+                // Memory Request Instruction
+                memory_register = pls_give_memory(bytecode[i + 1], line);
+                i++;
+                break;
+            }
+            case OP_RBW: {
+                // REQUEST BIND AND WRITE
+                memory_register = pls_give_memory(1, line);
+                i++;
+                char* bind_name = (char*)(bytecode + i);
+                if (id_exist(bind_name, false)) {
+                    address a = get_stack_pos_of_id(bind_name, line);
+                    if (!call_stack[a].is_closure) {
+                        error_runtime(line, VM_VAR_DECLARED_ALREADY, bind_name);
+                    }
+                }
+                push_stack_entry(bind_name, memory_register, line);
+                i += strlen(bind_name);
+                token value = pop_arg(line);
+                if (value.t_type == T_FUNCTION) {
+                    // Modify Name to be the base_name
+                    address fn_adr = value.t_data.number;
+                    strcpy(memory[fn_adr + 2].t_data.string, bind_name);
+                }
+                memory[memory_register] = value;
+                break;
+            }
+            case OP_PLIST: {
+                i++;
+                int size = bytecode[i];
+                for (int j = memory_register + size - 1;
+                        j >= memory_register; j--) {
+                    memory[j] = pop_arg(line);
+                }
+                push_arg(make_token(T_LIST, make_data_num(memory_register)), line);
+                break;
+            }
+            case OP_NTHPTR: {
+                // Should be a list at the memory register.
+                token lst = memory[memory_register];
+                if (lst.t_type != T_LIST) {
+                    error_runtime(line, VM_NOT_A_LIST);
+                }
+                address lst_start = lst.t_data.number;
+                token in = pop_arg(line);
+                if (in.t_type != T_NUMBER) {
+                    error_runtime(line, VM_INVALID_LVALUE_LIST_SUBSCRIPT);
+                }
+                int lst_size = memory[lst_start].t_data.number;
+                int index = in.t_data.number;
+                if (index >= lst_size) {
+                    error_runtime(line, VM_LIST_REF_OUT_RANGE);
+                }
+                memory_register = lst_start + index + 1;
+                break;
+            }
+            case OP_CLOSUR: {
+                push_arg(make_token(T_CLOSURE, make_data_num(create_closure())), line);
+                break;
+            }
+            case OP_MEMPTR: {
+                // Member Pointer
+                // Structs can only modify Static members, instances modify instance
+                //   members.
+                // Either will be allowed to look through static parameters.
+                token t = memory[memory_register];
+                token e = pop_arg(line);
+                if (t.t_type != T_STRUCT && t.t_type != T_STRUCT_INSTANCE) {
+                    error_runtime(line, VM_NOT_A_STRUCT);
+                }
+                int params_passed = 0;
+                address metadata = (int)(t.t_data.number);
+                if (t.t_type == T_STRUCT_INSTANCE) {
+                    // metadata actually points to the STRUCT_INSTANCE_HEAD
+                    //   right now.
+                    metadata = (address)(memory[metadata].t_data.number);
+                }
+                token_type struct_type = t.t_type;
+                address struct_header = t.t_data.number;
+                bool found = false;
+                while(!found) {
+                    int params_passed = 0;
+                    int size = (int)(memory[metadata].t_data.number);
+                    for (int i = 0; i < size; i++) {
+                        token mdata = memory[metadata + i];
+                        if (mdata.t_type == T_STRUCT_STATIC &&
+                            strcmp(mdata.t_data.string, e.t_data.string) == 0) {
+                            // Found the static member we were looking for.
+                            memory_register = metadata + i + 1;
+                            found = true;
+                            if (memory[memory_register].t_type == T_FUNCTION) {
+                                memory[memory_register].t_type = T_STRUCT_FUNCTION;
+                            }
+                            break;
+                        }
+                        else if (mdata.t_type == T_STRUCT_PARAM) {
+                            if (struct_type == T_STRUCT_INSTANCE &&
+                                strcmp(mdata.t_data.string, e.t_data.string) == 0) {
+                                // Found the instance member we were looking for.
+                                // Address of the STRUCT_INSTANCE_HEADER offset by
+                                //   params_passed + 1;
+                                address loc = struct_header + params_passed + 1;
+                                memory_register = loc;
+                                found = true;
+                                if (memory[memory_register].t_type == T_FUNCTION) {
+                                    memory[memory_register].t_type = T_STRUCT_FUNCTION;
+                                }
+                                break;
+                            }
+                            params_passed++;
+                        }
+                    }
+                    if (found) break;
+                    error_runtime(line, VM_MEMBER_NOT_EXIST, e.t_data.string);
+                }
+                break;
+            }
+            case OP_JMP: {
+                void* ad = &bytecode[i + 1];
+                address addr = get_address(ad);
+                i = addr - 1;
+                break;
+            }
+            case OP_JIF: {
+                // Jump IF False Instruction
+                token top = pop_arg(line);
+
+                void* ad = &bytecode[i + 1];
+                address addr = get_address(ad);
+                i += sizeof(address);
+
+                if (top.t_type != T_TRUE && top.t_type != T_FALSE) {
+                    error_runtime(line, VM_COND_EVAL_NOT_BOOL);
+                }
+                if (top.t_type == T_FALSE) {
+                    i = addr - 1;
+                }
+                break;
+            }
+            case OP_CALL: {
+                token top = pop_arg(line);
+                int loc = top.t_data.number;
+                token boundName = memory[loc + 2];
+                char* function_disp = safe_malloc(128 * sizeof(char));
+                function_disp[0] = 0;
+                if (strcmp(boundName.t_data.string, "self") == 0) {
+                    sprintf(function_disp, "annonymous:0x%X", i);
+                }
+                else {
+                    sprintf(function_disp, "%s:0x%X", boundName.t_data.string, i);
+                }
+                push_frame(function_disp, i + 1, line);
+                safe_free(function_disp);
+                push_mem_reg(memory_register);
+                if (top.t_type == T_STRUCT) {
+                    address j = top.t_data.number;
+                    top = memory[j + 3];
+                    top.t_type = T_STRUCT_FUNCTION;
+                    // grab the size of the metadata chain also check if there's an
+                    //   overloaded init.
+                    int m_size = memory[j].t_data.number;
+                    int params = 0;
+                    for (int i = 0; i < m_size; i++) {
+                        if (memory[j + i].t_type == T_STRUCT_PARAM) {
+                            params++;
+                        }
+                    }
+
+                    int si_size = 0;
+                    token* struct_instance =
+                        safe_malloc(MAX_STRUCT_META_LEN * sizeof(token));
+
+                    si_size = params + 1; // + 1 for the header
+                    struct_instance[0] = make_token(T_STRUCT_INSTANCE_HEAD,
+                            make_data_num(j));
+                    int offset = params;
+                    for (int i = 0; i < params; i++) {
+                        struct_instance[offset - i] = none_token();
+                    }
+                    // Struct instance is done.
+                    address a = push_memory_array(struct_instance, si_size);
+                    safe_free(struct_instance);
+                    memory_register_A = a;
+                }
+
+                if (top.t_type != T_FUNCTION && top.t_type != T_STRUCT_FUNCTION) {
+                    error_runtime(line, VM_FN_CALL_NOT_FN);
+                }
+                if (top.t_type == T_STRUCT_FUNCTION) {
+                    token_type t;
+                    if (memory[memory_register_A].t_type == T_STRUCT_INSTANCE_HEAD) {
+                        t = T_STRUCT_INSTANCE;
+                    }
+                    else {
+                        t = T_STRUCT;
+                    }
+                    push_stack_entry("this", push_memory(make_token(
+                        t, make_data_num(memory_register_A))), line);
+                }
+                // Top might have changed, reload
+                loc = top.t_data.number;
+                address addr = memory[loc].t_data.number;
+                i = addr - 1;
+                // push closure variables
+                address cloc = memory[loc + 1].t_data.number;
+                if (cloc != -1) {
+                    size_t size = closure_list_sizes[cloc];
+                    for (int i = 0; i < size; i++) {
+                        copy_stack_entry(closure_list[cloc][i], line);
+                        //printf("COPIED: %s\n", closure_list[cloc][i].id);
+                    }
+                }
+                address adr = push_memory(top);
+                if (strcmp(boundName.t_data.string, "self") != 0) {
+                    push_stack_entry("self", adr, line);
+                }
+                push_stack_entry(boundName.t_data.string, adr, line);
+                break;
+            }
+            case OP_READ: {
+                push_arg(memory[memory_register], line);
+                break;
+            }
+            case OP_WRITE: {
+                token value = pop_arg(line);
+                if (value.t_type == T_FUNCTION) {
+                    // Write Name to Function
+                    char* bind_name = last_pushed_identifier.t_data.string;
+                    address fn_adr = value.t_data.number;
+                    strcpy(memory[fn_adr + 2].t_data.string, bind_name);
+                }
+                memory[memory_register] = value;
+                break;
+            }
+            case OP_OUT: {
+                token t = pop_arg(line);
+                if (t.t_type != T_NONERET) {
+                    print_token(&t);
+                }
+                break;
+            }
+            case OP_OUTL: {
+                token t = pop_arg(line);
+                if (t.t_type != T_NONERET) {
+                    print_token_inline(&t, stdout);
+                }
+                break;
+            }
+            case OP_IN: {
+                // Scan one line from the input.
+                char buffer[MAX_STRING_LEN];
+                while(!fgets(buffer, MAX_STRING_LEN, stdin)) {};
+
+                token* t = &memory[memory_register];
+                char* end_ptr = buffer;
+                errno = 0;
+                double d = strtod(buffer, &end_ptr);
+                // null terminator or newline character
+                if (errno != 0 || (*end_ptr != 0 && *end_ptr != 10)) {
+                    t->t_type = T_STRING;
+                    size_t len = strlen(buffer);
+                    // remove last newline
+                    buffer[len - 1] = 0;
+                    strcpy(t->t_data.string, buffer);
+                }
+                else {
+                    // conversion successful
+                    t->t_type = T_NUMBER;
+                    t->t_data.number = d;
+                }
+                break;
+            }
+            case OP_HALT:
+                goto HALT_EXIT;
+            default:
+                error_runtime(line, VM_INVALID_OPCODE, bytecode[i], i);
+        }
         if (get_error_flag()) {
             clear_arg_stack();
             break;
         }
-	}
+    }
 HALT_EXIT:
-	free_imported_libraries_ll();
+    free_imported_libraries_ll();
 }
 
 static token eval_binop(token op, token a, token b) {
@@ -590,7 +590,7 @@ static token eval_binop(token op, token a, token b) {
         if (a.t_type == T_LIST) {
             list_header = memory[(int)a.t_data.number];
         }
-        int list_size = a.t_type == T_STRING ? strlen(a.t_data.string) :  
+        int list_size = a.t_type == T_STRING ? strlen(a.t_data.string) :
                                              list_header.t_data.number;
 //      printf("LIST SIZE IS: %d\n", list_size);
         // Pull list header reference from list object.
@@ -601,7 +601,7 @@ static token eval_binop(token op, token a, token b) {
         }
 //      printf("TDATA NUM IS %d\n", (int)(b.t_data.number));
         if ((b.t_type == T_NUMBER && (int)(b.t_data.number) >= list_size) ||
-            (b.t_type == T_RANGE && 
+            (b.t_type == T_RANGE &&
             ((range_start(b) > list_size || range_end(b) > list_size ||
              range_start(b) < 0 || range_end(b) < 0)))) {
             error_runtime(line, VM_LIST_REF_OUT_RANGE);
@@ -618,14 +618,14 @@ static token eval_binop(token op, token a, token b) {
             }
             // Add 1 to offset because of the header.
             int offset = floor(b.t_data.number) + 1;
-            token* c = get_value_of_address(id_address + offset, 
+            token* c = get_value_of_address(id_address + offset,
                 a.t_line);
             return *c;
         }
         else {
             int start = range_start(b);
             int end = range_end(b);
-            int subarray_size = start - end;    
+            int subarray_size = start - end;
             if (subarray_size < 0) subarray_size *= -1;
 
             if (a.t_type == T_STRING) {
@@ -643,7 +643,7 @@ static token eval_binop(token op, token a, token b) {
             address array_start = (int)(a.t_data.number);
             token* new_a = safe_malloc(subarray_size * sizeof(token));
             int n = 0;
-            for (int i = start; i != end; 
+            for (int i = start; i != end;
                 start < end ? i++ : i--) {
                 new_a[n++] = memory[array_start + i + 1];
             }
@@ -663,7 +663,7 @@ static token eval_binop(token op, token a, token b) {
             return false_token();
         }
         if (strcmp("size", b.t_data.string) == 0) {
-            return size_of(a);  
+            return size_of(a);
         }
         else if (strcmp("type", b.t_data.string) == 0) {
             return type_of(a);
@@ -681,13 +681,13 @@ static token eval_binop(token op, token a, token b) {
                 address metadata = (int)(a.t_data.number);
                 memory_register_A = metadata;
                 if (a.t_type == T_STRUCT_INSTANCE) {
-                    // metadata actually points to the STRUCT_INSTANE_HEADER 
+                    // metadata actually points to the STRUCT_INSTANE_HEADER
                     //   right now.
                     metadata = (address)(memory[metadata].t_data.number);
                 }
                 token_type struct_type = a.t_type;
                 address struct_header = a.t_data.number;
-               
+
                 int params_passed = 0;
                 int size = (int)(memory[metadata].t_data.number);
                 for (int i = 0; i < size; i++) {
@@ -702,7 +702,7 @@ static token eval_binop(token op, token a, token b) {
                         return result;
                     }
                     else if (mdata.t_type == T_STRUCT_PARAM) {
-                        if (struct_type == T_STRUCT_INSTANCE && 
+                        if (struct_type == T_STRUCT_INSTANCE &&
                             strcmp(mdata.t_data.string, b.t_data.string) == 0) {
                             // Found the instance member we were looking for.
                             // Address of the STRUCT_INSTANCE_HEADER offset by
@@ -723,61 +723,61 @@ static token eval_binop(token op, token a, token b) {
         }
     }
     bool has_address = (a.t_type == T_ADDRESS || b.t_type == T_ADDRESS);
-    if ((a.t_type == T_NUMBER || a.t_type == T_ADDRESS) && 
+    if ((a.t_type == T_NUMBER || a.t_type == T_ADDRESS) &&
         (b.t_type == T_NUMBER || b.t_type == T_ADDRESS)) {
         switch (op.t_type) {
-            case T_EQUAL_EQUAL:     
-                return (a.t_data.number == b.t_data.number) ? 
+            case T_EQUAL_EQUAL:
+                return (a.t_data.number == b.t_data.number) ?
                     true_token() : false_token();
             case T_NOT_EQUAL:
-                return (a.t_data.number != b.t_data.number) ? 
+                return (a.t_data.number != b.t_data.number) ?
                     true_token() : false_token();
             case T_GREATER_EQUAL:
-                return (a.t_data.number >= b.t_data.number) ? 
+                return (a.t_data.number >= b.t_data.number) ?
                     true_token() : false_token();
             case T_GREATER:
-                return (a.t_data.number > b.t_data.number) ? 
+                return (a.t_data.number > b.t_data.number) ?
                     true_token() : false_token();
             case T_LESS_EQUAL:
-                return (a.t_data.number <= b.t_data.number) ? 
+                return (a.t_data.number <= b.t_data.number) ?
                     true_token() : false_token();
             case T_LESS:
-                return (a.t_data.number < b.t_data.number) ? 
+                return (a.t_data.number < b.t_data.number) ?
                     true_token() : false_token();
             case T_RANGE_OP:
                 return range_token(a.t_data.number, b.t_data.number);
-            case T_PLUS:    
-                return make_token(has_address ? T_ADDRESS : T_NUMBER, 
+            case T_PLUS:
+                return make_token(has_address ? T_ADDRESS : T_NUMBER,
                         make_data_num(a.t_data.number + b.t_data.number));
-            case T_MINUS:   
-                return make_token(has_address ? T_ADDRESS : T_NUMBER, 
+            case T_MINUS:
+                return make_token(has_address ? T_ADDRESS : T_NUMBER,
                         make_data_num(a.t_data.number - b.t_data.number));
-            case T_STAR:    
+            case T_STAR:
                 if (has_address) error_runtime(line, VM_TYPE_ERROR, "*");
                 return make_token(T_NUMBER, make_data_num(
                                     a.t_data.number * b.t_data.number));
             case T_SLASH:
             case T_INTSLASH:
-            case T_PERCENT: 
+            case T_PERCENT:
                 if (has_address) error_runtime(line, VM_TYPE_ERROR, "%");
                 // check for division by zero error
                 if (b.t_data.number == 0) {
-                    error_runtime(line, VM_MATH_DISASTER); 
-                } 
+                    error_runtime(line, VM_MATH_DISASTER);
+                }
                 else {
                     if (op.t_type == T_PERCENT) {
                         // modulus operator
                         double a_n = a.t_data.number;
                         double b_n = b.t_data.number;
 
-                        // check integer 
+                        // check integer
                         if (a_n != floor(a_n) || b_n != floor(b_n)) {
-                            error_runtime(line, VM_TYPE_ERROR, "/"); 
+                            error_runtime(line, VM_TYPE_ERROR, "/");
                             return none_token();
                         }
                         else {
                             return make_token(T_NUMBER, make_data_num(
-                                (long long)a.t_data.number % 
+                                (long long)a.t_data.number %
                                 (long long)b.t_data.number));
                         }
                     }
@@ -792,28 +792,28 @@ static token eval_binop(token op, token a, token b) {
                     }
                 }
                 break;
-            default: 
-                error_runtime(line, VM_NUM_NUM_INVALID_OPERATOR, 
+            default:
+                error_runtime(line, VM_NUM_NUM_INVALID_OPERATOR,
                     op.t_data.string);
                 break;
         }
     }
-    else if((a.t_type == T_STRING && b.t_type == T_STRING) && 
+    else if((a.t_type == T_STRING && b.t_type == T_STRING) &&
             (op.t_type == T_EQUAL_EQUAL || op.t_type == T_NOT_EQUAL)) {
-        return (op.t_type == T_EQUAL_EQUAL) ^ 
-            (strcmp(a.t_data.string, b.t_data.string) == 0) ? 
+        return (op.t_type == T_EQUAL_EQUAL) ^
+            (strcmp(a.t_data.string, b.t_data.string) == 0) ?
             false_token() : true_token();
     }
-    else if((a.t_type == T_NONE || b.t_type == T_NONE) && 
+    else if((a.t_type == T_NONE || b.t_type == T_NONE) &&
             (op.t_type == T_EQUAL_EQUAL || op.t_type == T_NOT_EQUAL)) {
-        return (op.t_type == T_EQUAL_EQUAL) ^ 
-            (a.t_type == T_NONE && b.t_type == T_NONE) ? 
+        return (op.t_type == T_EQUAL_EQUAL) ^
+            (a.t_type == T_NONE && b.t_type == T_NONE) ?
             false_token() : true_token();
     }
-    else if((a.t_type == T_OBJ_TYPE && b.t_type == T_OBJ_TYPE) && 
+    else if((a.t_type == T_OBJ_TYPE && b.t_type == T_OBJ_TYPE) &&
             (op.t_type == T_EQUAL_EQUAL || op.t_type == T_NOT_EQUAL)) {
-        return (op.t_type == T_EQUAL_EQUAL) ^ 
-            (strcmp(a.t_data.string, b.t_data.string) == 0) ? 
+        return (op.t_type == T_EQUAL_EQUAL) ^
+            (strcmp(a.t_data.string, b.t_data.string) == 0) ?
             false_token() : true_token();
     }
 
@@ -826,7 +826,7 @@ static token eval_binop(token op, token a, token b) {
             address start_b = b.t_data.number;
             int size_a = memory[start_a].t_data.number;
             int size_b = memory[start_b].t_data.number;
-    
+
             switch (op.t_type) {
                 case T_EQUAL_EQUAL: {
                     if (size_a != size_b) {
@@ -868,9 +868,9 @@ static token eval_binop(token op, token a, token b) {
                     address new_adr = push_memory_a(new_list, new_size);
                     safe_free(new_list);
                     return make_token(T_LIST, make_data_num(new_adr));
-                }   
+                }
                 break;
-                default: error_runtime(line, VM_LIST_LIST_INVALID_OPERATOR, 
+                default: error_runtime(line, VM_LIST_LIST_INVALID_OPERATOR,
                     op.t_data.string); break;
             }
         } // End A==List && B==List
@@ -906,8 +906,8 @@ static token eval_binop(token op, token a, token b) {
                 safe_free(new_list);
                 return make_token(T_LIST, make_data_num(new_adr));
             }
-            else { 
-                error_runtime(line, VM_INVALID_APPEND); 
+            else {
+                error_runtime(line, VM_INVALID_APPEND);
             }
         }
         else if (b.t_type == T_LIST) {
@@ -962,14 +962,14 @@ static token eval_binop(token op, token a, token b) {
         if (op.t_type == T_PLUS) {
             // string concatenation
             if (a.t_type == T_NUMBER) {
-                sprintf(a.t_data.string, "%g", a.t_data.number); 
+                sprintf(a.t_data.string, "%g", a.t_data.number);
             }
             if (b.t_type == T_NUMBER) {
-                sprintf(b.t_data.string, "%g", b.t_data.number); 
+                sprintf(b.t_data.string, "%g", b.t_data.number);
             }
             size_t len1 = strlen(a.t_data.string);
             size_t len2 = strlen(b.t_data.string);
-            
+
             //printf("A: %s SIZE: %zd\n", a.t_data.string, len1);
             //printf("B: %s SIZE: %zd\n", b.t_data.string, len2);
 
@@ -1004,9 +1004,9 @@ static token eval_binop(token op, token a, token b) {
             token t = make_token(T_STRING, make_data_str(result));
             safe_free(result);
             return t;
-        } 
+        }
         else {
-            error_runtime(line, VM_STRING_NUM_INVALID_OPERATOR, 
+            error_runtime(line, VM_STRING_NUM_INVALID_OPERATOR,
                 op.t_data.string);
             return none_token();
         }
@@ -1014,13 +1014,13 @@ static token eval_binop(token op, token a, token b) {
     else if((a.t_type == T_TRUE || a.t_type == T_FALSE) &&
             (b.t_type == T_TRUE || b.t_type == T_FALSE)) {
         switch (op.t_type) {
-            case T_AND:     
-                return (a.t_type == T_TRUE && b.t_type == T_TRUE) ? 
+            case T_AND:
+                return (a.t_type == T_TRUE && b.t_type == T_TRUE) ?
                     true_token() : false_token();
             case T_OR:
                 return (a.t_type == T_FALSE && b.t_type == T_FALSE) ?
                     false_token() : true_token();
-            default: 
+            default:
                 error_runtime(line, VM_TYPE_ERROR, op.t_data.string);
                 break;
         }
@@ -1037,12 +1037,12 @@ static token value_of(token a) {
         return make_token(T_NUMBER, make_data_num(a.t_data.string[0]));
     }
     else {
-        return a;   
+        return a;
     }
 }
 
 static token char_of(token a) {
-    if (a.t_type == T_NUMBER && a.t_data.number >= CHAR_MIN 
+    if (a.t_type == T_NUMBER && a.t_data.number >= CHAR_MIN
         && a.t_data.number <= CHAR_MAX) {
         token res = make_token(T_STRING, make_data_str(" "));
         res.t_data.string[0] = (char)a.t_data.number;
@@ -1057,7 +1057,7 @@ static token size_of(token a) {
     double size = 0;
     if (a.t_type == T_STRING) {
         size = strlen(a.t_data.string);
-    }   
+    }
     else if (a.t_type == T_LIST) {
         address h = a.t_data.number;
         size = memory[h].t_data.number;
@@ -1077,15 +1077,15 @@ static token type_of(token a) {
         case T_NONE:
             return make_token(T_OBJ_TYPE, make_data_str("none"));
         case T_ADDRESS:
-			return make_token(T_OBJ_TYPE, make_data_str("address"));
-		case T_RANGE:
+            return make_token(T_OBJ_TYPE, make_data_str("address"));
+        case T_RANGE:
             return make_token(T_OBJ_TYPE, make_data_str("range"));
         case T_LIST:
             return make_token(T_OBJ_TYPE, make_data_str("list"));
         case T_STRUCT:
             return make_token(T_OBJ_TYPE, make_data_str("struct"));
         case T_STRUCT_INSTANCE: {
-            token instance_loc = memory[(int)(a.t_data.number)]; 
+            token instance_loc = memory[(int)(a.t_data.number)];
             return make_token(T_OBJ_TYPE, make_data_str(
                 memory[(int)instance_loc.t_data.number + 1].t_data.string));
         }
@@ -1097,7 +1097,7 @@ static token type_of(token a) {
 static token eval_uniop(token op, token a) {
     set_make_token_param(op.t_line, op.t_col);
     if (op.t_type == T_TILDE) {
-        // Create copy of object a, only applies to lists or 
+        // Create copy of object a, only applies to lists or
         // struct or struct instances
         if (a.t_type == T_LIST) {
             // We make a copy of the list as pointed to A.
@@ -1153,13 +1153,13 @@ static token eval_uniop(token op, token a) {
         }
         token res = make_token(T_NUMBER, make_data_num(-1 * a.t_data.number));
         return res;
-    }   
+    }
     else if (op.t_type == T_NOT) {
         if (a.t_type != T_TRUE &&  a.t_type != T_FALSE) {
             error_runtime(line, VM_INVALID_NEGATE);
             return none_token();
         }
-        return a.t_type == T_TRUE ? false_token() : true_token();   
+        return a.t_type == T_TRUE ? false_token() : true_token();
     }
     else {
         // fallback case

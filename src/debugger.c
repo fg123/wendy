@@ -6,8 +6,8 @@
 
 // Implementation of the debugger
 //   Support for 128 breakpoints.
-// 
-// Debugger break codes: 
+//
+// Debugger break codes:
 //   c: continue to next breakpoint
 //   n: proceed to next line
 
@@ -29,7 +29,7 @@ void add_breakpoint(int line) {
 //  printf("Breakpoint at: %d\n", line);
     if (breakpoint_exist(line) == -1) {
         if (bp_count == BREAKPOOP_INT_MAX) {
-            error_general(OUT_OF_BREAKPOINTS);                  
+            error_general(OUT_OF_BREAKPOINTS);
         }
         else {
             breakpoints[bp_count++] = line;
@@ -57,7 +57,7 @@ void write_wendy_state() {
         FILE* file = fopen(debug_output_path, "w");
 //      printf("Writing State\n");
         fprintf(file, "WendyScript Debugger\n");
-        write_state(file);  
+        write_state(file);
         fclose(file);
     }
 }
@@ -81,7 +81,7 @@ void debug_check(int line) {
             add_breakpoint(breakpoints[bp] + 1);
         }
         else {
-            // fuck it 
+            // fuck it
             return;
         }
     }

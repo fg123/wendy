@@ -24,7 +24,7 @@ int verify_header(uint8_t* bytecode) {
         return strlen(WENDY_VM_HEADER) + 1;
     }
     else {
-        error_general(GENERAL_INVALID_HEADER); 
+        error_general(GENERAL_INVALID_HEADER);
     }
     return 0;
 }
@@ -135,17 +135,17 @@ static void codegen_lvalue_expr(expr* expression) {
             expression->op.bin_expr.right->op.lit_expr.t_type = T_MEMBER;
             write_opcode(OP_PUSH);
             write_token(expression->op.bin_expr.right->op.lit_expr);
-            write_opcode(OP_MEMPTR);    
-        }   
+            write_opcode(OP_MEMPTR);
+        }
         else if (expression->op.bin_expr.operator.t_type == T_LEFT_BRACK) {
-            codegen_expr(expression->op.bin_expr.right);    
+            codegen_expr(expression->op.bin_expr.right);
             write_opcode(OP_NTHPTR);
         }
         else {
-            error_lexer(expression->line, expression->col, 
-                    CODEGEN_INVALID_LVALUE_BINOP); 
+            error_lexer(expression->line, expression->col,
+                    CODEGEN_INVALID_LVALUE_BINOP);
         }
-    }    
+    }
     else if (expression->type == E_CALL) {
         codegen_expr(expression);
     }
@@ -190,7 +190,7 @@ static void codegen_statement(void* expre) {
         codegen_expr(state->op.let_statement.rvalue);
         // Request Memory
         write_opcode(OP_RBW);
-        write_string(state->op.let_statement.lvalue.t_data.string);         
+        write_string(state->op.let_statement.lvalue.t_data.string);
     }
     else if (state->type == S_OPERATION) {
         if (state->op.operation_statement.operator.t_type == T_RET) {
@@ -225,9 +225,9 @@ static void codegen_statement(void* expre) {
         if (!has_already_imported_library(library_name)) {
             add_imported_library(library_name);
             write_opcode(OP_IMPORT);
-			write_string(library_name);
-			int jumpLoc = size;
-			size += sizeof(address);
+            write_string(library_name);
+            int jumpLoc = size;
+            size += sizeof(address);
 
             char* path = get_path();
             long length = 0;
@@ -254,18 +254,18 @@ static void codegen_statement(void* expre) {
                 fclose (f);
             }
             else {
-                error_lexer(state->op.import_statement.t_line, 
-                            state->op.import_statement.t_col, 
+                error_lexer(state->op.import_statement.t_line,
+                            state->op.import_statement.t_col,
                             CODEGEN_REQ_FILE_READ_ERR);
             }
-			safe_free(path);
-			write_address_at(size, jumpLoc);
-		}
-	}
+            safe_free(path);
+            write_address_at(size, jumpLoc);
+        }
+    }
     else if (state->type == S_STRUCT) {
         int push_size = 2; // For Header and Name
         char* struct_name = state->op.struct_statement.name.t_data.string;
-        
+
         // Push Header and Name
         write_opcode(OP_PUSH);
         int metaHeaderLoc = size;
@@ -278,11 +278,11 @@ static void codegen_statement(void* expre) {
         codegen_expr(state->op.struct_statement.init_fn);
 
         push_size += 2;
-    
+
         expr_list* curr = state->op.struct_statement.instance_members;
         while (curr) {
             expr* elem = curr->elem;
-            if (elem->type != E_LITERAL 
+            if (elem->type != E_LITERAL
                 || elem->op.lit_expr.t_type != T_IDENTIFIER) {
                 error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
             }
@@ -292,9 +292,9 @@ static void codegen_statement(void* expre) {
             curr = curr->next;
         }
         curr = state->op.struct_statement.static_members;
-        while (curr) { 
+        while (curr) {
             expr* elem = curr->elem;
-            if (elem->type != E_LITERAL 
+            if (elem->type != E_LITERAL
                 || elem->op.lit_expr.t_type != T_IDENTIFIER) {
                 error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
             }
@@ -313,10 +313,10 @@ static void codegen_statement(void* expre) {
         // Now there's a List Token at the top of the stack.
         write_opcode(OP_CHTYPE);
         bytecode[size++] = T_STRUCT;
-        
+
         write_opcode(OP_RBW);
         write_string(struct_name);
-        write_double_at(push_size, metaHeaderLoc + 1);  
+        write_double_at(push_size, metaHeaderLoc + 1);
     }
     else if (state->type == S_IF) {
         codegen_expr(state->op.if_statement.condition);
@@ -353,15 +353,15 @@ static void codegen_statement(void* expre) {
         // Start of Loop, Push Condition to Stack
         int loop_start_addr = size;
         codegen_expr(state->op.loop_statement.condition);
-        
+
         // Check Condition and Jump if Needed
         write_opcode(OP_LJMP);
         int loop_skip_loc = size;
         size += sizeof(address);
         write_string(loopIndexName);
 
-        write_opcode(OP_FRM); // Start Local Variable Frame 
-            
+        write_opcode(OP_FRM); // Start Local Variable Frame
+
         // Write Custom Var and Bind
         if (state->op.loop_statement.index_var.t_type != T_EMPTY) {
             write_opcode(OP_LBIND);
@@ -369,7 +369,7 @@ static void codegen_statement(void* expre) {
             write_string(loopIndexName);
         }
         else {
-            write_opcode(OP_POP); 
+            write_opcode(OP_POP);
         }
 
         codegen_statement(state->op.loop_statement.statement_true);
@@ -397,7 +397,7 @@ static void codegen_statement_list(void* expre) {
     while (list) {
         codegen_statement(list->elem);
         list = list->next;
-    }   
+    }
 }
 
 static void codegen_expr(void* expre) {
@@ -471,14 +471,14 @@ static void codegen_expr(void* expre) {
             default: break;
         }
         codegen_expr(expression->op.assign_expr.rvalue);
-        
+
         codegen_lvalue_expr(expression->op.assign_expr.lvalue);
         if (operator.t_type != T_EQUAL) {
             write_opcode(OP_READ);
             write_opcode(OP_RBIN);
             write_token(operator);
         }
-        // Memory Register should still be where lvalue is  
+        // Memory Register should still be where lvalue is
         write_opcode(OP_WRITE);
     }
     else if (expression->type == E_UNARY) {
@@ -549,11 +549,11 @@ static void codegen_expr(void* expre) {
         }
         write_address_at(size, writeSizeLoc);
         write_opcode(OP_PUSH);
-		write_token(make_token(T_ADDRESS, make_data_num(startAddr)));
-		write_opcode(OP_CLOSUR);
-		write_opcode(OP_PUSH);
-		write_token(make_token(T_STRING, make_data_str("self")));
-		write_opcode(OP_REQ);
+        write_token(make_token(T_ADDRESS, make_data_num(startAddr)));
+        write_opcode(OP_CLOSUR);
+        write_opcode(OP_PUSH);
+        write_token(make_token(T_STRING, make_data_str("self")));
+        write_opcode(OP_REQ);
         bytecode[size++] = 3;
         write_opcode(OP_PLIST);
         bytecode[size++] = 3;
@@ -564,10 +564,10 @@ static void codegen_expr(void* expre) {
 
 uint8_t* generate_code(statement_list* _ast, size_t* size_ptr) {
     capacity = CODEGEN_START_SIZE;
-	init_imported_libraries_ll();
-	bytecode = safe_malloc(capacity * sizeof(uint8_t));
-	size = 0;
-    if (!get_settings_flag(SETTINGS_REPL)) {        
+    init_imported_libraries_ll();
+    bytecode = safe_malloc(capacity * sizeof(uint8_t));
+    size = 0;
+    if (!get_settings_flag(SETTINGS_REPL)) {
         write_string(WENDY_VM_HEADER);
     }
     codegen_statement_list(_ast);
@@ -641,17 +641,17 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
         if (op == OP_PUSH || op == OP_BIN || op == OP_UNA || op == OP_RBIN) {
             i++;
             token t = get_token(&bytecode[i], &i);
-            if (t.t_type == T_STRING) { 
+            if (t.t_type == T_STRING) {
                 p += fprintf(buffer, "%.*s ", maxlen, t.t_data.string);
                 if (strlen(t.t_data.string) > maxlen) {
                     p += fprintf(buffer, ">");
                 }
             }
             else {
-				p +=  print_token_inline(&t, buffer);
+                p +=  print_token_inline(&t, buffer);
             }
         }
-        else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW || 
+        else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW ||
                  op == OP_IMPORT) {
             i++;
             char* c = (char*)(bytecode + i);
@@ -660,13 +660,13 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
                 p += fprintf(buffer, ">");
             }
 
-			i += strlen(c);
-			if (op == OP_IMPORT) {
-				// i is at null term
-				void* loc = &bytecode[i + 1];
-				i += sizeof(address);
-				p += fprintf(buffer, "0x%X", get_address(loc));
-			}
+            i += strlen(c);
+            if (op == OP_IMPORT) {
+                // i is at null term
+                void* loc = &bytecode[i + 1];
+                i += sizeof(address);
+                p += fprintf(buffer, "0x%X", get_address(loc));
+            }
         }
         else if (op == OP_CHTYPE) {
             i++;
@@ -717,7 +717,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
             char* c = (char*)(bytecode + i);
             p += fprintf(buffer, "%.*s", maxlen, c);
             i += strlen(c);
-		}
+        }
         while (p++ < 30) {
             fprintf(buffer, " ");
         }
@@ -778,7 +778,7 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
             size_t tokLoc = i;
             token t = get_token(&buffer[i], &i);
             //printf("%X PUSHED A TOKEN HERE WITH TYPE %d, %d\n", tokLoc - 1, t.t_type, T_ADDRESS);
-            if (t.t_type == T_ADDRESS) { 
+            if (t.t_type == T_ADDRESS) {
                 //printf("%X Token here address %X\n",i, (int)t.t_data.number);
                 t.t_data.number += offset;
                 write_token_at_buffer(t, buffer, tokLoc);
@@ -797,16 +797,16 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
             i++;
             char* c = (char*)(buffer + i);
             i += strlen(c);
-			add_imported_library(c);
-			address loc = get_address(&buffer[i + 1]);
+            add_imported_library(c);
+            address loc = get_address(&buffer[i + 1]);
             loc += offset;
             write_address_at_buffer(loc, buffer, i + 1);
             i += sizeof(address);
-		}
-		else if (op == OP_SRC) {
+        }
+        else if (op == OP_SRC) {
             i += sizeof(address);
         }
-        else if (op == OP_JMP || op == OP_JIF) {            
+        else if (op == OP_JMP || op == OP_JIF) {
             address loc = get_address(&buffer[i + 1]);
             loc += offset;
             write_address_at_buffer(loc, buffer, i + 1);

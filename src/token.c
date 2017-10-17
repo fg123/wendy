@@ -124,7 +124,7 @@ void print_token(const token* t) {
 }
 
 unsigned int print_token_inline(const token* t, FILE* buf) {
-	unsigned int p = 0;
+    unsigned int p = 0;
     if (t->t_type == T_OBJ_TYPE) {
         p += fprintf(buf, "<%s>", t->t_data.string);
     }
@@ -139,17 +139,17 @@ unsigned int print_token_inline(const token* t, FILE* buf) {
     }
     else if (t->t_type == T_STRUCT_INSTANCE) {
         token instance_loc = memory[(int)(t->t_data.number)];
-        p += fprintf(buf, "<struct:%s>", 
+        p += fprintf(buf, "<struct:%s>",
                 memory[(int)instance_loc.t_data.number + 1].t_data.string);
     }
     else if (t->t_type == T_RANGE) {
         p += fprintf(buf, "<range from %d to %d>", range_start(*t), range_end(*t));
     }
     else if (t->t_type == T_LIST_HEADER) {
-        p += fprintf(buf, "<lhd size %d>", (int)(t->t_data.number)); 
+        p += fprintf(buf, "<lhd size %d>", (int)(t->t_data.number));
     }
     else if (t->t_type == T_STRUCT_METADATA) {
-        p += fprintf(buf, "<meta size %d>", (int)(t->t_data.number));    
+        p += fprintf(buf, "<meta size %d>", (int)(t->t_data.number));
     }
     else if (t->t_type == T_LIST) {
         address start = t->t_data.number;
@@ -172,7 +172,7 @@ unsigned int print_token_inline(const token* t, FILE* buf) {
         if (buffer[len] == '.') {
             buffer[len--] = 0;
         }
-            
+
         p += fprintf(buf, "%s", buffer);
         safe_free(buffer);
     }
@@ -183,8 +183,8 @@ unsigned int print_token_inline(const token* t, FILE* buf) {
         p += fprintf(buf, "%s", t->t_data.string);
     }
     last_printed_newline = false;
-	fflush(buf);
-	return p;
+    fflush(buf);
+    return p;
 }
 
 int precedence(token op) {
@@ -222,7 +222,7 @@ int precedence(token op) {
             return 170;
         case T_AMPERSAND:
             return 180;
-        default: 
+        default:
             return 0;
     }
 }
@@ -230,7 +230,7 @@ int precedence(token op) {
 bool is_numeric(token t) {
     return t.t_type == T_NUMBER || t.t_type == T_ADDRESS || t.t_type == T_LIST ||
         t.t_type == T_LIST_HEADER || t.t_type == T_STRUCT || t.t_type == T_FUNCTION ||
-        t.t_type == T_STRUCT_METADATA || t.t_type == T_STRUCT_INSTANCE || 
+        t.t_type == T_STRUCT_METADATA || t.t_type == T_STRUCT_INSTANCE ||
         t.t_type == T_STRUCT_INSTANCE_HEAD;
 }
 

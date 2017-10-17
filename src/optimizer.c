@@ -126,7 +126,7 @@ void optimize_safe_free(void* ptr) {
 
 void optimize_safe_free_remove_usage(void* expre) {
     expr* expression = (expr*)expre;
-    if (expression->type == E_LITERAL 
+    if (expression->type == E_LITERAL
         && expression->op.lit_expr.t_type == T_IDENTIFIER) {
         remove_usage(expression->op.lit_expr.t_data.string,
                 expression->line, expression->col);
@@ -175,7 +175,7 @@ static void make_new_block() {
 
 static void delete_block() {
     statement_block* next = curr_statement_block->next;
-    free_statement_block(curr_statement_block);    
+    free_statement_block(curr_statement_block);
     curr_statement_block = next;
     print_statement_blocks();
 }
@@ -197,23 +197,23 @@ static statement_list* scan_statement_list_with_new_block(statement_list* list) 
 static statement* optimize_statement(statement* state) {
     if (!state) return 0;
     if (state->type == S_LET) {
-        state->op.let_statement.rvalue = 
+        state->op.let_statement.rvalue =
                 optimize_expr(state->op.let_statement.rvalue);
-        if (get_usage(state->op.let_statement.lvalue.t_data.string, 
+        if (get_usage(state->op.let_statement.lvalue.t_data.string,
                 state->op.let_statement.lvalue.t_line,
-                state->op.let_statement.lvalue.t_col) == 0 && 
+                state->op.let_statement.lvalue.t_col) == 0 &&
             state->op.let_statement.rvalue->type == E_LITERAL) {
-            remove_entry(state->op.let_statement.lvalue.t_data.string, 
+            remove_entry(state->op.let_statement.lvalue.t_data.string,
                 state->op.let_statement.lvalue.t_line,
                 state->op.let_statement.lvalue.t_col);
-            traverse_statement(state, optimize_safe_free_remove_usage, 
+            traverse_statement(state, optimize_safe_free_remove_usage,
                 optimize_safe_free, optimize_safe_free, optimize_safe_free);
 
             return 0;
         }
     }
     else if (state->type == S_OPERATION) {
-        /*state->op.operation_statement.operand = 
+        /*state->op.operation_statement.operand =
             optimize_expr(state->op.operation_statement.operand);*/
     }
     else if (state->type == S_EXPR) {
@@ -225,9 +225,9 @@ static statement* optimize_statement(statement* state) {
     else if (state->type == S_STRUCT) {
         state->op.struct_statement.init_fn =
              optimize_expr(state->op.struct_statement.init_fn);
-        state->op.struct_statement.instance_members = 
+        state->op.struct_statement.instance_members =
             optimize_expr_list(state->op.struct_statement.instance_members);
-        state->op.struct_statement.static_members = 
+        state->op.struct_statement.static_members =
             optimize_expr_list(state->op.struct_statement.static_members);
     }
     else if (state->type == S_IF) {
@@ -238,17 +238,17 @@ static statement* optimize_statement(statement* state) {
         statement* run_if_true = state->op.if_statement.statement_true;
         if (condition->type == E_LITERAL && condition->op.lit_expr.t_type == T_TRUE) {
             // Always going to be true!
-            traverse_statement(run_if_false, optimize_safe_free_remove_usage, 
+            traverse_statement(run_if_false, optimize_safe_free_remove_usage,
                 optimize_safe_free, optimize_safe_free, optimize_safe_free);
-            traverse_expr(condition, optimize_safe_free_remove_usage, 
+            traverse_expr(condition, optimize_safe_free_remove_usage,
                 optimize_safe_free, optimize_safe_free, optimize_safe_free);
             safe_free(state);
             return run_if_true;
         }
         else if (condition->type == E_LITERAL && condition->op.lit_expr.t_type == T_FALSE) {
-            traverse_statement(run_if_true, optimize_safe_free_remove_usage, 
+            traverse_statement(run_if_true, optimize_safe_free_remove_usage,
                 optimize_safe_free, optimize_safe_free, optimize_safe_free);
-            traverse_expr(condition, optimize_safe_free_remove_usage, 
+            traverse_expr(condition, optimize_safe_free_remove_usage,
                 optimize_safe_free, optimize_safe_free, optimize_safe_free);
             safe_free(state);
             return run_if_false;
@@ -281,12 +281,12 @@ static expr* optimize_expr(expr* expression) {
     if (expression->type == E_LITERAL) {
         if (expression->op.lit_expr.t_type == T_IDENTIFIER) {
             // Is a static, then replace with value if literal
-            if (get_modified(expression->op.lit_expr.t_data.string, 
+            if (get_modified(expression->op.lit_expr.t_data.string,
                 expression->line, expression->col) == 0) {
-                expr* value = get_value(expression->op.lit_expr.t_data.string, 
+                expr* value = get_value(expression->op.lit_expr.t_data.string,
                     expression->line, expression->col);
                 if (value && value->type == E_LITERAL) {
-                    remove_usage(expression->op.lit_expr.t_data.string, 
+                    remove_usage(expression->op.lit_expr.t_data.string,
                         expression->line, expression->col);
                     *expression = *value;
                 }
@@ -294,9 +294,9 @@ static expr* optimize_expr(expr* expression) {
         }
     }
     else if (expression->type == E_BINARY || expression->type == E_BIN_LVALUE) {
-        expression->op.bin_expr.left = 
+        expression->op.bin_expr.left =
             optimize_expr(expression->op.bin_expr.left);
-        expression->op.bin_expr.right = 
+        expression->op.bin_expr.right =
             optimize_expr(expression->op.bin_expr.right);
 
         expr* left = expression->op.bin_expr.left;
@@ -305,7 +305,7 @@ static expr* optimize_expr(expr* expression) {
         if (left->type == E_LITERAL && left->op.lit_expr.t_type == T_NUMBER &&
             right->type == E_LITERAL && right->op.lit_expr.t_type == T_NUMBER) {
             // Peek Optimization is Available on Numbers
-            // Optimized Reuslt will be on OP  
+            // Optimized Reuslt will be on OP
             bool can_optimize = true;
             double a = left->op.lit_expr.t_data.number;
             double b = right->op.lit_expr.t_data.number;
@@ -352,7 +352,7 @@ static expr* optimize_expr(expr* expression) {
                 case T_NOT_EQUAL:
                     op = a != b ? true_token() : false_token();
                     break;
-                default: 
+                default:
                     can_optimize = false;
                     break;
             }
@@ -381,7 +381,7 @@ static expr* optimize_expr(expr* expression) {
                 case T_OR:
                     op = a || b ? true_token() : false_token();
                     break;
-                default: 
+                default:
                     can_optimize = false;
                     break;
             }
@@ -395,7 +395,7 @@ static expr* optimize_expr(expr* expression) {
         }
     }
     else if (expression->type == E_UNARY) {
-        expression->op.una_expr.operand = 
+        expression->op.una_expr.operand =
             optimize_expr(expression->op.una_expr.operand);
         token op = expression->op.una_expr.operator;
         expr* operand = expression->op.una_expr.operand;
@@ -407,10 +407,10 @@ static expr* optimize_expr(expr* expression) {
             return operand;
         }
         if (op.t_type == T_NOT && operand->type == E_LITERAL &&
-            (operand->op.lit_expr.t_type == T_TRUE || 
+            (operand->op.lit_expr.t_type == T_TRUE ||
             operand->op.lit_expr.t_type == T_FALSE)) {
             // Apply here
-            operand->op.lit_expr.t_type = 
+            operand->op.lit_expr.t_type =
                 operand->op.lit_expr.t_type == T_TRUE ? T_FALSE : T_TRUE;
             safe_free(expression);
             return operand;
@@ -419,25 +419,25 @@ static expr* optimize_expr(expr* expression) {
     else if (expression->type == E_IF) {
         expression->op.if_expr.condition =
             optimize_expr(expression->op.if_expr.condition);
-        expression->op.if_expr.expr_true = 
+        expression->op.if_expr.expr_true =
             optimize_expr(expression->op.if_expr.expr_true);
-        expression->op.if_expr.expr_false = 
+        expression->op.if_expr.expr_false =
             optimize_expr(expression->op.if_expr.expr_false);
     }
     else if (expression->type == E_CALL) {
         expression->op.call_expr.function =
             optimize_expr(expression->op.call_expr.function);
-        expression->op.call_expr.arguments = 
+        expression->op.call_expr.arguments =
             optimize_expr_list(expression->op.call_expr.arguments);
     }
     else if (expression->type == E_LIST) {
-        expression->op.list_expr.contents = 
+        expression->op.list_expr.contents =
             optimize_expr_list(expression->op.list_expr.contents);
     }
     else if (expression->type == E_FUNCTION) {
-        expression->op.func_expr.parameters = 
+        expression->op.func_expr.parameters =
             optimize_expr_list(expression->op.func_expr.parameters);
-        expression->op.func_expr.body = 
+        expression->op.func_expr.body =
             optimize_statement(expression->op.func_expr.body);
     }
     else if (expression->type == E_ASSIGN) {
@@ -450,8 +450,8 @@ static expr* optimize_expr(expr* expression) {
                     optimize_safe_free, optimize_safe_free, optimize_safe_free);
                 return 0;
             }
-            expression->op.assign_expr.rvalue = 
-                optimize_expr(expression->op.assign_expr.rvalue);   
+            expression->op.assign_expr.rvalue =
+                optimize_expr(expression->op.assign_expr.rvalue);
         }
     }
     return expression;
@@ -477,7 +477,7 @@ static void scan_statement(statement* state) {
     if (!state) return;
     if (state->type == S_LET) {
         // Add Usage
-        add_node(state->op.let_statement.lvalue.t_data.string, 
+        add_node(state->op.let_statement.lvalue.t_data.string,
             state->op.let_statement.rvalue);
         scan_expr(state->op.let_statement.rvalue);
     }
@@ -491,14 +491,14 @@ static void scan_statement(statement* state) {
         }
         else {
             add_modified(state->op.operation_statement.operand->op.lit_expr.t_data.string,
-                op.t_line, op.t_col);   
+                op.t_line, op.t_col);
         }
     }
     else if (state->type == S_EXPR) {
         scan_expr(state->op.expr_statement);
     }
     else if (state->type == S_BLOCK) {
-        state->op.block_statement = 
+        state->op.block_statement =
             scan_optimize_statement_list(state->op.block_statement);
     }
     else if (state->type == S_STRUCT) {
@@ -574,7 +574,7 @@ static void scan_expr(expr* expression) {
                 expression->line, expression->col);
         }
         scan_expr(expression->op.assign_expr.lvalue);
-        scan_expr(expression->op.assign_expr.rvalue);   
+        scan_expr(expression->op.assign_expr.rvalue);
     }
 }
 
@@ -591,7 +591,7 @@ static void print_statement_blocks() {
         printf("Block: \n");
         id_node* n = b->id_list;
         while (n) {
-            printf("    %s, modified %d, usage %d\n", n->id_name, n->modified_count, 
+            printf("    %s, modified %d, usage %d\n", n->id_name, n->modified_count,
                 n->usage_count);
             n = n->next;
         }

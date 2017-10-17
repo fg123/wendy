@@ -12,7 +12,7 @@ typedef struct import_node {
 import_node* imported_libraries = 0;
 
 void init_imported_libraries_ll() {
-	imported_libraries = 0;
+    imported_libraries = 0;
 }
 
 void add_imported_library(char* name) {
@@ -21,7 +21,7 @@ void add_imported_library(char* name) {
     strcpy(new_node->name, name);
     new_node->next = imported_libraries;
     imported_libraries = new_node;
-} 
+}
 
 void free_imported_libraries_ll() {
     import_node* curr = imported_libraries;

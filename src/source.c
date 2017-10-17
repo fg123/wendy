@@ -16,7 +16,7 @@ void init_source(FILE* file, char* name, long length, bool accurate) {
     buffer = safe_malloc(sizeof(char) * (length + 1));
     fread(buffer, sizeof(char), length, file);
     buffer[length] = '\0';
-    
+
     int lines = 1;
     for (int i = 0; buffer[i]; i++) {
         if (buffer[i] == '\n') {

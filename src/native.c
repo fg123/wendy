@@ -31,9 +31,9 @@ static native_function native_functions[] = {
     { "examineMemory", 2, native_examineMemory },
     { "exec", 1, native_exec },
     { "getc", 0, native_getc },
-	{ "printBytecode", 0, native_printBytecode },
-	{ "garbageCollect", 0, native_garbageCollect },
-	{ "printFreeMemory", 0, native_printFreeMemory }
+    { "printBytecode", 0, native_printBytecode },
+    { "garbageCollect", 0, native_garbageCollect },
+    { "printFreeMemory", 0, native_printFreeMemory }
 };
 
 static double native_to_numeric(token* t) {
@@ -45,13 +45,13 @@ static char* native_to_string(token* t) {
 }
 
 static token native_garbageCollect(token* args) {
-	garbage_collect(0);
-	return noneret_token();
+    garbage_collect(0);
+    return noneret_token();
 }
 
 static token native_printFreeMemory(token* args) {
-	print_free_memory();
-	return noneret_token();
+    print_free_memory();
+    return noneret_token();
 }
 
 static token native_getc(token* args) {
@@ -114,7 +114,7 @@ static token native_examineMemory(token* args) {
         token t = memory[i];
         printf("[0x%04X] [%s] ", i, token_string[t.t_type]);
         if (is_numeric(t)) {
-            printf("[%f][%d][0x%X]", t.t_data.number, (int)t.t_data.number, 
+            printf("[%f][%d][0x%X]", t.t_data.number, (int)t.t_data.number,
                 (int)t.t_data.number);
         }
         else {

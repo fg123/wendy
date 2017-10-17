@@ -26,7 +26,7 @@
 // VM Memory Limits
 #define MEMORY_SIZE 129061
 #define STACK_SIZE 100000
-#define ARGSTACK_SIZE 512 
+#define ARGSTACK_SIZE 512
 #define RESERVED_MEMORY 2
 #define CLOSURES_SIZE 128
 #define MEMREGSTACK_SIZE 100
@@ -35,15 +35,15 @@
 #define SETTINGS_COUNT 9
 
 typedef enum {
-    SETTINGS_COMPILE = 0, 
-    SETTINGS_NOGC = 1, 
+    SETTINGS_COMPILE = 0,
+    SETTINGS_NOGC = 1,
     SETTINGS_ASTPRINT = 2,
     SETTINGS_DISASSEMBLE = 3,
     SETTINGS_STRICT_ERROR = 4,
-    SETTINGS_TOKEN_LIST_PRINT = 5, 
+    SETTINGS_TOKEN_LIST_PRINT = 5,
     SETTINGS_NOOP = 6,
-	SETTINGS_REPL = 7,
-	SETTINGS_VERBOSE = 8 } settings_flags; 
+    SETTINGS_REPL = 7,
+    SETTINGS_VERBOSE = 8 } settings_flags;
 
 void set_settings_flag(settings_flags flag);
 bool get_settings_flag(settings_flags flag);
@@ -65,7 +65,7 @@ extern bool is_big_endian;
 
 void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num);
 void* safe_malloc_impl(size_t size, char* filename, int line_num);
-void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num); 
+void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num);
 void safe_free_impl(void* ptr, char* filename, int line_num);
 
 void free_alloc();

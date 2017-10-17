@@ -38,7 +38,7 @@ void clear_console() {
 
 // WendyScript Interpreter in C
 // By: Felix Guo
-// 
+//
 // main.c: used to handle REPL and calling the interpreter on a file.
 
 void invalid_usage() {
@@ -59,11 +59,11 @@ void invalid_usage() {
 
 void process_options(char** options, int len) {
     for (int i = 0; i < len; i++) {
-        if (strcmp("-c", options[i]) == 0 ||  
+        if (strcmp("-c", options[i]) == 0 ||
             strcmp("--compile", options[i]) == 0) {
             set_settings_flag(SETTINGS_COMPILE);
         }
-        else if (strcmp("-v", options[i]) == 0 ||  
+        else if (strcmp("-v", options[i]) == 0 ||
             strcmp("--verbose", options[i]) == 0) {
             set_settings_flag(SETTINGS_VERBOSE);
         }
@@ -76,11 +76,11 @@ void process_options(char** options, int len) {
         else if (strcmp("--ast", options[i]) == 0) {
             set_settings_flag(SETTINGS_ASTPRINT);
         }
-        else if (strcmp("-t", options[i]) == 0 ||  
+        else if (strcmp("-t", options[i]) == 0 ||
                  strcmp("--token-list", options[i]) == 0) {
             set_settings_flag(SETTINGS_TOKEN_LIST_PRINT);
         }
-        else if (strcmp("-d", options[i]) == 0 ||  
+        else if (strcmp("-d", options[i]) == 0 ||
                  strcmp("--disassemble", options[i]) == 0) {
             set_settings_flag(SETTINGS_DISASSEMBLE);
         }
@@ -99,7 +99,7 @@ void run(char* input_string) {
     if (!get_settings_flag(SETTINGS_NOOP)) {
         ast = optimize_ast(ast);
     }
-    if(!ast_error_flag()) { 
+    if(!ast_error_flag()) {
         size_t size;
         uint8_t* bytecode = generate_code(ast, &size);
         vm_run(bytecode, size);
@@ -144,7 +144,7 @@ int main(int argc, char** argv) {
         char* source_to_run = safe_malloc(1 * sizeof(char));
         // ENTER REPL MODE
         set_settings_flag(SETTINGS_NOOP);
-        set_settings_flag(SETTINGS_REPL);        
+        set_settings_flag(SETTINGS_REPL);
         push_frame("main", 0, 0);
         bool has_run = false;
         while (1) {
@@ -167,7 +167,7 @@ int main(int argc, char** argv) {
                     return 0;
                 }
                 source_size += strlen(input_buffer);
-                source_to_run = safe_realloc(source_to_run, 
+                source_to_run = safe_realloc(source_to_run,
                     source_size * sizeof(char));
                 strcat(source_to_run, input_buffer);
                 free(input_buffer);
@@ -187,7 +187,7 @@ int main(int argc, char** argv) {
     if (argc != 2) {
         process_options(&argv[2], argc - 2);
     }
-    if (argc == 2 && (strcmp(argv[1], "--help") == 0 || 
+    if (argc == 2 && (strcmp(argv[1], "--help") == 0 ||
                       strcmp(argv[1], "-h") == 0)) {
         invalid_usage();
     }
@@ -224,7 +224,7 @@ int main(int argc, char** argv) {
         if (!is_compiled) {
             init_source(file, argv[1], length, true);
             // Text Source
-            char* buffer = get_source_buffer(); 
+            char* buffer = get_source_buffer();
             // Begin Processing the File
             size_t alloc_size = 0;
             token* tokens;
@@ -244,7 +244,7 @@ int main(int argc, char** argv) {
             if (get_settings_flag(SETTINGS_ASTPRINT)) {
                 print_ast(ast);
             }
-            
+
             // Generate Bytecode
             bytecode_stream = generate_code(ast, &size);
             safe_free(tokens);
@@ -252,7 +252,7 @@ int main(int argc, char** argv) {
         }
         else {
             // Compiled Source
-            char* search_name = safe_malloc(sizeof(char) * 
+            char* search_name = safe_malloc(sizeof(char) *
                     (strlen(argv[1]) + 1));
             strcpy(search_name, argv[1]);
             int i = strlen(search_name);
@@ -260,7 +260,7 @@ int main(int argc, char** argv) {
             search_name[i + 1] = 0;
             strcat(search_name, "w");
             FILE* source_file = fopen(search_name, "r");
-            if (source_file) {  
+            if (source_file) {
                 fseek(source_file, 0, SEEK_END);
                 long length = ftell(source_file);
                 fseek (source_file, 0, SEEK_SET);
@@ -287,7 +287,7 @@ int main(int argc, char** argv) {
                 char* compile_path = safe_malloc(length * sizeof(char));
                 strcpy(compile_path, argv[1]);
                 strcat(compile_path, "c");
-                
+
                 FILE* compile_file = fopen(compile_path, "w");
                 if (compile_file) {
                     write_bytecode(bytecode_stream, compile_file);
@@ -306,7 +306,7 @@ int main(int argc, char** argv) {
                 printf("\n");
             }
         }
-        safe_free(bytecode_stream); 
+        safe_free(bytecode_stream);
     }
     free_source();
     c_free_memory();

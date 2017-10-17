@@ -64,20 +64,20 @@ static bool is_alpha_numeric(char c) {
 // handle_import() imports the string contents of the given file, otherwise
 //   leaves it for code_gen
 static void handle_import() {
-    
-    add_token(T_REQ);   
+
+    add_token(T_REQ);
     // we scan a string
     // t_curr points to space after REQ
     start = current;
     while(!scan_token()) {
         start = current;
     }
-    
+
     if (tokens[t_curr - 1].t_type == T_STRING) {
         int str_loc = t_curr - 1;
         char* path = tokens[str_loc].t_data.string;
         long length = 0;
-        
+
         char* buffer;
         FILE * f = fopen(path, "r");
         //printf("Attempting to open %s\n", path);
@@ -98,7 +98,7 @@ static void handle_import() {
                 // at this point, we inset the buffer into the source
                 // current should be the next item, we move it down buffer bytes
                 //printf("old source: \n%s\n", source);
-                memmove(&source[current + strlen(buffer)], 
+                memmove(&source[current + strlen(buffer)],
                         &source[current], o_source_len - current + 1);
                 memcpy(&source[current], buffer, strlen(buffer));
                 //printf("newsource: \n%s\n", source);
@@ -129,11 +129,11 @@ static void handle_obj_type() {
     // Trim the surrounding quotes.
     int s_length = current - 2 - start;
     char value[s_length + 1]; // + 1 for null terminator
-    
+
     memcpy(value, &source[start + 1], s_length);
     value[s_length] = '\0';
 
-    add_token_V(T_OBJ_TYPE, make_data_str(value));  
+    add_token_V(T_OBJ_TYPE, make_data_str(value));
 }
 
 static void handle_string(char endChar) {
@@ -154,18 +154,18 @@ static void handle_string(char endChar) {
     // Trim the surrounding quotes.
     int s_length = current - 2 - start;
     char value[s_length + 1]; // + 1 for null terminator
-    
+
     memcpy(value, &source[start + 1], s_length);
     value[s_length] = '\0';
 
-    add_token_V(T_STRING, make_data_str(value));    
+    add_token_V(T_STRING, make_data_str(value));
 }
 
-// identifier() processes the next identifier and also handles wendyScript 
+// identifier() processes the next identifier and also handles wendyScript
 //   keywords
 static void identifier() {
     while (is_alpha_numeric(peek())) advance();
-    
+
     char text[current - start + 1];
     memcpy(text, &source[start], current - start);
     text[current - start] = '\0';
@@ -186,19 +186,19 @@ static void identifier() {
 
     else if (strcmp(text, "ret") == 0)  { add_token(T_RET); }
     else if (strcmp(text, "explode") == 0) { add_token(T_EXPLODE); }
-    else if (strcmp(text, "import") == 0)   { 
+    else if (strcmp(text, "import") == 0)   {
         handle_import();
     }
-    else if (strcmp(text, "native") == 0)   { 
+    else if (strcmp(text, "native") == 0)   {
         add_token(T_NATIVE);
     }
     else if (strcmp(text, "time") == 0) { add_token(T_TIME); }
     else if (strcmp(text, "inc") == 0)  { add_token(T_INC); }
     else if (strcmp(text, "dec") == 0)  { add_token(T_DEC); }
     else if (strcmp(text, "input") == 0)    { add_token(T_INPUT); }
-    else if (strcmp(text, "struct") == 0){ 
+    else if (strcmp(text, "struct") == 0){
         add_token(T_STRUCT);
-    
+
     }
     else { add_token(T_IDENTIFIER); }
 }
@@ -214,18 +214,18 @@ static void handle_number() {
 
         while (is_digit(peek())) advance();
     }
-    
+
     char num_s[current - start + 1];
     memcpy(num_s, &source[start], current-start);
     num_s[current - start] = '\0';
-    double num = strtod(num_s, NULL); 
+    double num = strtod(num_s, NULL);
     add_token_V(T_NUMBER, make_data_num(num));
 }
 
 static bool ignore_next = false;
 // returns true if we sucessfully scanned, false if it was whitespace
 static bool scan_token() {
-    char c = advance(); 
+    char c = advance();
     switch(c) {
         case '(': add_token(T_LEFT_PAREN); break;
         case ')': add_token(T_RIGHT_PAREN); break;
@@ -239,8 +239,8 @@ static bool scan_token() {
         case '~': add_token(T_TILDE); break;
         case ',': add_token(T_COMMA); break;
         case '.': add_token(T_DOT); break;
-        case '-': 
-            if (t_curr == 0 || (is_digit(peek()) && 
+        case '-':
+            if (t_curr == 0 || (is_digit(peek()) &&
                     precedence(tokens[t_curr - 1]))) {
                 advance();
                 handle_number();
@@ -255,10 +255,10 @@ static bool scan_token() {
                 add_token(T_RANGE_OP);
             }
             else {
-                add_token(T_MINUS); 
+                add_token(T_MINUS);
             }
             break;
-        case '+': 
+        case '+':
             if (match('=')) {
                 add_token(T_ASSIGN_PLUS);
             }
@@ -274,7 +274,7 @@ static bool scan_token() {
         case '@': add_token(T_AT); break;
         case ';': add_token(T_SEMICOLON); break;
         case ':': add_token(T_COLON); break;
-        case '#': 
+        case '#':
             if (match(':')) {
                 add_token(T_LAMBDA);
             }
@@ -288,7 +288,7 @@ static bool scan_token() {
             break;
         case '*': add_token(match('=') ? T_ASSIGN_STAR : T_STAR); break;
         case '!': add_token(match('=') ? T_NOT_EQUAL : T_NOT); break;
-        case '=': 
+        case '=':
             if (match('='))
             {
                 add_token(T_EQUAL_EQUAL);
@@ -302,7 +302,7 @@ static bool scan_token() {
                 add_token(T_EQUAL);
             }
             break;
-        case '<': 
+        case '<':
             if (match('=')) {
                 add_token(T_LESS_EQUAL);
             }
@@ -316,7 +316,7 @@ static bool scan_token() {
                 add_token(T_LESS);
             }
             break;
-        case '>': 
+        case '>':
             if (match('=')) {
                 add_token(T_GREATER_EQUAL);
             }
@@ -326,7 +326,7 @@ static bool scan_token() {
             else {
                 add_token(T_GREATER);
             }
-            break;  
+            break;
         case '/':
             if (match('/')) {
                 // A comment goes until the end of the line.
@@ -385,7 +385,7 @@ int scan_tokens(char* source_, token** destination, size_t* alloc_size) {
     tokens_alloc_size = source_len;
     tokens = safe_malloc(tokens_alloc_size * sizeof(token));
     t_curr = 0;
-    current = 0; 
+    current = 0;
     line = 1;
     col = 1;
     while (!is_at_end()) {
@@ -423,11 +423,11 @@ void print_token_list(token* tokens, size_t size) {
     for(int i = 0; i < size; i++) {
 
         if(is_numeric(tokens[i])) {
-            printf("%d - %s -> %f\n", i, 
+            printf("%d - %s -> %f\n", i,
                 token_string[tokens[i].t_type], tokens[i].t_data.number);
         }
         else {
-            printf("%d - %s -> %s\n", i, 
+            printf("%d - %s -> %s\n", i,
                 token_string[tokens[i].t_type], tokens[i].t_data.string);
         }
     }
