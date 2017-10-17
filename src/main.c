@@ -42,32 +42,31 @@ void clear_console() {
 // main.c: used to handle REPL and calling the interpreter on a file.
 
 void invalid_usage() {
-    printf("usage: wendy [file|string] [-help] [-nogc] [-c] [-ast] [-disassemble] \n\n");
-    printf("    file|string     : is either a compiled WendyScript file, a raw source file, or a source string to run.\n");
-    printf("    -h, --help      : shows this message.\n");
-    printf("    --nogc          : disables garbage-collection.\n");
-    printf("    --noop          : disables optimization algorithm.\n");
-	printf("    -c, --compile   : compiles the given file but does not run.\n");
-	printf("    -v, --verbose   : displays extra information on error.\n");
-    printf("    --ast           : prints out the constructed AST.\n");
-    printf("    --toklst        : prints out the parsed tokens.\n");
-    printf("    --disassemble   : prints out the disassembled bytecode.\n");
+    printf("usage: wendy [file|string] [options] \n\n");
+    printf("    [file|string]     : is either a compiled WendyScript file, a raw source file, or a source string to run.\n\n");
+    printf("Options:\n");
+    printf("    -h, --help        : shows this message.\n");
+    printf("    --nogc            : disables garbage-collection.\n");
+    printf("    --noop            : disables optimization algorithm.\n");
+    printf("    -c, --compile     : compiles the given file but does not run.\n");
+    printf("    -v, --verbose     : displays information about memory state on error.\n");
+    printf("    --ast             : prints out the constructed AST.\n");
+    printf("    -t, --token-list  : prints out the parsed tokens.\n");
+    printf("    -d --disassemble  : prints out the disassembled bytecode.\n");
     printf("\nWendy will enter REPL mode if no parameters are supplied.\n");
-//  printf("\n-d file b1 b2 ...\n   Enables debugging mode, with an output file and an initial set of breakpoints.");
-
     safe_exit(1);
 }
 
 void process_options(char** options, int len) {
     for (int i = 0; i < len; i++) {
-		if (strcmp("-c", options[i]) == 0 ||  
-			strcmp("--compile", options[i]) == 0) {
+        if (strcmp("-c", options[i]) == 0 ||  
+            strcmp("--compile", options[i]) == 0) {
             set_settings_flag(SETTINGS_COMPILE);
-		}
-		else if (strcmp("-v", options[i]) == 0 ||  
-			strcmp("--verbose", options[i]) == 0) {
-			set_settings_flag(SETTINGS_VERBOSE);
-		}
+        }
+        else if (strcmp("-v", options[i]) == 0 ||  
+            strcmp("--verbose", options[i]) == 0) {
+            set_settings_flag(SETTINGS_VERBOSE);
+        }
         else if (strcmp("--nogc", options[i]) == 0) {
             set_settings_flag(SETTINGS_NOGC);
         }
@@ -77,10 +76,12 @@ void process_options(char** options, int len) {
         else if (strcmp("--ast", options[i]) == 0) {
             set_settings_flag(SETTINGS_ASTPRINT);
         }
-        else if (strcmp("--toklst", options[i]) == 0) {
+        else if (strcmp("-t", options[i]) == 0 ||  
+                 strcmp("--token-list", options[i]) == 0) {
             set_settings_flag(SETTINGS_TOKEN_LIST_PRINT);
         }
-        else if (strcmp("--disassemble", options[i]) == 0) {
+        else if (strcmp("-d", options[i]) == 0 ||  
+                 strcmp("--disassemble", options[i]) == 0) {
             set_settings_flag(SETTINGS_DISASSEMBLE);
         }
         else {
@@ -93,11 +94,7 @@ void run(char* input_string) {
     size_t alloc_size = 0;
     token* tokens;
     size_t tokens_count;
-
-    // Scanning and Tokenizing
     tokens_count = scan_tokens(input_string, &tokens, &alloc_size);
-
-    // Build AST
     statement_list* ast = generate_ast(tokens, tokens_count);
     if (!get_settings_flag(SETTINGS_NOOP)) {
         ast = optimize_ast(ast);
@@ -137,7 +134,7 @@ int main(int argc, char** argv) {
     if (argc == 1) {
         init_source(0, "", 0, false);
         clear_console();
-        printf("Welcome to %s created by: Felix Guo\n", WENDY_VERSION);
+        printf("Welcome to " WENDY_VERSION " created by: Felix Guo\n");
         printf("Run `wendy -help` to get help. \n");
         printf("Press Ctrl+D (EOF) to exit REPL.\n");
         char* path = get_path();
@@ -149,7 +146,7 @@ int main(int argc, char** argv) {
         set_settings_flag(SETTINGS_NOOP);
         set_settings_flag(SETTINGS_REPL);        
         push_frame("main", 0, 0);
-		bool has_run = false;
+        bool has_run = false;
         while (1) {
             size_t source_size = 1;
             source_to_run[0] = 0;
@@ -176,37 +173,38 @@ int main(int argc, char** argv) {
                 free(input_buffer);
             }
             add_history(source_to_run);
-			run(source_to_run);
-			has_run = true;
+            run(source_to_run);
+            has_run = true;
         }
         safe_free(source_to_run);
-		c_free_memory();
-		if (has_run) {
-			vm_cleanup_if_repl();
-		}
+        c_free_memory();
+        if (has_run) {
+            vm_cleanup_if_repl();
+        }
         return 0;
     }
     set_settings_flag(SETTINGS_STRICT_ERROR);
     if (argc != 2) {
         process_options(&argv[2], argc - 2);
     }
-    if (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+    if (argc == 2 && (strcmp(argv[1], "--help") == 0 || 
+                      strcmp(argv[1], "-h") == 0)) {
         invalid_usage();
     }
     else if (argc >= 2) {
         // FILE READ MODE
         long length = 0;
         int file_name_length = strlen(argv[1]);
-        FILE *file = fopen(argv[1], "r");
+        FILE* file = fopen(argv[1], "r");
         if (!file) {
-			// Attempt to run as source.
-			push_frame("main", 0, 0);
+            // Attempt to run as source.
+            push_frame("main", 0, 0);
             run(argv[1]);
-			c_free_memory();
-			check_leak();
-			return 0;
-		}
-		// Compute File Size
+            c_free_memory();
+            check_leak();
+            return 0;
+        }
+        // Compute File Size
         fseek(file, 0, SEEK_END);
         length = ftell(file);
         fseek (file, 0, SEEK_SET);
@@ -277,7 +275,6 @@ int main(int argc, char** argv) {
             fread(bytecode_stream, sizeof(uint8_t), length, file);
         }
         fclose(file);
-        // bytecode_stream now has the stream of bytecode
         if (get_settings_flag(SETTINGS_DISASSEMBLE)) {
             print_bytecode(bytecode_stream, stdout);
         }

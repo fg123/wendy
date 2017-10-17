@@ -635,91 +635,90 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
         unsigned int start = i;
         fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
         opcode op = bytecode[i];
-        long int oldChar = ftell(buffer);
+        unsigned int p = 0;
         int printSourceLine = -1;
-        fprintf(buffer, YEL "%6s " RESET, opcode_string[op]);
+        p += fprintf(buffer, YEL "%6s " RESET, opcode_string[op]);
         if (op == OP_PUSH || op == OP_BIN || op == OP_UNA || op == OP_RBIN) {
             i++;
             token t = get_token(&bytecode[i], &i);
             if (t.t_type == T_STRING) { 
-                fprintf(buffer, "%.*s ", maxlen, t.t_data.string);
+                p += fprintf(buffer, "%.*s ", maxlen, t.t_data.string);
                 if (strlen(t.t_data.string) > maxlen) {
-                    fprintf(buffer, ">");
+                    p += fprintf(buffer, ">");
                 }
             }
             else {
-                print_token_inline(&t, buffer);
+				p +=  print_token_inline(&t, buffer);
             }
         }
         else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW || 
                  op == OP_IMPORT) {
             i++;
             char* c = (char*)(bytecode + i);
-            fprintf(buffer, "%.*s ", maxlen, c);
+            p += fprintf(buffer, "%.*s ", maxlen, c);
             if (strlen(c) > maxlen) {
-                fprintf(buffer, ">");
+                p += fprintf(buffer, ">");
             }
 
 			i += strlen(c);
-			if (OP_IMPORT) {
+			if (op == OP_IMPORT) {
 				// i is at null term
 				void* loc = &bytecode[i + 1];
 				i += sizeof(address);
-				fprintf(buffer, "0x%X", get_address(loc));
+				p += fprintf(buffer, "0x%X", get_address(loc));
 			}
         }
         else if (op == OP_CHTYPE) {
             i++;
-            fprintf(buffer, "%s", token_string[bytecode[i]]);
+            p += fprintf(buffer, "%s", token_string[bytecode[i]]);
         }
         else if (op == OP_REQ || op == OP_PLIST) {
             i++;
-            fprintf(buffer, "0x%X", bytecode[i]);
+            p += fprintf(buffer, "0x%X", bytecode[i]);
         }
         else if (op == OP_SRC) {
             void* loc = &bytecode[i + 1];
             i += sizeof(address);
-            fprintf(buffer, "0x%X", get_address(loc));
+            p += fprintf(buffer, "0x%X", get_address(loc));
             printSourceLine = get_address(loc);
         }
         else if (op == OP_JMP || op == OP_JIF) {
             void* loc = &bytecode[i + 1];
             i += sizeof(address);
-            fprintf(buffer, "0x%X", get_address(loc));
+            p += fprintf(buffer, "0x%X", get_address(loc));
         }
         else if (op == OP_LJMP) {
             void* loc = &bytecode[i + 1];
             i += sizeof(address);
-            fprintf(buffer, "0x%X ", get_address(loc + baseaddr));
+            p += fprintf(buffer, "0x%X ", get_address(loc + baseaddr));
             i++;
             char* c = (char*)(bytecode + i);
-            fprintf(buffer, "%.*s ", maxlen, c);
+            p += fprintf(buffer, "%.*s ", maxlen, c);
             if (strlen(c) > maxlen) {
-                fprintf(buffer, ">");
+                p += fprintf(buffer, ">");
             }
             i += strlen(c);
         }
         else if (op == OP_LBIND) {
             i++;
             char* c = (char*)(bytecode + i);
-            fprintf(buffer, "%.*s ", maxlen, c);
+            p += fprintf(buffer, "%.*s ", maxlen, c);
             i += strlen(c);
             i++;
             c = (char*)(bytecode + i);
-            fprintf(buffer, "%.*s ", maxlen, c);
+            p += fprintf(buffer, "%.*s ", maxlen, c);
             i += strlen(c);
         }
         else if (op == OP_NATIVE) {
             i++;
             void* loc = &bytecode[i];
             i += sizeof(address);
-            fprintf(buffer, "%d ", get_address(loc));
+            p += fprintf(buffer, "%d ", get_address(loc));
             char* c = (char*)(bytecode + i);
-            fprintf(buffer, "%.*s", maxlen, c);
+            p += fprintf(buffer, "%.*s", maxlen, c);
             i += strlen(c);
-        }
-        long int count = ftell(buffer) - oldChar;
-        while (count++ < 30) {
+		}
+        while (p++ < 30) {
             fprintf(buffer, " ");
         }
         fprintf(buffer, CYN "| ");
@@ -736,7 +735,6 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
             }
         }
         if (printSourceLine > 0 && !get_settings_flag(SETTINGS_REPL)) {
-            // Print Source Line
             printf(RESET " %s", get_source_line(printSourceLine));
         }
         fprintf(buffer, "\n" RESET);

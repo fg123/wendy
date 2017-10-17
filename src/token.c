@@ -123,42 +123,43 @@ void print_token(const token* t) {
     fflush(stdout);
 }
 
-void print_token_inline(const token* t, FILE* buf) {
+unsigned int print_token_inline(const token* t, FILE* buf) {
+	unsigned int p = 0;
     if (t->t_type == T_OBJ_TYPE) {
-        fprintf(buf, "<%s>", t->t_data.string);
+        p += fprintf(buf, "<%s>", t->t_data.string);
     }
     else if (t->t_type == T_STRUCT) {
-        fprintf(buf, "<struct>");
+        p += fprintf(buf, "<struct>");
     }
     else if (t->t_type == T_FUNCTION) {
-        fprintf(buf, "<function>");
+        p += fprintf(buf, "<function>");
     }
     else if (t->t_type == T_STRUCT_FUNCTION) {
-        fprintf(buf, "<struct function>");
+        p += fprintf(buf, "<struct function>");
     }
     else if (t->t_type == T_STRUCT_INSTANCE) {
         token instance_loc = memory[(int)(t->t_data.number)];
-        fprintf(buf, "<struct:%s>", 
+        p += fprintf(buf, "<struct:%s>", 
                 memory[(int)instance_loc.t_data.number + 1].t_data.string);
     }
     else if (t->t_type == T_RANGE) {
-        fprintf(buf, "<range from %d to %d>", range_start(*t), range_end(*t));
+        p += fprintf(buf, "<range from %d to %d>", range_start(*t), range_end(*t));
     }
     else if (t->t_type == T_LIST_HEADER) {
-        fprintf(buf, "<lhd size %d>", (int)(t->t_data.number)); 
+        p += fprintf(buf, "<lhd size %d>", (int)(t->t_data.number)); 
     }
     else if (t->t_type == T_STRUCT_METADATA) {
-        fprintf(buf, "<meta size %d>", (int)(t->t_data.number));    
+        p += fprintf(buf, "<meta size %d>", (int)(t->t_data.number));    
     }
     else if (t->t_type == T_LIST) {
         address start = t->t_data.number;
         token l_header = memory[start];
-        fprintf(buf, "[");
+        p += fprintf(buf, "[");
         for (int i = 0; i < l_header.t_data.number; i++) {
-            if (i != 0) fprintf(buf, ", ");
-            print_token_inline(&memory[start + i + 1], buf);
+            if (i != 0) p += fprintf(buf, ", ");
+            p += print_token_inline(&memory[start + i + 1], buf);
         }
-        fprintf(buf, "]");
+        p += fprintf(buf, "]");
     }
     else if (t->t_type == T_NUMBER) {
         size_t len = snprintf(0, 0, "%f", t->t_data.number);
@@ -172,17 +173,18 @@ void print_token_inline(const token* t, FILE* buf) {
             buffer[len--] = 0;
         }
             
-        fprintf(buf, "%s", buffer);
+        p += fprintf(buf, "%s", buffer);
         safe_free(buffer);
     }
     else if (t->t_type == T_ADDRESS) {
-        fprintf(buf, "0x%X", (int)t->t_data.number);
+        p += fprintf(buf, "0x%X", (int)t->t_data.number);
     }
     else {
-        fprintf(buf, "%s", t->t_data.string);
+        p += fprintf(buf, "%s", t->t_data.string);
     }
     last_printed_newline = false;
-    fflush(buf);
+	fflush(buf);
+	return p;
 }
 
 int precedence(token op) {

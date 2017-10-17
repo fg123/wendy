@@ -159,8 +159,9 @@ int range_end(token r);
 // print_token(t) prints the value of the token to the string
 void print_token(const token* t);
 
-// print_token_inline(T) prints the value of the token inline
-void print_token_inline(const token* t, FILE* buf);
+// print_token_inline(T) prints the value of the token inline and returns # of
+//   characters printed
+unsigned int print_token_inline(const token* t, FILE* buf);
 
 // token_equal(a, b) returns true if both tokens are equal and false otherwise
 bool token_equal(token* a, token* b);
