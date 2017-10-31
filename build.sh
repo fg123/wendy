@@ -1,11 +1,26 @@
-#!/bin/sh
+#!/bin/bash
 
 mkdir -p bin
 mkdir -p build
 
-echo Building WendyScript...
+buildOnly=0
+release=0
+for var in "$@"; do
+	if [ "$var" = "-b" ]; then
+		buildOnly=1
+	elif [ "$var" = "-r" ]; then
+		release=1
+	fi
+done
+
 make clean -s
-make -s
+if (( $release == 1)); then
+	echo Building WendyScript with Release
+	make -s release=-DRELEASE
+else
+	echo Building WendyScript...
+	make -s
+fi
 echo Build Done.
 
 echo Compiling Wendy Library Files
@@ -17,14 +32,14 @@ for f in src/wendy-lib/*.w ; do
 done
 echo Compiled and Copied
 
-if [ "$1" != "-b" ]; then
+if (( $buildOnly == 0 )); then
 	echo Running Tests...
 
 	for f in tests/*.err ; do
 		rm -f $f
 	done
 
-    for f in tests/*.in ; do
+	for f in tests/*.in ; do
 		bin/wendy "$f" > file.tmp
 		if diff "${f%.in}.expect" file.tmp > /dev/null ; then
 			echo Test $(basename $f) passed.
@@ -45,8 +60,5 @@ if [ "$1" != "-b" ]; then
 	rm file.tmp
 
 	echo Tests Done
-else
-	echo Ran in build-only mode.
 fi
-
 echo Finished!

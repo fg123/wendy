@@ -135,10 +135,12 @@ int main(int argc, char** argv) {
         init_source(0, "", 0, false);
         clear_console();
         printf("Welcome to " WENDY_VERSION " created by: Felix Guo\n");
-        printf("Run `wendy -help` to get help. \n");
+        printf(BUILD_VERSION "\n");
+        printf("Run `wendy -help` to get help.\n");
         printf("Press Ctrl+D (EOF) to exit REPL.\n");
         char* path = get_path();
         printf("Path: %s\n", path);
+        printf("Note: REPL does not show call stack on error, run with -v to dump call stacks.\n");
         safe_free(path);
         char* input_buffer;
         char* source_to_run = safe_malloc(1 * sizeof(char));
@@ -162,9 +164,7 @@ int main(int argc, char** argv) {
                 }
                 if(!input_buffer) {
                     printf("\n");
-                    c_free_memory();
-                    vm_cleanup_if_repl();
-                    return 0;
+                    goto cleanup;
                 }
                 source_size += strlen(input_buffer);
                 source_to_run = safe_realloc(source_to_run,
@@ -177,6 +177,8 @@ int main(int argc, char** argv) {
             has_run = true;
         }
         safe_free(source_to_run);
+
+    cleanup:
         c_free_memory();
         if (has_run) {
             vm_cleanup_if_repl();

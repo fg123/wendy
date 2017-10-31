@@ -40,6 +40,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
         start_at = verify_header(bytecode);
     }
     else {
+        // REPL Bytecode has no headers!
         // Resize Bytecode Block, Offset New Addresses, Push to End
         bytecode_size += size;
         if (bytecode) {
@@ -50,6 +51,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
         else {
             bytecode = safe_malloc(bytecode_size * sizeof(uint8_t));
         }
+        int index_start_at = 0;
+        //printf("Saved Size: %ld\n", saved_size);
         if (saved_size != 0) {
             start_at = saved_size - 1;
         }
@@ -60,6 +63,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
         for (size_t i = 0; i < size; i++) {
             bytecode[start_at + i] = new_bytecode[i];
         }
+        // printf("New bytecode: \n");
+        // print_bytecode(bytecode, stdout);
     }
     for (i = start_at;; i++) {
         reset_error_flag();

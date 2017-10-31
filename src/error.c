@@ -133,8 +133,11 @@ void error_runtime(int line, char* message, ...) {
         printf("==========================\n");
     }
     free(msg);
-    print_call_stack(20);
-    print_verbose_info();
+    // REPL Don't print call stack unless verbose is on!
+    if (!get_settings_flag(SETTINGS_REPL) || get_settings_flag(SETTINGS_VERBOSE)) {
+        print_call_stack(20);
+        print_verbose_info();
+    }
     fflush(stdout);
     if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
         safe_exit(1);

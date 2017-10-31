@@ -5,8 +5,8 @@ ODIR = build
 BINDIR = bin
 SRCDIR = src
 INCDIR = headers
-CFLAGS=-I $(INCDIR) -lreadline -g -lm -Wall -Wextra
-CFLAGSNOLINK = -I $(INCDIR) -g
+CFLAGS=-I $(INCDIR) -lreadline -g -lm -Wall -Wextra $(release)
+CFLAGSNOLINK = -I $(INCDIR) -g $(release)
 
 _DEPS = scanner.h token.h error.h memory.h execpath.h global.h debugger.h ast.h vm.h codegen.h source.h native.h optimizer.h imports.h
 DEPS = $(patsubst %,$(INCDIR)/%,$(_DEPS))

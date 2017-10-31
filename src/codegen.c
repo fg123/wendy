@@ -223,7 +223,6 @@ static void codegen_statement(void* expre) {
         char* library_name = state->op.import_statement.t_data.string;
         // Has to be identifier now.
         if (!has_already_imported_library(library_name)) {
-            add_imported_library(library_name);
             write_opcode(OP_IMPORT);
             write_string(library_name);
             int jumpLoc = size;
@@ -797,7 +796,6 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
             i++;
             char* c = (char*)(buffer + i);
             i += strlen(c);
-            add_imported_library(c);
             address loc = get_address(&buffer[i + 1]);
             loc += offset;
             write_address_at_buffer(loc, buffer, i + 1);
