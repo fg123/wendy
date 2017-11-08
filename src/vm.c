@@ -659,7 +659,7 @@ static data eval_binop(operator op, data a, data b) {
             // Add 1 to offset because of the header.
             int offset = floor(b.value.number) + 1;
             data* c = get_value_of_address(id_address + offset, line);
-            return *c;
+            return copy_data(*c);
         }
         else {
             int start = range_start(b);
@@ -1043,7 +1043,9 @@ static data eval_binop(operator op, data a, data b) {
             return t;
         }
         else {
-            error_runtime(line, VM_STRING_NUM_INVALID_OPERATOR,
+            error_runtime(line,
+                (a.type == D_STRING && b.type == D_STRING) ?
+                VM_STRING_STRING_INVALID_OPERATOR : VM_STRING_NUM_INVALID_OPERATOR,
                 operator_string[op]);
             return none_data();
         }

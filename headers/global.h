@@ -8,7 +8,7 @@
 // This file contains information that the majority of WendyScript modules use.
 
 // Main Information
-#define WENDY_VERSION "Wendy 2.0"
+#define WENDY_VERSION "Wendy 1.2"
 
 #ifdef RELEASE
 #define BUILD_VERSION "Release (" __DATE__ " " __TIME__ ")"

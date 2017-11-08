@@ -8,7 +8,7 @@
 
 #define match(...) fnmatch(sizeof((token_type []) {__VA_ARGS__}) / sizeof(token_type), __VA_ARGS__)
 
-// Wrapping SafeFree from global for use in a function pointer.
+// Wrapping SafeFree from global for use as a function pointer.
 void ast_safe_free(void* ptr) {
     safe_free(ptr);
 }

@@ -91,6 +91,7 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_LIST_LIST_INVALID_OPERATOR "Invalid operator '%s' between two lists."
 #define VM_INVALID_APPEND "Invalid operator '%s' between list and element."
 #define VM_STRING_NUM_INVALID_OPERATOR "Invalid operator '%s' between string and number."
+#define VM_STRING_STRING_INVALID_OPERATOR "Invalid operator '%s' between string and string."
 #define VM_INVALID_NEGATE "Negation operand must be a number."
 #define VM_INVALID_NATIVE_CALL "Natively linked function '%s' not found!"
 
