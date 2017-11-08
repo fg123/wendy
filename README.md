@@ -4,7 +4,7 @@
 
 **WendyScript** is a dynamically typed, imperative, bytecode-compiled programming language.
 
-**WendyScript** supports first class functions and closures, structure based objects, easy list manipulation, and an easy to learn, forgiving syntax.
+**WendyScript** supports first class functions and closures, structure based objects, easy list manipulation, and an easy to learn syntax.
 
 Here is the code to print a list of odd numbers from 1 to 100:
 ```
@@ -32,5 +32,5 @@ The source can be built by using the build.sh file.
 ```
 ./build.sh
 ```
-This script will run a `make clean`, `make` as well as execute a variety of input-output tests in the /tests folder.
+This script will run a `make clean`, `make` as well as execute a variety of input-output tests in the `/tests` folder.
 This ensures the build of WendyScript works as intended.
