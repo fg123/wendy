@@ -1,37 +1,18 @@
 #ifndef VM_H
 #define VM_H
 
-#include "token.h"
-#include "stdint.h"
+#include "data.h"
 #include "memory.h"
+#include "operators.h"
+#include <stdint.h>
 
 // vm.h - Felix Guo
-// Executes a stream of bytecode based on instructions in [codegen] by 
+// Executes a stream of bytecode based on instructions in [codegen] by
 //   interfacing with [memory]
 
 // vm_run(bytecode) runs the given bytecode.
 void vm_run(uint8_t* bytecode, size_t size);
 void vm_cleanup_if_repl();
-
-// eval_binop(op, a, b) applies the given operator to a and b
-//  a and b must be numbers or boolean
-static token eval_binop(token op, token a, token b);
-
-// eval_uniop(op, a) applies the given operator to a
-//   a must be a number or boolean
-static token eval_uniop(token op, token a);
-
-// type_of(a) returns the type of the token a in an OBJ_TYPE token.
-static token type_of(token a);
-
-// size_of(a) returns the size of the token a in a NUMBER token.
-static token size_of(token a);
-
-// value_of(a) returns the value of the token a in a NUMBER token
-static token value_of(token a);
-
-// char_of(a) returns the value of the token a in a STRING token
-static token char_of(token a);
 
 // get_instruction_pointer() returns the current instruction pointer.
 address get_instruction_pointer();

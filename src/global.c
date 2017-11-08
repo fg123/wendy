@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 typedef struct malloc_node {
     char* filename;
@@ -14,6 +15,15 @@ typedef struct malloc_node {
 static malloc_node* malloc_node_list = 0;
 static bool settings_data[SETTINGS_COUNT] = { false };
 bool is_big_endian = true;
+bool last_printed_newline = false;
+
+char* w_strdup(const char *s) {
+    char* p = safe_malloc(strlen(s) + 1);
+    if (p) {
+        strcpy(p, s);
+    }
+    return p;
+}
 
 void determine_endianness() {
     int i = 1;
@@ -52,9 +62,9 @@ void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num) {
     new_node->next = malloc_node_list;
     malloc_node_list = new_node;
     if (!(new_node->ptr)) {
-        printf("SafeCalloc: Couldn't allocate memory! %s at line %d.\n",
+        fprintf(stderr, "SafeCalloc: Couldn't allocate memory! %s at line %d.\n",
             filename, line_num);
-        safe_exit(1);
+        safe_exit(2);
     }
     return new_node->ptr;
 }
@@ -75,9 +85,9 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
         }
         curr = curr->next;
     }
-    printf("SafeRealloc: Couldn't find pointer! %p, %s at line %d.\n", ptr, filename,
+    fprintf(stderr, "SafeRealloc: Couldn't find pointer! %p, %s at line %d.\n", ptr, filename,
         line_num);
-    safe_exit(1);
+    safe_exit(2);
     return 0;
 }
 
@@ -101,9 +111,9 @@ void safe_free_impl(void* ptr, char* filename, int line_num) {
         prev = curr;
         curr = curr->next;
     }
-    printf("SafeFree: Couldn't find pointer! %p, %s at line %d.\n", ptr, filename,
+    fprintf(stderr, "SafeFree: Couldn't find pointer! %p, %s at line %d.\n", ptr, filename,
         line_num);
-    safe_exit(1);
+    safe_exit(2);
     return;
 }
 

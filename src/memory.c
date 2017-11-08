@@ -20,6 +20,11 @@ static const char RA_START_CHAR = '#';
 // pointer to the end of the main frame
 address main_end_pointer = 0;
 
+static void write_memory(unsigned int location, data d) {
+    destroy_data(memory + location);
+    memory[location] = d;
+}
+
 void mark_locations(bool* marked, address start, size_t block_size) {
     for (int j = start; j < start + block_size; j++) {
         marked[j] = true;
@@ -45,25 +50,25 @@ bool garbage_collect(int size) {
             // Mark it!
             marked[a] = true;
             // Check if it's a pointer type?
-            if (memory[a].t_type == T_LIST || memory[a].t_type == T_STRUCT) {
-                a = memory[a].t_data.number;
-                mark_locations(marked, a, memory[a].t_data.number);
+            if (memory[a].type == D_LIST || memory[a].type == D_STRUCT) {
+                a = memory[a].value.number;
+                mark_locations(marked, a, memory[a].value.number);
             }
-            else if (memory[a].t_type == T_FUNCTION) {
-                a = memory[a].t_data.number;
+            else if (memory[a].type == D_FUNCTION) {
+                a = memory[a].value.number;
                 mark_locations(marked, a, 3);
             }
-            else if (memory[a].t_type == T_STRUCT_INSTANCE) {
-                a = memory[a].t_data.number;
-                // a points to T_STRUCT_INSTANCE_HEAD
-                address meta_loc = memory[a].t_data.number;
-                // meta_loc points to T_STRUCT_METADATA, mark the metadata
-                size_t meta_size = memory[meta_loc].t_data.number;
+            else if (memory[a].type == D_STRUCT_INSTANCE) {
+                a = memory[a].value.number;
+                // a points to D_STRUCT_INSTANCE_HEAD
+                address meta_loc = memory[a].value.number;
+                // meta_loc points to D_STRUCT_METADATA, mark the metadata
+                size_t meta_size = memory[meta_loc].value.number;
                 mark_locations(marked, meta_loc, meta_size);
                 // count parameters
                 size_t params = 0;
                 for (address i = meta_loc; i < meta_loc + meta_size; i++) {
-                    if (memory[i].t_type == T_STRUCT_PARAM) {
+                    if (memory[i].type == D_STRUCT_PARAM) {
                         params++;
                     }
                 }
@@ -187,11 +192,6 @@ address pls_give_memory(int size, int line) {
 }
 
 void here_u_go(address a, int size) {
-    /* Clear Memory */
-    for (address i = a; i < a + size; i++) {
-        memory[i].t_type = T_EMPTY;
-    }
-
     // Returned memory! Yay!
     // Returned memory could also be already freed.
     // We'll look to see if the returned memory can be appended to another
@@ -243,7 +243,7 @@ void print_free_memory() {
 
 void init_memory() {
     // Initialize Memory
-    memory = safe_calloc(MEMORY_SIZE, sizeof(token));
+    memory = safe_calloc(MEMORY_SIZE, sizeof(data));
 
     // Initialize MemReg
     mem_reg_stack = safe_calloc(MEMREGSTACK_SIZE, sizeof(address));
@@ -262,10 +262,10 @@ void init_memory() {
     closure_list_sizes = safe_malloc(sizeof(size_t) * CLOSURES_SIZE);
     closure_list_size = CLOSURES_SIZE;
 
-    // ADDRESS 0 REFERS TO NONE_TOKEN
-    push_memory(none_token());
-    // ADDRESS 1 REFERS TO EMPTY RETURNS TOKEN
-    push_memory(make_token(T_NONERET, make_data_str("<noneret>")));
+    // ADDRESS 0 REFERS TO NONE_data
+    push_memory(none_data(), 0);
+    // ADDRESS 1 REFERS TO EMPTY RETURNS data
+    push_memory(noneret_data(), 0);
 }
 
 void clear_arg_stack() {
@@ -273,6 +273,9 @@ void clear_arg_stack() {
 }
 
 void c_free_memory() {
+    for (size_t i = 0; i < MEMORY_SIZE; i++) {
+        destroy_data(memory + i);
+    }
     safe_free(memory);
     safe_free(call_stack);
     safe_free(mem_reg_stack);
@@ -383,9 +386,9 @@ void write_state(FILE* fp) {
     }
     fprintf(fp, "Memory: %d\n", MEMORY_SIZE);
     for (int i = 0; i < MEMORY_SIZE; i++) {
-        if (memory[i].t_type != 0) {
-            fprintf(fp, "%d %s ", i, token_string[memory[i].t_type]);
-            print_token_inline(&memory[i], fp);
+        if (memory[i].type != 0) {
+            fprintf(fp, "%d %s ", i, data_string[memory[i].type]);
+            print_data_inline(&memory[i], fp);
             fprintf(fp, "\n");
         }
     }
@@ -407,7 +410,7 @@ void print_call_stack(int maxlines) {
                     printf("%5d FP-> [%s -> 0x%04X", i, call_stack[i].id,
                             call_stack[i].val);
                 }
-//              print_token_inline(&memory[call_stack[i].val], stdout);
+//              print_data_inline(&memory[call_stack[i].val], stdout);
                 printf("]\n");
             }
             else {
@@ -423,7 +426,7 @@ void print_call_stack(int maxlines) {
                     printf("%5d      [%s -> 0x%04X: ",i,
                             call_stack[i].id, call_stack[i].val);
                 }
-                print_token_inline(&memory[call_stack[i].val], stdout);
+                print_data_inline(&memory[call_stack[i].val], stdout);
                 printf("]\n");
 
             }
@@ -432,14 +435,15 @@ void print_call_stack(int maxlines) {
     printf("===============\n");
 }
 
-void push_arg(token t, int line) {
-//  printf("pushed ");
-//  print_token(&t);
-    memory[arg_pointer--] = t;
+void push_arg(data t, int line) {
+    //printf("pushed ");
+    //print_data(&t);
+    write_memory(arg_pointer, t);
+    arg_pointer--;
     check_memory(line);
 }
 
-token* top_arg(int line) {
+data* top_arg(int line) {
     if (arg_pointer != MEMORY_SIZE - 1) {
         return &memory[arg_pointer + 1];
     }
@@ -447,61 +451,58 @@ token* top_arg(int line) {
     return 0;
 }
 
-token pop_arg(int line) {
+data pop_arg(int line) {
     if (arg_pointer != MEMORY_SIZE - 1) {
-        token ret = memory[++arg_pointer];
-        memory[arg_pointer].t_type = 0;
+        data ret = copy_data(memory[++arg_pointer]);
         return ret;
     }
     error_runtime(line, MEMORY_STACK_UNDERFLOW);
-    return none_token();
+    return none_data();
 }
 
-address push_memory_array(token* a, int size) {
-    address loc = pls_give_memory(size, a[0].t_line);
+address push_memory_array(data* a, int size, int line) {
+    address loc = pls_give_memory(size, line);
     for (int i = 0; i < size; i++) {
-        memory[loc + i] = a[i];
+        write_memory(loc + i, a[i]);
     }
-    check_memory(a[0].t_line);
+    check_memory(line);
     return loc;
 }
 
-address push_memory_s(token t, int size) {
-    address loc = pls_give_memory(size + 1, t.t_line);
-    memory[loc] = list_header_token(size);
-//  printf("pushmemsize: %s\n", memory[loc].t_data.string);
-//  memory[loc].t_data.number = size;
+address push_memory_s(data t, int size, int line) {
+    address loc = pls_give_memory(size + 1, line);
+    write_memory(loc, list_header_data(size));
     for (int i = 0; i < size; i++) {
-        memory[loc + i + 1] = t;
+        write_memory(loc + i + 1, t);
     }
-    check_memory(t.t_line);
+    check_memory(line);
     return loc;
 }
 
-address push_memory_a(token* a, int size) {
-    address loc = pls_give_memory(size + 1, a[0].t_line);
-    memory[loc] = list_header_token(size);
-//  printf("pushmemsize: %s\n", memory[loc].t_data.string);
-//  memory[loc].t_data.number = size;
+address push_memory_a(data* a, int size, int line) {
+    address loc = pls_give_memory(size + 1, line);
+    write_memory(loc, list_header_data(size));
+//  printf("pushmemsize: %s\n", memory[loc].value.string);
+//  memory[loc].value.number = size;
     for (int i = 0; i < size; i++) {
-        memory[loc + i + 1] = a[i];
+        write_memory(loc + i + 1, a[i]);
     }
-    check_memory(a[0].t_line);
+    check_memory(line);
     return loc;
 }
-address push_memory(token t) {
-    address loc = pls_give_memory(1, t.t_line);
-    memory[loc] = t;
-    check_memory(t.t_line);
+address push_memory(data t, int line) {
+    address loc = pls_give_memory(1, line);
+    write_memory(loc, t);
+    check_memory(line);
     return loc;
 }
 
-void replace_memory(token t, address a) {
+void replace_memory(data t, address a, int line) {
     if (a < MEMORY_SIZE) {
-        memory[a] = t;
+        write_memory(a, t);
     }
     else {
-        error_runtime(t.t_line, MEMORY_REF_ERROR);
+        error_runtime(line, MEMORY_REF_ERROR);
     }
 }
 
@@ -574,7 +575,6 @@ address get_address_of_id(char* id, int line) {
 
 address get_stack_pos_of_id(char* id, int line) {
     if (!id_exist(id, true)) {
-
         error_runtime(line, MEMORY_ID_NOT_FOUND, id);
         return 0;
     }
@@ -593,11 +593,11 @@ address get_stack_pos_of_id(char* id, int line) {
     return 0;
 }
 
-token* get_value_of_id(char* id, int line) {
+data* get_value_of_id(char* id, int line) {
     return get_value_of_address(get_address_of_id(id, line), line);
 }
 
-token* get_value_of_address(address a, int line) {
+data* get_value_of_address(address a, int line) {
     if (a < MEMORY_SIZE) {
         return &memory[a];
     }

@@ -8,10 +8,10 @@ INCDIR = headers
 CFLAGS=-I $(INCDIR) -lreadline -g -lm -Wall -Wextra $(release)
 CFLAGSNOLINK = -I $(INCDIR) -g $(release)
 
-_DEPS = scanner.h token.h error.h memory.h execpath.h global.h debugger.h ast.h vm.h codegen.h source.h native.h optimizer.h imports.h
+_DEPS = scanner.h token.h error.h memory.h execpath.h debugger.h ast.h vm.h codegen.h source.h native.h optimizer.h imports.h data.h operators.h global.h
 DEPS = $(patsubst %,$(INCDIR)/%,$(_DEPS))
 
-_OBJ = main.o debugger.o scanner.o token.o memory.o error.o execpath.o ast.o codegen.o vm.o global.o source.o native.o optimizer.o imports.o
+_OBJ = main.o debugger.o scanner.o token.o memory.o error.o execpath.o ast.o codegen.o vm.o global.o source.o native.o optimizer.o imports.o data.o operators.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 
@@ -24,4 +24,4 @@ main: $(OBJ)
 .PHONY: clean
 
 clean:
-	rm -f $(ODIR)/*.o *~ core $(SRCDIR)/*~ 
+	rm -f $(ODIR)/*.o *~ core $(SRCDIR)/*~

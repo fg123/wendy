@@ -35,7 +35,7 @@ char* get_path() {
         return path;
     }
     else {
-        printf("Path is too long. Required %u bytes.\n", size);
+        fprintf(stderr, "Path is too long. Required %u bytes.\n", size);
         safe_exit(1);
     }
     return 0;

@@ -2,6 +2,7 @@
 
 mkdir -p bin
 mkdir -p build
+sed -i 's/    /\t/g' makefile
 
 buildOnly=0
 release=0

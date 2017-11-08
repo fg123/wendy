@@ -8,14 +8,14 @@
 // Includes all of the error messages in WendyScript
 // There are different types of error messages. All error message display calls
 //   can be provided with a formatted string and arguments, like printf.
-// 
+//
 // General Error: error_general(message) -> All
 //   No source displayed, allocation errors, etc.
-// 
+//
 // Scanner/Parser Error: error_lexer(message) -> Scanner / AST
 //   Source displayed with column and line number.
-// 
-// Runtime Error: error_runtime(message) -> VM 
+//
+// Runtime Error: error_runtime(message) -> VM
 //   Source displayed with line number, and stack frame as well.
 
 void error_general(char* message, ...);
@@ -28,7 +28,7 @@ void error_compile(int line, int col, char* message, ...);
 
 // General Messages:
 #define GENERAL_INVALID_HEADER "Invalid bytecode header!"
-#define GENERAL_NOT_IMPLEMENTED "%s is not implemented yet!" 
+#define GENERAL_NOT_IMPLEMENTED "%s is not implemented yet!"
 
 // Scanner Messages:
 #define SCAN_EXPECTED_TOKEN "Syntax error! Expected token %s was not found."
@@ -43,7 +43,7 @@ void error_compile(int line, int col, char* message, ...);
 #define AST_EXPECTED_IDENTIFIER_LOOP "Expected identifier in place of loop variable."
 #define AST_STRUCT_NAME_IDENTIFIER "Struct name must be an identifier!"
 #define AST_UNRECOGNIZED_IMPORT "Unrecognized import, expected an identifier!"
-
+#define AST_OPERATOR_OVERLOAD_NO_OPERATOR "Expected an operator!"
 // Optimizer Errors
 #define OPTIMIZER_NO_STATEMENT_BLOCK "Identifier declared outside of statement block!?"
 
@@ -57,6 +57,10 @@ void error_compile(int line, int col, char* message, ...);
     "Invalid lvalue expression!"
 #define CODEGEN_EXPECTED_IDENTIFIER AST_EXPECTED_IDENTIFIER
 #define CODEGEN_REQ_FILE_READ_ERR SCAN_REQ_FILE_READ_ERR
+
+// Operators Messages
+#define OPERATORS_INVALID_UNARY "Invalid unary operator!"
+#define OPERATORS_INVALID_BINARY "Invalid binary operator!"
 
 // Debugger Messages:
 #define OUT_OF_BREAKPOINTS "Breakpoint limit reached! You cannot create more breakpoints!"
@@ -87,7 +91,8 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_LIST_LIST_INVALID_OPERATOR "Invalid operator '%s' between two lists."
 #define VM_INVALID_APPEND "Invalid operator '%s' between list and element."
 #define VM_STRING_NUM_INVALID_OPERATOR "Invalid operator '%s' between string and number."
-#define VM_INVALID_NEGATE "Negation operand must be a number."  
+#define VM_STRING_STRING_INVALID_OPERATOR "Invalid operator '%s' between string and string."
+#define VM_INVALID_NEGATE "Negation operand must be a number."
 #define VM_INVALID_NATIVE_CALL "Natively linked function '%s' not found!"
 
 // Colors
