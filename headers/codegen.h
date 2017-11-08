@@ -26,7 +26,7 @@
 // =============================================================================
 // [token]       | t_type(1) t_data.number(8)          [if numeric type]
 //               | t_type(1) t_data.string(strlen + 1) [any other type]
-// [optoken]     | same as [token]
+// [op]          | one byte of op
 // [string]      | null terminated string
 // [size]        | uint8_t(1)
 // [address]     | uint32_t(4)
@@ -38,8 +38,8 @@
 // =============================================================================
 // 0x00 | PUSH   | [token]   | (...) -> (...) [token]
 // 0x01 | POP    |           | (...) [token] -> (...)
-// 0x02 | BIN    | [optoken] | (...) (a) (b) -> (...) (a OP b)
-// 0x03 | UNA    | [optoken] | (...) (a) -> (...) (OP a)
+// 0x02 | BIN    | [op]      | (...) (a) (b) -> (...) (a OP b)
+// 0x03 | UNA    | [op]      | (...) (a) -> (...) (OP a)
 // 0x04 | CALL   |           | (...) [address] -> (...)
 //   `- moves the instruction pointer to the given address with new callstack
 // 0x05 | RET    |           |
@@ -92,7 +92,7 @@
 //                               stack
 // 0x1E | CLOSUR |           | binds a closure, pushes a closure to the top of
 //                               the stack.
-// 0x1F | RBIN   |           | reverse binary operator, b OP a
+// 0x1F | RBIN   | [op]      | reverse binary operator, b OP a
 // 0x20 | RBW    | [string]  | REQ-BIND-WRITE, requests 1, binds string
 // 0x21 | CHTYPE | [toktype] | changes the type of the top of the stack
 // 0x22 | HALT   |           | halt instruction, end program
@@ -135,11 +135,13 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset);
 void write_bytecode(uint8_t* bytecode, FILE* buffer);
 
 // get_token(bytecode, end) gets a token from the bytecode stream
-token get_token(uint8_t* bytecode, unsigned int* end);
+data get_data(uint8_t* bytecode, unsigned int* end);
 
 // get_address(bytecode) gets an address from bytecode stream, decoding
 //   endianness as required
-address get_address(uint8_t* bytecode);
+address get_address(uint8_t* bytecode, unsigned int* end);
+
+char *get_string(uint8_t *bytecode, unsigned int *end);
 
 // verify_header(bytecode) checks the header for information,
 //   then returns the index of the first opcode instruction

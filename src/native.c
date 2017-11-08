@@ -1,7 +1,7 @@
 #include "native.h"
 #include "memory.h"
 #include "error.h"
-#include "token.h"
+#include "data.h"
 #include "codegen.h"
 #include "vm.h"
 #include <stdlib.h>
@@ -11,18 +11,18 @@
 typedef struct native_function {
     char* name;
     int argc;
-    token (*function)(token*);
+    data (*function)(data*);
 } native_function;
 
-static token native_printCallStack(token* args);
-static token native_reverseString(token* args);
-static token native_stringToInteger(token* args);
-static token native_examineMemory(token* args);
-static token native_exec(token* args);
-static token native_getc(token* args);
-static token native_printBytecode(token* args);
-static token native_garbageCollect(token* args);
-static token native_printFreeMemory(token* args);
+static data native_printCallStack(data* args);
+static data native_reverseString(data* args);
+static data native_stringToInteger(data* args);
+static data native_examineMemory(data* args);
+static data native_exec(data* args);
+static data native_getc(data* args);
+static data native_printBytecode(data* args);
+static data native_garbageCollect(data* args);
+static data native_printFreeMemory(data* args);
 
 static native_function native_functions[] = {
     { "printCallStack", 1, native_printCallStack },
@@ -36,60 +36,60 @@ static native_function native_functions[] = {
     { "printFreeMemory", 0, native_printFreeMemory }
 };
 
-static double native_to_numeric(token* t) {
-    return t->t_data.number;
+static double native_to_numeric(data* t) {
+    return t->value.number;
 }
 
-static char* native_to_string(token* t) {
-    return t->t_data.string;
+static char* native_to_string(data* t) {
+    return t->value.string;
 }
 
-static token native_garbageCollect(token* args) {
+static data native_garbageCollect(data* args) {
     garbage_collect(0);
-    return noneret_token();
+    return noneret_data();
 }
 
-static token native_printFreeMemory(token* args) {
+static data native_printFreeMemory(data* args) {
     print_free_memory();
-    return noneret_token();
+    return noneret_data();
 }
 
-static token native_getc(token* args) {
+static data native_getc(data* args) {
     char result[2];
     result[0] = getc(stdin);
     result[1] = 0;
-    return make_token(T_STRING, make_data_str(result));
+    return make_data(T_STRING, data_value_str(result));
 }
 
-static token native_exec(token* args) {
+static data native_exec(data* args) {
     char* command = native_to_string(args);
     //system(command);
-    return noneret_token();
+    return noneret_data();
 }
 
-static token native_printCallStack(token* args) {
+static data native_printCallStack(data* args) {
     print_call_stack((int)native_to_numeric(args));
-    return noneret_token();
+    return noneret_data();
 }
 
-static token native_printBytecode(token* args) {
+static data native_printBytecode(data* args) {
     print_current_bytecode();
-    return noneret_token();
+    return noneret_data();
 }
 
-static token native_reverseString(token* args) {
+static data native_reverseString(data* args) {
     char* string = native_to_string(args);
     int len = strlen(string);
-    token t = make_token(T_STRING, make_data_str(string));
+    data t = make_data(D_STRING, data_value_str(string));
     for (int i = 0; i < len / 2; i++) {
-        char tmp = t.t_data.string[i];
-        t.t_data.string[i] = t.t_data.string[len - i - 1];
-        t.t_data.string[len - i - 1] = tmp;
+        char tmp = t.value.string[i];
+        t.value.string[i] = t.value.string[len - i - 1];
+        t.value.string[len - i - 1] = tmp;
     }
     return t;
 }
 
-static token native_stringToInteger(token* args) {
+static data native_stringToInteger(data* args) {
     char* s = native_to_string(args);
     int integer = 0;
     bool neg = false;
@@ -103,26 +103,26 @@ static token native_stringToInteger(token* args) {
         }
     }
     if (neg) integer *= -1;
-    return make_token(T_NUMBER, make_data_num(integer));
+    return make_data(D_NUMBER, data_value_num(integer));
 }
 
-static token native_examineMemory(token* args) {
+static data native_examineMemory(data* args) {
     double arg1_from = native_to_numeric(args);
     double arg2_to = native_to_numeric(args + 1);
     printf("Memory Contents: \n");
     for (int i = arg1_from; i < arg2_to; i++) {
-        token t = memory[i];
-        printf("[0x%04X] [%s] ", i, token_string[t.t_type]);
+        data t = memory[i];
+        printf("[0x%04X] [%s] ", i, data_string[t.type]);
         if (is_numeric(t)) {
-            printf("[%f][%d][0x%X]", t.t_data.number, (int)t.t_data.number,
-                (int)t.t_data.number);
+            printf("[%f][%d][0x%X]", t.value.number, (int)t.value.number,
+                (int)t.value.number);
         }
         else {
-            printf("[%s]", t.t_data.string);
+            printf("[%s]", t.value.string);
         }
         printf("\n");
     }
-    return noneret_token();
+    return noneret_data();
 }
 
 void native_call(char* function_name, int expected_args, int line) {
@@ -131,7 +131,7 @@ void native_call(char* function_name, int expected_args, int line) {
     for (int i = 0; i < functions; i++) {
         if(strcmp(native_functions[i].name, function_name) == 0) {
             int argc = native_functions[i].argc;
-            token* arg_list = safe_malloc(sizeof(token) * argc);
+            data* arg_list = safe_malloc(sizeof(data) * argc);
             // Popped in reverse order
             for (int j = argc - 1; j >= 0; j--) {
                 arg_list[j] = pop_arg(line);

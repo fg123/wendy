@@ -17,7 +17,7 @@ static size_t line;
 static size_t col;
 
 static void add_token(token_type type);
-static void add_token_V(token_type type, data val);
+static void add_token_V(token_type type, token_data val);
 
 static bool is_at_end() {
     return current >= source_len;
@@ -185,14 +185,12 @@ static void identifier() {
     else if (strcmp(text, "in") == 0)   { add_token(T_IN); }
 
     else if (strcmp(text, "ret") == 0)  { add_token(T_RET); }
-    else if (strcmp(text, "explode") == 0) { add_token(T_EXPLODE); }
     else if (strcmp(text, "import") == 0)   {
         handle_import();
     }
     else if (strcmp(text, "native") == 0)   {
         add_token(T_NATIVE);
     }
-    else if (strcmp(text, "time") == 0) { add_token(T_TIME); }
     else if (strcmp(text, "inc") == 0)  { add_token(T_INC); }
     else if (strcmp(text, "dec") == 0)  { add_token(T_DEC); }
     else if (strcmp(text, "input") == 0)    { add_token(T_INPUT); }
@@ -405,7 +403,7 @@ static void add_token(token_type type) {
     add_token_V(type, make_data_str(val));
 }
 
-static void add_token_V(token_type type, data val) {
+static void add_token_V(token_type type, token_data val) {
     if (type == T_NONE) { tokens[t_curr++] = none_token(); }
     else if (type == T_TRUE) { tokens[t_curr++] = true_token(); }
     else if (type == T_FALSE) { tokens[t_curr++] = false_token(); }
@@ -422,7 +420,7 @@ static void add_token_V(token_type type, data val) {
 void print_token_list(token* tokens, size_t size) {
     for(int i = 0; i < size; i++) {
 
-        if(is_numeric(tokens[i])) {
+        if (tokens[i].t_type == T_NUMBER) {
             printf("%d - %s -> %f\n", i,
                 token_string[tokens[i].t_type], tokens[i].t_data.number);
         }

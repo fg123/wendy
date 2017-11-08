@@ -9,6 +9,7 @@
 #include "codegen.h"
 #include "source.h"
 #include "optimizer.h"
+#include "data.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -47,7 +48,7 @@ void invalid_usage() {
     printf("Options:\n");
     printf("    -h, --help        : shows this message.\n");
     printf("    --nogc            : disables garbage-collection.\n");
-    printf("    --noop            : disables optimization algorithm.\n");
+    printf("    --optimize        : enables optimization algorithm (this will destroy overloaded primitive operators).\n");
     printf("    -c, --compile     : compiles the given file but does not run.\n");
     printf("    -v, --verbose     : displays information about memory state on error.\n");
     printf("    --ast             : prints out the constructed AST.\n");
@@ -70,8 +71,8 @@ void process_options(char** options, int len) {
         else if (strcmp("--nogc", options[i]) == 0) {
             set_settings_flag(SETTINGS_NOGC);
         }
-        else if (strcmp("--noop", options[i]) == 0) {
-            set_settings_flag(SETTINGS_NOOP);
+        else if (strcmp("--optimize", options[i]) == 0) {
+            set_settings_flag(SETTINGS_OPTIMIZE);
         }
         else if (strcmp("--ast", options[i]) == 0) {
             set_settings_flag(SETTINGS_ASTPRINT);
@@ -96,7 +97,7 @@ void run(char* input_string) {
     size_t tokens_count;
     tokens_count = scan_tokens(input_string, &tokens, &alloc_size);
     statement_list* ast = generate_ast(tokens, tokens_count);
-    if (!get_settings_flag(SETTINGS_NOOP)) {
+    if (get_settings_flag(SETTINGS_OPTIMIZE)) {
         ast = optimize_ast(ast);
     }
     if(!ast_error_flag()) {
@@ -145,7 +146,6 @@ int main(int argc, char** argv) {
         char* input_buffer;
         char* source_to_run = safe_malloc(1 * sizeof(char));
         // ENTER REPL MODE
-        set_settings_flag(SETTINGS_NOOP);
         set_settings_flag(SETTINGS_REPL);
         push_frame("main", 0, 0);
         bool has_run = false;
@@ -240,7 +240,7 @@ int main(int argc, char** argv) {
 
             // Build AST
             statement_list* ast = generate_ast(tokens, tokens_count);
-            if (!get_settings_flag(SETTINGS_NOOP)) {
+            if (get_settings_flag(SETTINGS_OPTIMIZE)) {
                 ast = optimize_ast(ast);
             }
             if (get_settings_flag(SETTINGS_ASTPRINT)) {

@@ -177,7 +177,7 @@ static expr* lvalue() {
 
 static expr* primary() {
     if (match(T_STRING, T_NUMBER, T_TRUE, T_FALSE, T_NONE, T_IDENTIFIER,
-            T_OBJ_TYPE, T_TIME)) {
+            T_OBJ_TYPE)) {
         return make_lit_expr(previous());
     }
     else if (match(T_LEFT_BRACK)) {
@@ -357,8 +357,31 @@ static statement* parse_statement() {
         }
         case T_LET: {
             // Read an expression for a LVALUE
-            consume(T_IDENTIFIER);
-            token lvalue = previous();
+            token lvalue;
+            lvalue.t_type = T_IDENTIFIER;
+            lvalue.t_data.string[0] = 0;
+            if (match(T_IDENTIFIER)) {
+                lvalue = previous();
+            }
+            else {
+                strcat(lvalue.t_data.string, OPERATOR_OVERLOAD_PREFIX);
+                if (match(T_OBJ_TYPE)) {
+                    // Binary Operator
+                    token t = previous();
+                    strcat(lvalue.t_data.string, t.t_data.string);
+                }
+                token op = advance();
+                if (precedence(op)) {
+                    strcat(lvalue.t_data.string, op.t_data.string);
+                    consume(T_OBJ_TYPE);
+                    token operand = previous();
+                    strcat(lvalue.t_data.string, operand.t_data.string);
+                }
+                else {
+                    error_lexer(op.t_line, op.t_col,
+                        AST_OPERATOR_OVERLOAD_NO_OPERATOR);
+                }
+            }
             expr* rvalue = 0;
             if (match(T_EQUAL)) {
                 rvalue = expression();
@@ -510,7 +533,6 @@ static statement* parse_statement() {
         case T_INC:
         case T_DEC:
         case T_INPUT:
-        case T_EXPLODE:
         case T_AT:  {
             sm->type = S_OPERATION;
             sm->op.operation_statement.operator = first;

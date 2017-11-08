@@ -5,11 +5,15 @@
 #include "error.h"
 #include "memory.h"
 #include "execpath.h"
+#include "operators.h"
 #include "source.h"
+#include "data.h"
 #include "imports.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+
+#define write_byte(op) bytecode[size++] = op;
 
 // Implementation of Wendy ByteCode Generator
 
@@ -39,9 +43,9 @@ static void guarantee_size() {
 
 static void write_string(char* string) {
     for (int i = 0; string[i]; i++) {
-        bytecode[size++] = string[i];
+        write_byte(string[i]);
     }
-    bytecode[size++] = 0;
+    write_byte(0);
     guarantee_size();
 }
 
@@ -87,21 +91,22 @@ static void write_integer(int a) {
     write_address(a);
 }
 
-// writes the token to the bytestream, guaranteed to be a literal
-static void write_token(token t) {
-    bytecode[size++] = t.t_type;
+// writes data to stream, destroys data
+static void write_data(data t) {
+    write_byte(t.type);
     if (is_numeric(t)) {
         // Writing a double
-        write_double(t.t_data.number);
+        write_double(t.value.number);
     }
     else {
-        write_string(t.t_data.string);
+        write_string(t.value.string);
     }
     guarantee_size();
+    destroy_data(&t);
 }
 
-static void write_opcode(opcode op) {
-    bytecode[size++] = op;
+static inline void write_opcode(opcode op) {
+    write_byte(op);
     guarantee_size();
 }
 
@@ -132,10 +137,9 @@ static void codegen_lvalue_expr(expr* expression) {
                 error_lexer(expression->line, expression->col,
                     CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
             }
-            expression->op.bin_expr.right->op.lit_expr.t_type = T_MEMBER;
-            write_opcode(OP_PUSH);
-            write_token(expression->op.bin_expr.right->op.lit_expr);
+            //expression->op.bin_expr.right->op.lit_expr.t_type = T_MEMBER;
             write_opcode(OP_MEMPTR);
+            write_string(expression->op.bin_expr.right->op.lit_expr.t_data.string);
         }
         else if (expression->op.bin_expr.operator.t_type == T_LEFT_BRACK) {
             codegen_expr(expression->op.bin_expr.right);
@@ -170,8 +174,6 @@ static opcode tok_to_opcode(token t) {
             return OP_DEC;
         case T_INPUT:
             return OP_IN;
-        case T_EXPLODE:
-        case T_REQ:
         default:
             error_general(GENERAL_NOT_IMPLEMENTED, token_string[t.t_type]);
     }
@@ -246,7 +248,7 @@ static void codegen_statement(void* expre) {
                 offset_addresses(buffer, length, offset);
                 for (long i = verify_header(buffer); i < length; i++) {
                     if (i == length - 1 && buffer[i] == OP_HALT) break;
-                    bytecode[size++] = buffer[i];
+                    write_byte(buffer[i]);
                     guarantee_size();
                 }
                 safe_free(buffer);
@@ -268,11 +270,11 @@ static void codegen_statement(void* expre) {
         // Push Header and Name
         write_opcode(OP_PUSH);
         int metaHeaderLoc = size;
-        write_token(make_token(T_STRUCT_METADATA, make_data_num(1)));
+        write_data(make_data(D_STRUCT_METADATA, data_value_num(1)));
         write_opcode(OP_PUSH);
-        write_token(make_token(T_STRUCT_NAME, make_data_str(struct_name)));
+        write_data(make_data(D_STRUCT_NAME, data_value_str(struct_name)));
         write_opcode(OP_PUSH);
-        write_token(make_token(T_STRUCT_STATIC, make_data_str("init")));
+        write_data(make_data(D_STRUCT_STATIC, data_value_str("init")));
         // Push Init Function
         codegen_expr(state->op.struct_statement.init_fn);
 
@@ -286,7 +288,8 @@ static void codegen_statement(void* expre) {
                 error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
             }
             write_opcode(OP_PUSH);
-            write_token(make_token(T_STRUCT_PARAM, elem->op.lit_expr.t_data));
+            write_data(make_data(D_STRUCT_PARAM,
+                data_value_str(elem->op.lit_expr.t_data.string)));
             push_size++;
             curr = curr->next;
         }
@@ -298,20 +301,21 @@ static void codegen_statement(void* expre) {
                 error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
             }
             write_opcode(OP_PUSH);
-            write_token(make_token(T_STRUCT_STATIC, elem->op.lit_expr.t_data));
+            write_data(make_data(D_STRUCT_STATIC,
+                data_value_str(elem->op.lit_expr.t_data.string)));
             write_opcode(OP_PUSH);
-            write_token(none_token());
+            write_data(none_data());
             push_size += 2;
             curr = curr->next;
         }
         // Request Memory to Store MetaData
         write_opcode(OP_REQ);
-        bytecode[size++] = push_size;
+        write_byte(push_size);
         write_opcode(OP_PLIST);
-        bytecode[size++] = push_size;
+        write_byte(push_size);
         // Now there's a List Token at the top of the stack.
         write_opcode(OP_CHTYPE);
-        bytecode[size++] = T_STRUCT;
+        write_byte(D_STRUCT);
 
         write_opcode(OP_RBW);
         write_string(struct_name);
@@ -334,17 +338,17 @@ static void codegen_statement(void* expre) {
     else if (state->type == S_LOOP) {
         // Setup Loop Index
         write_opcode(OP_PUSH);
-        write_token(make_token(T_NUMBER, make_data_num(0)));
+        write_data(make_data(D_NUMBER, data_value_num(0)));
         write_opcode(OP_RBW);
         char loopIndexName[30];
-        sprintf(loopIndexName, ":\")%d", global_loop_id++);
+        sprintf(loopIndexName, LOOP_COUNTER_PREFIX "%d", global_loop_id++);
         write_string(loopIndexName);
 
         write_opcode(OP_FRM); // Start Local Variable Frame OUTER
         if (state->op.loop_statement.index_var.t_type != T_EMPTY) {
             // User has a custom variable, also load that.
             write_opcode(OP_PUSH);
-            write_token(make_token(T_NUMBER, make_data_num(0)));
+            write_data(make_data(D_NUMBER, data_value_num(0)));
             write_opcode(OP_RBW);
             write_string(state->op.loop_statement.index_var.t_data.string);
         }
@@ -399,13 +403,43 @@ static void codegen_statement_list(void* expre) {
     }
 }
 
+static data_type literal_type_to_data_type(token_type t) {
+    switch(t) {
+        case T_NUMBER:
+            return D_NUMBER;
+        case T_STRING:
+            return D_STRING;
+        case T_TRUE:
+            return D_TRUE;
+        case T_FALSE:
+            return D_FALSE;
+        case T_NONE:
+            return D_NONE;
+        case T_IDENTIFIER:
+            return D_IDENTIFIER;
+        case T_OBJ_TYPE:
+            return D_OBJ_TYPE;
+        case T_MEMBER:
+            return D_MEMBER_IDENTIFIER;
+    }
+    return D_EMPTY;
+}
+
+static data literal_to_data(token literal) {
+    if (literal.t_type == T_NUMBER) {
+        return make_data(D_NUMBER, data_value_num(literal.t_data.number));
+    }
+    return make_data(literal_type_to_data_type(literal.t_type),
+        data_value_str(literal.t_data.string));
+}
+
 static void codegen_expr(void* expre) {
     if (!expre) return;
     expr* expression = (expr*)expre;
     if (expression->type == E_LITERAL) {
         // Literal Expression, we push to the stack.
         write_opcode(OP_PUSH);
-        write_token(expression->op.lit_expr);
+        write_data(literal_to_data(expression->op.lit_expr));
     }
     else if (expression->type == E_BINARY) {
         if (expression->op.bin_expr.operator.t_type == T_DOT) {
@@ -416,14 +450,15 @@ static void codegen_expr(void* expre) {
             }
             expression->op.bin_expr.right->op.lit_expr.t_type = T_MEMBER;
             write_opcode(OP_PUSH);
-            write_token(expression->op.bin_expr.right->op.lit_expr);
+            write_data(literal_to_data(
+                expression->op.bin_expr.right->op.lit_expr));
         }
         else {
             codegen_expr(expression->op.bin_expr.left);
             codegen_expr(expression->op.bin_expr.right);
         }
         write_opcode(OP_BIN);
-        write_token(expression->op.bin_expr.operator);
+        write_byte(token_operator_binary(expression->op.bin_expr.operator));
     }
     else if (expression->type == E_IF) {
         codegen_expr(expression->op.if_expr.condition);
@@ -440,7 +475,7 @@ static void codegen_expr(void* expre) {
         }
         else {
             write_opcode(OP_PUSH);
-            write_token(none_token());
+            write_data(none_data());
         }
         write_address_at(size, doneJumpLoc);
     }
@@ -475,7 +510,7 @@ static void codegen_expr(void* expre) {
         if (operator.t_type != T_EQUAL) {
             write_opcode(OP_READ);
             write_opcode(OP_RBIN);
-            write_token(operator);
+            write_byte(token_operator_binary(operator));
         }
         // Memory Register should still be where lvalue is
         write_opcode(OP_WRITE);
@@ -484,7 +519,7 @@ static void codegen_expr(void* expre) {
         codegen_expr(expression->op.una_expr.operand);
 //      write_opcode(tok_to_opcode(expression->op.una_expr.operator, false));
         write_opcode(OP_UNA);
-        write_token(expression->op.una_expr.operator);
+        write_byte(token_operator_unary(expression->op.una_expr.operator));
     }
     else if (expression->type == E_CALL) {
         codegen_expr_list(expression->op.call_expr.arguments);
@@ -494,7 +529,7 @@ static void codegen_expr(void* expre) {
     else if (expression->type == E_LIST) {
         int count = expression->op.list_expr.length;
         write_opcode(OP_PUSH);
-        write_token(make_token(T_LIST_HEADER, make_data_num(count)));
+        write_data(make_data(D_LIST_HEADER, data_value_num(count)));
         expr_list* param = expression->op.list_expr.contents;
         while (param) {
             codegen_expr(param->elem);
@@ -502,9 +537,9 @@ static void codegen_expr(void* expre) {
         }
         write_opcode(OP_REQ);
         // For the Header
-        bytecode[size++] = count + 1;
+        write_byte(count + 1);
         write_opcode(OP_PLIST);
-        bytecode[size++] = count + 1;
+        write_byte(count + 1);
     }
     else if (expression->type == E_FUNCTION) {
         write_opcode(OP_JMP);
@@ -541,23 +576,23 @@ static void codegen_expr(void* expre) {
                 if (bytecode[size - 1] != OP_RET) {
                     // Function has no explicit Return
                     write_opcode(OP_PUSH);
-                    write_token(noneret_token());
+                    write_data(noneret_data());
                     write_opcode(OP_RET);
                 }
             }
         }
         write_address_at(size, writeSizeLoc);
         write_opcode(OP_PUSH);
-        write_token(make_token(T_ADDRESS, make_data_num(startAddr)));
+        write_data(make_data(D_ADDRESS, data_value_num(startAddr)));
         write_opcode(OP_CLOSUR);
         write_opcode(OP_PUSH);
-        write_token(make_token(T_STRING, make_data_str("self")));
+        write_data(make_data(D_STRING, data_value_str("self")));
         write_opcode(OP_REQ);
-        bytecode[size++] = 3;
+        write_byte(3);
         write_opcode(OP_PLIST);
-        bytecode[size++] = 3;
+        write_byte(3);
         write_opcode(OP_CHTYPE);
-        bytecode[size++] = T_FUNCTION;
+        write_byte(D_FUNCTION);
     }
 }
 
@@ -576,30 +611,26 @@ uint8_t* generate_code(statement_list* _ast, size_t* size_ptr) {
     return bytecode;
 }
 
-token get_token(uint8_t* bytecode, unsigned int* end) {
+// CANNOT FREE OR DESTROY THIS ONE!
+data get_data(uint8_t* bytecode, unsigned int* end) {
     // Bytecode is already Offset!
-    token t;
+    data t;
     int start = *end;
     int i = 0;
-    t.t_type = bytecode[i++];
-    t.t_data.string[0] = 0;
+    t.type = bytecode[i++];
     if (is_numeric(t)) {
         if (!is_big_endian) i += sizeof(double);
-        unsigned char * p = (void*)&t.t_data.number;
+        unsigned char * p = (void*)&t.value.number;
         for (int j = 0; j < sizeof(double); j++) {
             p[j] = bytecode[is_big_endian ? i++ : --i];
         }
         if (!is_big_endian) i += sizeof(double);
     }
     else {
-        int len = 0;
-        while (bytecode[i++]) {
-            t.t_data.string[len++] = bytecode[i - 1];
-        }
-        // i is 1 past the null term
-        t.t_data.string[len++] = 0;
+        t.value.string = bytecode + i;
+        i += strlen(bytecode + i) + 1;
     }
-    *end = start + i - 1;
+    *end = start + i;
     return t;
 }
 
@@ -607,7 +638,12 @@ void write_bytecode(uint8_t* bytecode, FILE* buffer) {
     fwrite(bytecode, sizeof(uint8_t), size, buffer);
 }
 
-address get_address(uint8_t* bytecode) {
+char* get_string(uint8_t* bytecode, unsigned int* end) {
+    *end += strlen(bytecode) + 1;
+    return (char *)bytecode;
+}
+
+address get_address(uint8_t* bytecode, unsigned int* end) {
     // Bytecode is already offset
     int i = 0;
     if (!is_big_endian) i += sizeof(address);
@@ -616,6 +652,7 @@ address get_address(uint8_t* bytecode) {
     for (int j = 0; j < sizeof(address); j++) {
         p[j] = bytecode[is_big_endian ? i++ : --i];
     }
+    *end += sizeof(address);
     return result;
 }
 
@@ -630,98 +667,82 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
     if (!get_settings_flag(SETTINGS_REPL)) {
         i = verify_header(bytecode);
     }
-    for (;; i++) {
+    for (;;) {
         unsigned int start = i;
         fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
-        opcode op = bytecode[i];
+        opcode op = bytecode[i++];
         unsigned int p = 0;
         int printSourceLine = -1;
         p += fprintf(buffer, YEL "%6s " RESET, opcode_string[op]);
-        if (op == OP_PUSH || op == OP_BIN || op == OP_UNA || op == OP_RBIN) {
-            i++;
-            token t = get_token(&bytecode[i], &i);
-            if (t.t_type == T_STRING) {
-                p += fprintf(buffer, "%.*s ", maxlen, t.t_data.string);
-                if (strlen(t.t_data.string) > maxlen) {
+
+        if (op == OP_PUSH) {
+            data t = get_data(&bytecode[i], &i);
+            if (t.type == D_STRING) {
+                p += fprintf(buffer, "%.*s ", maxlen, t.value.string);
+                if (strlen(t.value.string) > maxlen) {
                     p += fprintf(buffer, ">");
                 }
             }
             else {
-                p +=  print_token_inline(&t, buffer);
+                p += print_data_inline(&t, buffer);
             }
         }
+        else if (op == OP_BIN || op == OP_UNA || op == OP_RBIN) {
+            operator o = bytecode[i++];
+            p += fprintf(buffer, "%s", operator_string[o]);
+        }
         else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW ||
-                 op == OP_IMPORT) {
-            i++;
-            char* c = (char*)(bytecode + i);
+                 op == OP_IMPORT || op == OP_MEMPTR) {
+            char* c = get_string(bytecode + i, &i);
             p += fprintf(buffer, "%.*s ", maxlen, c);
             if (strlen(c) > maxlen) {
                 p += fprintf(buffer, ">");
             }
-
-            i += strlen(c);
             if (op == OP_IMPORT) {
                 // i is at null term
-                void* loc = &bytecode[i + 1];
-                i += sizeof(address);
-                p += fprintf(buffer, "0x%X", get_address(loc));
+                p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
             }
         }
         else if (op == OP_CHTYPE) {
-            i++;
-            p += fprintf(buffer, "%s", token_string[bytecode[i]]);
+            data_type t = bytecode[i++];
+            p += fprintf(buffer, "%s", data_string[t]);
         }
         else if (op == OP_REQ || op == OP_PLIST) {
-            i++;
-            p += fprintf(buffer, "0x%X", bytecode[i]);
+            p += fprintf(buffer, "0x%X", bytecode[i++]);
         }
         else if (op == OP_SRC) {
-            void* loc = &bytecode[i + 1];
-            i += sizeof(address);
-            p += fprintf(buffer, "0x%X", get_address(loc));
-            printSourceLine = get_address(loc);
+            address a = get_address(bytecode + i, &i);
+            p += fprintf(buffer, "0x%X", a);
+            printSourceLine = a;
         }
         else if (op == OP_JMP || op == OP_JIF) {
-            void* loc = &bytecode[i + 1];
-            i += sizeof(address);
-            p += fprintf(buffer, "0x%X", get_address(loc));
+            p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
         }
         else if (op == OP_LJMP) {
-            void* loc = &bytecode[i + 1];
-            i += sizeof(address);
-            p += fprintf(buffer, "0x%X ", get_address(loc + baseaddr));
-            i++;
-            char* c = (char*)(bytecode + i);
+            p += fprintf(buffer, "0x%X ",
+                get_address(bytecode + i + baseaddr, &i));
+            char* c = get_string(bytecode + i, &i);
             p += fprintf(buffer, "%.*s ", maxlen, c);
             if (strlen(c) > maxlen) {
                 p += fprintf(buffer, ">");
             }
-            i += strlen(c);
         }
         else if (op == OP_LBIND) {
-            i++;
-            char* c = (char*)(bytecode + i);
+            char* c = get_string(bytecode + i, &i);
             p += fprintf(buffer, "%.*s ", maxlen, c);
-            i += strlen(c);
-            i++;
-            c = (char*)(bytecode + i);
+            c = get_string(bytecode + i, &i);
             p += fprintf(buffer, "%.*s ", maxlen, c);
-            i += strlen(c);
         }
         else if (op == OP_NATIVE) {
-            i++;
-            void* loc = &bytecode[i];
-            i += sizeof(address);
-            p += fprintf(buffer, "%d ", get_address(loc));
-            char* c = (char*)(bytecode + i);
+            p += fprintf(buffer, "%d ", get_address(bytecode + i, &i));
+            char* c = get_string(bytecode + i, &i);
             p += fprintf(buffer, "%.*s", maxlen, c);
-            i += strlen(c);
         }
         while (p++ < 30) {
             fprintf(buffer, " ");
         }
         fprintf(buffer, CYN "| ");
-        for (int j = start; j <= i; j++) {
+        for (int j = start; j < i; j++) {
             if (j != start) fprintf(buffer, " ");
             fprintf(buffer, "%02X", bytecode[j]);
             if (j > start + 2) {
@@ -751,12 +772,12 @@ static void write_address_at_buffer(address a, uint8_t* buffer, size_t loc) {
     }
 }
 
-static void write_token_at_buffer(token t, uint8_t* buffer, size_t loc) {
-    buffer[loc++] = t.t_type;
-    if (t.t_type == T_ADDRESS) {
+static void write_data_at_buffer(data t, uint8_t* buffer, size_t loc) {
+    buffer[loc++] = t.type;
+    if (t.type == D_ADDRESS) {
         // Writing a double
         if (!is_big_endian) loc += sizeof(double);
-        unsigned char * p = (void*)&t.t_data.number;
+        unsigned char * p = (void*)&t.value.number;
         for (int i = 0; i < sizeof(double); i++) {
             buffer[is_big_endian ? loc++ : --loc] = p[i];
         }
@@ -769,77 +790,59 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
     if (!get_settings_flag(SETTINGS_REPL)) {
         i = verify_header(buffer);
     }
-    for (;; i++) {
-        opcode op = buffer[i];
+    for (;;) {
+        opcode op = buffer[i++];
 
         if (op == OP_PUSH) {
-            i++;
             size_t tokLoc = i;
-            token t = get_token(&buffer[i], &i);
+            data t = get_data(buffer + i, &i);
             //printf("%X PUSHED A TOKEN HERE WITH TYPE %d, %d\n", tokLoc - 1, t.t_type, T_ADDRESS);
-            if (t.t_type == T_ADDRESS) {
+            if (t.type == D_ADDRESS) {
                 //printf("%X Token here address %X\n",i, (int)t.t_data.number);
-                t.t_data.number += offset;
-                write_token_at_buffer(t, buffer, tokLoc);
+                t.value.number += offset;
+                write_data_at_buffer(t, buffer, tokLoc);
             }
         }
-        else if (op == OP_BIN || op == OP_UNA || op == OP_RBIN) {
-            i++;
-            get_token(&buffer[i], &i);
-        }
-        else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW) {
-            i++;
-            char* c = (char*)(buffer + i);
-            i += strlen(c);
+        else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW || op == OP_MEMPTR) {
+            get_string(buffer + i, &i);
         }
         else if (op == OP_IMPORT) {
-            i++;
-            char* c = (char*)(buffer + i);
-            i += strlen(c);
-            address loc = get_address(&buffer[i + 1]);
+            get_string(buffer + i, &i);
+            unsigned int bi = i;
+            address loc = get_address(buffer + i, &i);
             loc += offset;
-            write_address_at_buffer(loc, buffer, i + 1);
-            i += sizeof(address);
+            write_address_at_buffer(loc, buffer, bi);
         }
         else if (op == OP_SRC) {
-            i += sizeof(address);
+            get_address(buffer + i, &i);
         }
         else if (op == OP_JMP || op == OP_JIF) {
-            address loc = get_address(&buffer[i + 1]);
+            unsigned int bi = i;
+            address loc = get_address(buffer + i, &i);
             loc += offset;
-            write_address_at_buffer(loc, buffer, i + 1);
-            i += sizeof(address);
+            write_address_at_buffer(loc, buffer, bi);
         }
         else if (op == OP_LJMP) {
-            address loc = get_address(&buffer[i + 1]);
+            unsigned int bi = i;
+            address loc = get_address(buffer + i, &i);
             loc += offset;
-            write_address_at_buffer(loc, buffer, i + 1);
-            i += sizeof(address);
-            i++;
-            char* c = (char*)(buffer + i);
-            i += strlen(c);
+            write_address_at_buffer(loc, buffer, bi);
+            get_string(buffer + i, &i);
         }
         else if (op == OP_LBIND) {
-            i++;
-            char* c = (char*)(buffer + i);
-            i += strlen(c);
-            i++;
-            c = (char*)(buffer + i);
-            i += strlen(c);
+            get_string(buffer + i, &i);
+            get_string(buffer + i, &i);
         }
         else if (op == OP_ASSERT) {
-            i++;
-            i++;
-            char* c = (char*)(buffer + i);
-            i += strlen(c);
+            i++; // the next int!
+            get_string(buffer + i, &i);
         }
         else if (op == OP_NATIVE) {
-            i++;
-            i += sizeof(address);
-            char* c = (char*)(buffer + i);
-            i += strlen(c);
+            get_address(buffer + i, &i);
+            get_string(buffer + i, &i);
         }
-        else if (op == OP_CHTYPE || op == OP_REQ || op == OP_PLIST) {
+        else if (op == OP_CHTYPE || op == OP_REQ || op == OP_PLIST ||
+                 op == OP_BIN || op == OP_UNA || op == OP_RBIN) {
             i++;
         }
         if (op == OP_HALT) {

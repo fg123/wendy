@@ -1,10 +1,10 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
-#include "token.h"
 #include "global.h"
+#include "data.h"
 #include <stdbool.h>
- 
+
 // memory.h - Felix Guo
 // This module manages the memory model for WendyScript.
 
@@ -23,7 +23,7 @@ struct mem_block {
     mem_block* next;
 };
 
-token* memory;
+data* memory;
 mem_block* free_memory;
 stack_entry* call_stack;
 address* mem_reg_stack;
@@ -75,36 +75,36 @@ void push_frame(char* name, address ret, int line);
 // push_auto_frame() creates an automatical local variable frame
 void push_auto_frame(address ret, char* type, int line);
 
-// pop_frame(is_ret) ends a function call, pops the latest stack frame 
+// pop_frame(is_ret) ends a function call, pops the latest stack frame
 //   (including automatically created local frames IF is_ret!
 //   is_ret is true if we RET instead of ending bracket
-// 
+//
 //   pop_frame also returns true if the popped frame is a function frame
 bool pop_frame(bool is_ret, address* ret);
 
-// push_memory(t) adds the given number of token t into the memory in order
+// push_memory(t) adds the given number of data t into the memory in order
 //   and returns the address of the first one
-address push_memory(token t);
+address push_memory(data t, int line);
 
 // push_memory_s(t, size) finds a continuous block of size in memory and sets
-//   it all to the given token t.
-address push_memory_s(token t, int size);
+//   it all to the given data t.
+address push_memory_s(data t, int size, int line);
 
 // push_memory_a(t, size) finds a continuous block of size in memory and sets
-//   it to the array a appending a list header token..
-address push_memory_a(token* a, int size);
+//   it to the array a appending a list header data..
+address push_memory_a(data* a, int size, int line);
 
 // push_memory_array(a, size) finds a continuous block of size in memory and
 //   sets it to the array "a" directly.
-address push_memory_array(token* a, int size);
+address push_memory_array(data* a, int size, int line);
 
-// pop_memory() removes a token from the memory after a push operation
-token pop_memory();
+// pop_memory() removes a data from the memory after a push operation
+data pop_memory();
 
-// replace_memory(t, a) places the token t in the address a
-void replace_memory(token t, address a);
+// replace_memory(t, a) places the data t in the address a
+void replace_memory(data t, address a, int line);
 
-// push_stack_entry(id, t) adds a new entry into the 
+// push_stack_entry(id, t) adds a new entry into the
 // stack frame (eg variable declaration).
 void push_stack_entry(char* id, address val, int line);
 
@@ -112,7 +112,7 @@ void push_stack_entry(char* id, address val, int line);
 //   stack, USE FOR CLOSURES
 void copy_stack_entry(stack_entry se, int line);
 
-// id_exist(id, search_main) returns true if id exists in the current stackframe 
+// id_exist(id, search_main) returns true if id exists in the current stackframe
 bool id_exist(char* id, bool search_main);
 
 // get_address_of_id(id, line) returns address of the id given
@@ -121,10 +121,10 @@ address get_address_of_id(char* id, int line);
 
 // get_value_of_id(id, line) returns the value of the id given
 //   requires: id exist in the stackframe
-token* get_value_of_id(char* id, int line);
+data* get_value_of_id(char* id, int line);
 
 // get_value_of_address(address, line) returns the value of the address given
-token* get_value_of_address(address a, int line);
+data* get_value_of_address(address a, int line);
 
 // print_call_stack prints out the callstack
 void print_call_stack(int maxlines);
@@ -132,14 +132,14 @@ void print_call_stack(int maxlines);
 // get_address_pos_of_id(id, line) gets the stack address of the id
 address get_stack_pos_of_id(char* id, int line);
 
-// push_arg(t) pushes a token t into the other end of memory
-void push_arg(token t, int line);
+// push_arg(t) pushes a data t into the other end of memory
+void push_arg(data t, int line);
 
-// pop_arg(line) returns the top token t at the other end of memory
-token pop_arg(int line);
+// pop_arg(line) returns the top data t at the other end of memory
+data pop_arg(int line);
 
-// top_arg(line) returns the pointer to top token without popping!!
-token* top_arg(int line);
+// top_arg(line) returns the pointer to top data without popping!!
+data* top_arg(int line);
 
 // clear_arg_stack() clears the operational stack
 void clear_arg_stack();
@@ -154,7 +154,7 @@ void write_state(FILE* fp);
 // push_mem_reg(memory_register) saves the memory register to the stack
 void push_mem_reg(address memory_register);
 
-// pop_mem_reg() pops the saved memory register 
+// pop_mem_reg() pops the saved memory register
 address pop_mem_reg();
 
 #endif

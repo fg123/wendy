@@ -40,6 +40,11 @@
 
 // Compiler/VM Settings
 #define SETTINGS_COUNT 9
+#define OPERATOR_OVERLOAD_PREFIX "#@"
+#define LOOP_COUNTER_PREFIX ":\""
+
+#define ENUM(x) x,
+#define STRING(x) #x,
 
 typedef enum {
     SETTINGS_COMPILE = 0,
@@ -48,7 +53,7 @@ typedef enum {
     SETTINGS_DISASSEMBLE = 3,
     SETTINGS_STRICT_ERROR = 4,
     SETTINGS_TOKEN_LIST_PRINT = 5,
-    SETTINGS_NOOP = 6,
+    SETTINGS_OPTIMIZE = 6,
     SETTINGS_REPL = 7,
     SETTINGS_VERBOSE = 8 } settings_flags;
 
@@ -57,6 +62,10 @@ bool get_settings_flag(settings_flags flag);
 void determine_endianness();
 
 extern bool is_big_endian;
+extern bool last_printed_newline;
+
+char* w_strdup(const char* s);
+#define strdup(x) w_strdup(x)
 
 // Safe Malloc Implementation
 

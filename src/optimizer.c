@@ -41,6 +41,10 @@ static void scan_expr(expr* expression);
 static void scan_expr_list(expr_list* list);
 static void print_statement_blocks();
 
+static inline bool is_boolean(token t) {
+    return t.t_type == T_TRUE || t.t_type == T_FALSE;
+}
+
 static id_node* find_id_node(char* id, int line, int col) {
     // Search in each block and each list. Returns null if not found for now.
     //   ToDo, perform identifier checking here, but will need to add in
