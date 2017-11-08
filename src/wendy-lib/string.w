@@ -12,13 +12,14 @@ let <string> / <string> => (lhs, rhs) {
     // Split LHS with RHS
     let res = [];
     let last = 0;
-    for i in 0->lhs.size {
-        if (rhs == lhs[i]) {
+    for i in 0->(lhs.size - rhs.size + 1) {
+        if (rhs == lhs[i->(i + rhs.size)]) {
             res += lhs[last->i];
-            last = i + 1;
+            i += rhs.size;
+            last = i;
         }
     }
-    if (last != lhs.size) {
+    if (last != lhs.size - rhs.size) {
         res += lhs[last->lhs.size];
     }
     ret filter(#:(x) x != "", res);
@@ -34,13 +35,14 @@ let <list> % <string> => (lhs, rhs) {
 };
 
 let <string> % <list> => (lhs, rhs) {
-    let parts = lhs / " ";
+    let parts = lhs / "$";
     for i in 0->rhs.size {
-        let search = "$" + (i + 1);
+        let search = (i + 1) + "";
         parts = map(#:(x) {
-            if (x == search) ret rhs[i];
+            if (x[0->search.size] == search)
+                ret rhs[i] + x[search.size -> x.size];
             else ret x;
         }, parts);
     }
-    ret parts % " ";
+    ret parts % "";
 };
