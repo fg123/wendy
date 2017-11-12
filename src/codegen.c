@@ -415,6 +415,8 @@ static data_type literal_type_to_data_type(token_type t) {
             return D_FALSE;
         case T_NONE:
             return D_NONE;
+        case T_NONERET:
+            return D_NONERET;
         case T_IDENTIFIER:
             return D_IDENTIFIER;
         case T_OBJ_TYPE:

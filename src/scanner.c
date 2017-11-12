@@ -177,7 +177,6 @@ static void identifier() {
     else if (strcmp(text, "or") == 0)   { add_token(T_OR); }
     else if (strcmp(text, "true") == 0) { add_token(T_TRUE); }
 
-    else if (strcmp(text, "printstack") == 0)   { add_token(T_PRINTSTACK); }
     else if (strcmp(text, "let") == 0)  { add_token(T_LET); }
     else if (strcmp(text, "set") == 0)  { add_token(T_SET); }
     else if (strcmp(text, "for") == 0)  { add_token(T_LOOP); }
