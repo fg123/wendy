@@ -19,7 +19,7 @@ let <string> / <string> => (lhs, rhs) {
             last = i;
         }
     }
-    if (last != lhs.size - rhs.size) {
+    if (last != lhs.size - rhs.size + 1) {
         res += lhs[last->lhs.size];
     }
     ret filter(#:(x) x != "", res);
