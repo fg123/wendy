@@ -82,6 +82,9 @@ void push_auto_frame(address ret, char* type, int line);
 //   pop_frame also returns true if the popped frame is a function frame
 bool pop_frame(bool is_ret, address* ret);
 
+// write_memory(location, d) safely writes new data to the given location
+void write_memory(unsigned int location, data d);
+
 // push_memory(t) adds the given number of data t into the memory in order
 //   and returns the address of the first one
 address push_memory(data t, int line);

@@ -105,7 +105,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
     for (i = start_at;;) {
         reset_error_flag();
         opcode op = bytecode[i++];
-        //printf("Run: %d: %s\n", i - 1, opcode_string[op]);
+        //printf("Run: %x: %s\n", i - 1, opcode_string[op]);
         switch (op) {
             case OP_PUSH: {
                 data t = get_data(bytecode + i, &i);
@@ -587,22 +587,19 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
                 char buffer[MAX_STRING_LEN];
                 while(!fgets(buffer, MAX_STRING_LEN, stdin)) {};
 
-                data* t = &memory[memory_register];
                 char* end_ptr = buffer;
                 errno = 0;
                 double d = strtod(buffer, &end_ptr);
                 // null terminator or newline character
                 if (errno != 0 || (*end_ptr != 0 && *end_ptr != 10)) {
-                    t->type = D_STRING;
                     size_t len = strlen(buffer);
                     // remove last newline
                     buffer[len - 1] = 0;
-                    strcpy(t->value.string, buffer);
+                    write_memory(memory_register, make_data(D_STRING, data_value_str(buffer)));
                 }
                 else {
                     // conversion successful
-                    t->type = D_NUMBER;
-                    t->value.number = d;
+                    write_memory(memory_register, make_data(D_NUMBER, data_value_num(d)));
                 }
                 break;
             }
@@ -835,13 +832,13 @@ static data eval_binop(operator op, data a, data b) {
             (strcmp(a.value.string, b.value.string) == 0) ?
             false_data() : true_data();
     }
-    else if((a.type == T_NONE || b.type == T_NONE) &&
+    else if((a.type == D_NONE || b.type == D_NONE) &&
             (op == O_EQ || op == O_NEQ)) {
         return (op == O_EQ) ^
-            (a.type == T_NONE && b.type == T_NONE) ?
+            (a.type == D_NONE && b.type == D_NONE) ?
             false_data() : true_data();
     }
-    else if((a.type == T_OBJ_TYPE && b.type == T_OBJ_TYPE) &&
+    else if((a.type == D_OBJ_TYPE && b.type == D_OBJ_TYPE) &&
             (op == O_EQ || op == O_NEQ)) {
         return (op == O_EQ) ^
             (strcmp(a.value.string, b.value.string) == 0) ?

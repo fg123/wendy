@@ -714,7 +714,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
         }
         else if (op == OP_SRC) {
             address a = get_address(bytecode + i, &i);
-            p += fprintf(buffer, "0x%X", a);
+            p += fprintf(buffer, "%d", a);
             printSourceLine = a;
         }
         else if (op == OP_JMP || op == OP_JIF) {
@@ -757,7 +757,8 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
             }
         }
         if (printSourceLine > 0 && !get_settings_flag(SETTINGS_REPL)) {
-            printf(RESET " %s", get_source_line(printSourceLine));
+            // Memory Bug here when we have comments
+        //    printf(RESET " %s", get_source_line(printSourceLine));
         }
         fprintf(buffer, "\n" RESET);
         if (op == OP_HALT) {

@@ -20,7 +20,7 @@ static const char RA_START_CHAR = '#';
 // pointer to the end of the main frame
 address main_end_pointer = 0;
 
-static void write_memory(unsigned int location, data d) {
+void write_memory(unsigned int location, data d) {
     destroy_data(memory + location);
     memory[location] = d;
 }
