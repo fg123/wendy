@@ -6,16 +6,17 @@
 
 // Memory.c, provides functions for the interpreter to manipulate the local
 //   WendyScript memory
+
+#define FUNCTION_START_CHAR '>'
+#define AUTOFRAME_START_CHAR '<'
+#define RA_START_CHAR '#'
+
 address frame_pointer = 0;
 address stack_pointer = 0;
 address arg_pointer = 0;
 address closure_list_pointer = 0;
 size_t closure_list_size = 0;
 address mem_reg_pointer = 0;
-
-static const char FUNCTION_START_CHAR = '>';
-static const char AUTOFRAME_START_CHAR = '<';
-static const char RA_START_CHAR = '#';
 
 // pointer to the end of the main frame
 address main_end_pointer = 0;
