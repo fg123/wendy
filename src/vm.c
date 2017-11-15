@@ -423,7 +423,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
                     int size = (int)(memory[metadata].value.number);
                     for (int i = 0; i < size; i++) {
                         data mdata = memory[metadata + i];
-                        if (mdata.type == D_STRUCT_STATIC &&
+                        if (mdata.type == D_STRUCT_SHARED &&
                             strcmp(mdata.value.string, member) == 0) {
                             // Found the static member we were looking for.
                             memory_register = metadata + i + 1;
@@ -724,7 +724,7 @@ static data eval_binop(operator op, data a, data b) {
                 int size = (int)(memory[metadata].value.number);
                 for (int i = 0; i < size; i++) {
                     data mdata = memory[metadata + i];
-                    if (mdata.type == D_STRUCT_STATIC &&
+                    if (mdata.type == D_STRUCT_SHARED &&
                         strcmp(mdata.value.string, b.value.string) == 0) {
                         // Found the static member we were looking for
                         data result = copy_data(memory[metadata + i + 1]);

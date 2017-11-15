@@ -274,7 +274,7 @@ static void codegen_statement(void* expre) {
         write_opcode(OP_PUSH);
         write_data(make_data(D_STRUCT_NAME, data_value_str(struct_name)));
         write_opcode(OP_PUSH);
-        write_data(make_data(D_STRUCT_STATIC, data_value_str("init")));
+        write_data(make_data(D_STRUCT_SHARED, data_value_str("init")));
         // Push Init Function
         codegen_expr(state->op.struct_statement.init_fn);
 
@@ -301,7 +301,7 @@ static void codegen_statement(void* expre) {
                 error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
             }
             write_opcode(OP_PUSH);
-            write_data(make_data(D_STRUCT_STATIC,
+            write_data(make_data(D_STRUCT_SHARED,
                 data_value_str(elem->op.lit_expr.t_data.string)));
             write_opcode(OP_PUSH);
             write_data(none_data());
