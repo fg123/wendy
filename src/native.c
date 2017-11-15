@@ -129,7 +129,7 @@ void native_call(char* function_name, int expected_args, int line) {
     int functions = sizeof(native_functions) / sizeof(native_functions[0]);
     bool found = false;
     for (int i = 0; i < functions; i++) {
-        if(strcmp(native_functions[i].name, function_name) == 0) {
+        if(streq(native_functions[i].name, function_name)) {
             int argc = native_functions[i].argc;
             data* arg_list = safe_malloc(sizeof(data) * argc);
             // Popped in reverse order

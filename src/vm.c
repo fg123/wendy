@@ -111,7 +111,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
                 data t = get_data(bytecode + i, &i);
                 data d;
                 if (t.type == D_IDENTIFIER) {
-                    if (strcmp(t.value.string, "time") == 0) {
+                    if (streq(t.value.string, "time")) {
                         d = time_data();
                     }
                     else {
@@ -424,7 +424,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
                     for (int i = 0; i < size; i++) {
                         data mdata = memory[metadata + i];
                         if (mdata.type == D_STRUCT_SHARED &&
-                            strcmp(mdata.value.string, member) == 0) {
+                            streq(mdata.value.string, member)) {
                             // Found the static member we were looking for.
                             memory_register = metadata + i + 1;
                             found = true;
@@ -435,7 +435,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
                         }
                         else if (mdata.type == D_STRUCT_PARAM) {
                             if (struct_type == D_STRUCT_INSTANCE &&
-                                strcmp(mdata.value.string, member) == 0) {
+                                streq(mdata.value.string, member)) {
                                 // Found the instance member we were looking for.
                                 // Address of the STRUCT_INSTANCE_HEADER offset by
                                 //   params_passed + 1;
@@ -479,7 +479,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
                 data boundName = memory[loc + 2];
                 char* function_disp = safe_malloc(128 * sizeof(char));
                 function_disp[0] = 0;
-                if (strcmp(boundName.value.string, "self") == 0) {
+                if (streq(boundName.value.string, "self")) {
                     sprintf(function_disp, "annonymous:0x%X", i);
                 }
                 else {
@@ -694,16 +694,16 @@ static data eval_binop(operator op, data a, data b) {
             error_runtime(line, VM_MEMBER_NOT_IDEN);
             return false_data();
         }
-        if (strcmp("size", b.value.string) == 0) {
+        if (streq("size", b.value.string)) {
             return size_of(a);
         }
-        else if (strcmp("type", b.value.string) == 0) {
+        else if (streq("type", b.value.string)) {
             return type_of(a);
         }
-        else if (strcmp("val", b.value.string) == 0) {
+        else if (streq("val", b.value.string)) {
             return value_of(a);
         }
-        else if (strcmp("char", b.value.string) == 0) {
+        else if (streq("char", b.value.string)) {
             return char_of(a);
         }
         else {
@@ -725,7 +725,7 @@ static data eval_binop(operator op, data a, data b) {
                 for (int i = 0; i < size; i++) {
                     data mdata = memory[metadata + i];
                     if (mdata.type == D_STRUCT_SHARED &&
-                        strcmp(mdata.value.string, b.value.string) == 0) {
+                        streq(mdata.value.string, b.value.string)) {
                         // Found the static member we were looking for
                         data result = copy_data(memory[metadata + i + 1]);
                         if (result.type == D_FUNCTION) {
@@ -735,7 +735,7 @@ static data eval_binop(operator op, data a, data b) {
                     }
                     else if (mdata.type == D_STRUCT_PARAM) {
                         if (struct_type == D_STRUCT_INSTANCE &&
-                            strcmp(mdata.value.string, b.value.string) == 0) {
+                            streq(mdata.value.string, b.value.string)) {
                             // Found the instance member we were looking for.
                             // Address of the STRUCT_INSTANCE_HEADER offset by
                             //   params_passed + 1;
@@ -829,7 +829,7 @@ static data eval_binop(operator op, data a, data b) {
     else if((a.type == D_STRING && b.type == D_STRING) &&
             (op == O_EQ || op == O_NEQ)) {
         return (op == O_EQ) ^
-            (strcmp(a.value.string, b.value.string) == 0) ?
+            (streq(a.value.string, b.value.string)) ?
             false_data() : true_data();
     }
     else if((a.type == D_NONE || b.type == D_NONE) &&
@@ -841,7 +841,7 @@ static data eval_binop(operator op, data a, data b) {
     else if((a.type == D_OBJ_TYPE && b.type == D_OBJ_TYPE) &&
             (op == O_EQ || op == O_NEQ)) {
         return (op == O_EQ) ^
-            (strcmp(a.value.string, b.value.string) == 0) ?
+            (streq(a.value.string, b.value.string)) ?
             false_data() : true_data();
     }
 

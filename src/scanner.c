@@ -188,30 +188,30 @@ static void identifier() {
     memcpy(text, &source[start], current - start);
     text[current - start] = '\0';
 
-    if (strcmp(text, "and") == 0)   { add_token(T_AND); }
-    else if (strcmp(text, "else") == 0) { add_token(T_ELSE); }
-    else if (strcmp(text, "false") == 0)    { add_token(T_FALSE); }
-    else if (strcmp(text, "if") == 0)   { add_token(T_IF); }
-    else if (strcmp(text, "or") == 0)   { add_token(T_OR); }
-    else if (strcmp(text, "true") == 0) { add_token(T_TRUE); }
+    if (streq(text, "and"))   { add_token(T_AND); }
+    else if (streq(text, "else")) { add_token(T_ELSE); }
+    else if (streq(text, "false"))    { add_token(T_FALSE); }
+    else if (streq(text, "if"))   { add_token(T_IF); }
+    else if (streq(text, "or"))   { add_token(T_OR); }
+    else if (streq(text, "true")) { add_token(T_TRUE); }
 
-    else if (strcmp(text, "let") == 0)  { add_token(T_LET); }
-    else if (strcmp(text, "set") == 0)  { add_token(T_SET); }
-    else if (strcmp(text, "for") == 0)  { add_token(T_LOOP); }
-    else if (strcmp(text, "none") == 0) { add_token(T_NONE); }
-    else if (strcmp(text, "in") == 0)   { add_token(T_IN); }
+    else if (streq(text, "let"))  { add_token(T_LET); }
+    else if (streq(text, "set"))  { add_token(T_SET); }
+    else if (streq(text, "for"))  { add_token(T_LOOP); }
+    else if (streq(text, "none")) { add_token(T_NONE); }
+    else if (streq(text, "in"))   { add_token(T_IN); }
 
-    else if (strcmp(text, "ret") == 0)  { add_token(T_RET); }
-    else if (strcmp(text, "import") == 0)   {
+    else if (streq(text, "ret"))  { add_token(T_RET); }
+    else if (streq(text, "import"))   {
         handle_import();
     }
-    else if (strcmp(text, "native") == 0)   {
+    else if (streq(text, "native"))   {
         add_token(T_NATIVE);
     }
-    else if (strcmp(text, "inc") == 0)  { add_token(T_INC); }
-    else if (strcmp(text, "dec") == 0)  { add_token(T_DEC); }
-    else if (strcmp(text, "input") == 0)    { add_token(T_INPUT); }
-    else if (strcmp(text, "struct") == 0){
+    else if (streq(text, "inc"))  { add_token(T_INC); }
+    else if (streq(text, "dec"))  { add_token(T_DEC); }
+    else if (streq(text, "input"))    { add_token(T_INPUT); }
+    else if (streq(text, "struct")){
         add_token(T_STRUCT);
 
     }

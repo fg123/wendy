@@ -60,29 +60,29 @@ void invalid_usage() {
 
 void process_options(char** options, int len) {
     for (int i = 0; i < len; i++) {
-        if (strcmp("-c", options[i]) == 0 ||
-            strcmp("--compile", options[i]) == 0) {
+        if (streq("-c", options[i]) ||
+            streq("--compile", options[i])) {
             set_settings_flag(SETTINGS_COMPILE);
         }
-        else if (strcmp("-v", options[i]) == 0 ||
-            strcmp("--verbose", options[i]) == 0) {
+        else if (streq("-v", options[i]) ||
+            streq("--verbose", options[i])) {
             set_settings_flag(SETTINGS_VERBOSE);
         }
-        else if (strcmp("--nogc", options[i]) == 0) {
+        else if (streq("--nogc", options[i])) {
             set_settings_flag(SETTINGS_NOGC);
         }
-        else if (strcmp("--optimize", options[i]) == 0) {
+        else if (streq("--optimize", options[i])) {
             set_settings_flag(SETTINGS_OPTIMIZE);
         }
-        else if (strcmp("--ast", options[i]) == 0) {
+        else if (streq("--ast", options[i])) {
             set_settings_flag(SETTINGS_ASTPRINT);
         }
-        else if (strcmp("-t", options[i]) == 0 ||
-                 strcmp("--token-list", options[i]) == 0) {
+        else if (streq("-t", options[i]) ||
+                 streq("--token-list", options[i])) {
             set_settings_flag(SETTINGS_TOKEN_LIST_PRINT);
         }
-        else if (strcmp("-d", options[i]) == 0 ||
-                 strcmp("--disassemble", options[i]) == 0) {
+        else if (streq("-d", options[i]) ||
+                 streq("--disassemble", options[i])) {
             set_settings_flag(SETTINGS_DISASSEMBLE);
         }
         else {
@@ -200,8 +200,8 @@ int main(int argc, char** argv) {
     if (argc != 2) {
         process_options(&argv[2], argc - 2);
     }
-    if (argc == 2 && (strcmp(argv[1], "--help") == 0 ||
-                      strcmp(argv[1], "-h") == 0)) {
+    if (argc == 2 && (streq(argv[1], "--help") ||
+                      streq(argv[1], "-h"))) {
         invalid_usage();
     }
     else if (argc >= 2) {
@@ -227,7 +227,7 @@ int main(int argc, char** argv) {
             char header[header_length + 1];
             fread(header, sizeof(char), header_length + 1, file);
             fseek(file, 0, SEEK_SET);
-            if (strcmp(WENDY_VM_HEADER, header) == 0) {
+            if (streq(WENDY_VM_HEADER, header)) {
                 is_compiled = true;
             }
         }

@@ -24,7 +24,7 @@ static int global_loop_id = 0;
 
 int verify_header(uint8_t* bytecode) {
     char* start = (char*)bytecode;
-    if (strcmp(WENDY_VM_HEADER, start) == 0) {
+    if (streq(WENDY_VM_HEADER, start)) {
         return strlen(WENDY_VM_HEADER) + 1;
     }
     else {

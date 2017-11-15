@@ -25,6 +25,10 @@ char* w_strdup(const char *s) {
     return p;
 }
 
+inline bool streq(char* a, char* b) {
+    return strcmp(a, b) == 0;
+}
+
 void determine_endianness() {
     int i = 1;
     is_big_endian = ((*(char*)&i) == 0);

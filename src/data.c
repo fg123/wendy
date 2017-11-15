@@ -30,7 +30,7 @@ bool data_equal(data* a, data* b) {
             return a->value.number == b->value.number;
         }
         else {
-            return strcmp(a->value.string, b->value.string) == 0;
+            return streq(a->value.string, b->value.string);
         }
     }
 }

@@ -61,6 +61,8 @@ void set_settings_flag(settings_flags flag);
 bool get_settings_flag(settings_flags flag);
 void determine_endianness();
 
+bool streq(char* a, char* b);
+
 extern bool is_big_endian;
 extern bool last_printed_newline;
 

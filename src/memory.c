@@ -540,13 +540,13 @@ address get_fn_frame_ptr() {
 bool id_exist(char* id, bool search_main) {
     // avoid the location at frame_pointer because that's the start and stores
     for (int i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
-        if (strcmp(id, call_stack[i].id) == 0) {
+        if (streq(id, call_stack[i].id)) {
             return true;
         }
     }
     if (search_main) {
         for (int i = 0; i < main_end_pointer; i++) {
-            if (strcmp(id, call_stack[i].id) == 0) {
+            if (streq(id, call_stack[i].id)) {
                 return true;
             }
         }
@@ -562,12 +562,12 @@ address get_address_of_id(char* id, int line) {
     address frame_ptr = get_fn_frame_ptr();
     for (int i = stack_pointer - 1; i > frame_ptr; i--) {
     //for (int i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
-        if (strcmp(id, call_stack[i].id) == 0) {
+        if (streq(id, call_stack[i].id)) {
             return call_stack[i].val;
         }
     }
     for (int i = 0; i < main_end_pointer; i++) {
-        if (strcmp(id, call_stack[i].id) == 0) {
+        if (streq(id, call_stack[i].id)) {
             return call_stack[i].val;
         }
     }
@@ -582,12 +582,12 @@ address get_stack_pos_of_id(char* id, int line) {
     address frame_ptr = get_fn_frame_ptr();
     for (int i = stack_pointer - 1; i > frame_ptr; i--) {
     //for (int i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
-        if (strcmp(id, call_stack[i].id) == 0) {
+        if (streq(id, call_stack[i].id)) {
             return i;
         }
     }
     for (int i = 0; i < main_end_pointer; i++) {
-        if (strcmp(id, call_stack[i].id) == 0) {
+        if (streq(id, call_stack[i].id)) {
             return i;
         }
     }

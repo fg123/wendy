@@ -36,7 +36,7 @@ void free_imported_libraries_ll() {
 bool has_already_imported_library(char* name) {
     import_node* curr = imported_libraries;
     while (curr) {
-        if (strcmp(curr->name, name) == 0) {
+        if (streq(curr->name, name)) {
             return true;
         }
         curr = curr->next;

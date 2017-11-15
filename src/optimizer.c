@@ -53,7 +53,7 @@ static id_node* find_id_node(char* id, int line, int col) {
     while (b) {
         id_node* n = b->id_list;
         while (n) {
-            if (strcmp(n->id_name, id) == 0) {
+            if (streq(n->id_name, id)) {
                 return n;
             }
             n = n->next;
@@ -70,7 +70,7 @@ static void remove_entry(char* id, int line, int col) {
         id_node* p = 0;
         id_node* n = b->id_list;
         while (n) {
-            if (strcmp(n->id_name, id) == 0) {
+            if (streq(n->id_name, id)) {
                 // remove this one
                 if (p) {
                     p->next = n->next;
