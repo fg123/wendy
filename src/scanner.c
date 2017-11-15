@@ -139,6 +139,7 @@ static void handle_obj_type() {
 static void handle_string(char endChar) {
     while (peek() != endChar && !is_at_end()) {
         if (peek() == '\n') line++;
+        if (peek() == '\\') advance();
         advance();
     }
 
@@ -152,12 +153,29 @@ static void handle_string(char endChar) {
     advance();
 
     // Trim the surrounding quotes.
-    int s_length = current - 2 - start;
+    size_t s_length = current - 2 - start;
     char value[s_length + 1]; // + 1 for null terminator
-
     memcpy(value, &source[start + 1], s_length);
     value[s_length] = '\0';
-
+    size_t s = 0;
+    for (int i = 0; i < s_length; i++) {
+        if (value[i] == '\\' && i != s_length - 1) {
+            switch(value[++i]) {
+                case 'n':
+                    value[s++] = '\n';
+                    break;
+                case 't':
+                    value[s++] = '\t';
+                    break;
+                default:
+                    value[s++] = value[i];
+            }
+        }
+        else {
+            value[s++] = value[i];
+        }
+    }
+    value[s] = 0;
     add_token_V(T_STRING, make_data_str(value));
 }
 

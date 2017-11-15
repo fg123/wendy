@@ -113,8 +113,13 @@ void run(char* input_string) {
 bool bracket_check(char* source) {
     if (!source[0]) return false;
     // Parentheses, Square, Curly, Single Quote, Double Quote
-    int p = 0, s = 0, c = 0, sq = 0, dq = 0;
+    int p = 0, s = 0, c = 0;
+    char in_string = 0;
     for (int i = 0; source[i]; i++) {
+        if (in_string && source[i] == '\\') {
+            i++;
+            continue;
+        }
         switch(source[i]) {
             case '(': p++; break;
             case ')': p--; break;
@@ -122,11 +127,17 @@ bool bracket_check(char* source) {
             case ']': s--; break;
             case '{': c++; break;
             case '}': c--; break;
-            case '"': dq++; break;
-            case '\'': sq++; break;
+            case '"': {
+                in_string = in_string == '"' ? 0 : '"';
+                break;
+            }
+            case '\'': {
+                in_string = in_string == '\'' ? 0 : '\'';
+                break;
+            }
         }
     }
-    return !p && !s && !c && !(dq % 2) && !(sq % 2);
+    return !p && !s && !c && !in_string;
 }
 
 int main(int argc, char** argv) {
