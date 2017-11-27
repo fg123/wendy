@@ -20,7 +20,6 @@ char* get_path() {
 }
 #elif __APPLE__
 #include <mach-o/dyld.h>
-#include <stdio.h>
 #include <string.h>
 
 char* get_path() {

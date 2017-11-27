@@ -437,8 +437,6 @@ void print_call_stack(int maxlines) {
 }
 
 void push_arg(data t, int line) {
-    //printf("pushed ");
-    //print_data(&t);
     write_memory(arg_pointer, t);
     arg_pointer--;
     check_memory(line);
@@ -483,8 +481,6 @@ address push_memory_s(data t, int size, int line) {
 address push_memory_a(data* a, int size, int line) {
     address loc = pls_give_memory(size + 1, line);
     write_memory(loc, list_header_data(size));
-//  printf("pushmemsize: %s\n", memory[loc].value.string);
-//  memory[loc].value.number = size;
     for (int i = 0; i < size; i++) {
         write_memory(loc + i + 1, a[i]);
     }
@@ -613,7 +609,7 @@ void push_mem_reg(address memory_register) {
 
 address pop_mem_reg() {
     if (mem_reg_pointer == 0) {
-        printf("MEMORY REGISTER STACK EMPTY! \n");
+        w_error(MEMORY_MEM_STACK_ERROR);
         return 0;
     }
     return mem_reg_stack[--mem_reg_pointer];

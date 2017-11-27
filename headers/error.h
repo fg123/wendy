@@ -69,6 +69,7 @@ void error_compile(int line, int col, char* message, ...);
 #define MEMORY_REF_ERROR "Reference to memory out of range!"
 #define MEMORY_STACK_OVERFLOW "Internal stack overflow!"
 #define MEMORY_OVERFLOW "Out of memory!"
+#define MEMORY_MEM_STACK_ERROR "Cannot pop empty memory register!"
 #define MEMORY_STACK_UNDERFLOW "Internal stack underflow! Did you call a function with less arguments than required?"
 #define MEMORY_ID_NOT_FOUND "Identifier '%s' not found! Did you declare it?"
 

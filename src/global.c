@@ -51,7 +51,7 @@ void* safe_malloc_impl(size_t size, char* filename, int line_num) {
     new_node->next = malloc_node_list;
     malloc_node_list = new_node;
     if (!(new_node->ptr)) {
-        printf("SafeMalloc: Couldn't allocate memory! %s at line %d.\n",
+        fprintf(stderr, "SafeMalloc: Couldn't allocate memory! %s at line %d.\n",
             filename, line_num);
     }
     return new_node->ptr;
@@ -80,7 +80,7 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
         if (curr->ptr == ptr) {
             void* re = realloc(curr->ptr, size);
             if (!re) {
-                printf("SafeRealloc: Couldn't reallocate memory! %s at"
+                fprintf(stderr, "SafeRealloc: Couldn't reallocate memory! %s at"
                     " line %d.\n", filename, line_num);
             }
             curr->ptr = re;
@@ -124,7 +124,7 @@ void safe_free_impl(void* ptr, char* filename, int line_num) {
 void check_leak() {
     malloc_node* curr = malloc_node_list;
     while (curr) {
-        printf("Memory Leak: %zd bytes (%p), allocated from %s at line %d.\n",
+        fprintf(stderr, "Memory Leak: %zd bytes (%p), allocated from %s at line %d.\n",
             curr->size, curr->ptr, curr->filename, curr->line_num);
         curr = curr->next;
     }
