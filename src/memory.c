@@ -609,7 +609,7 @@ void push_mem_reg(address memory_register) {
 
 address pop_mem_reg() {
     if (mem_reg_pointer == 0) {
-        w_error(MEMORY_MEM_STACK_ERROR);
+        error_general(MEMORY_MEM_STACK_ERROR);
         return 0;
     }
     return mem_reg_stack[--mem_reg_pointer];
