@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 typedef struct native_function {
     char* name;
@@ -24,6 +25,11 @@ static data native_printBytecode(data* args);
 static data native_garbageCollect(data* args);
 static data native_printFreeMemory(data* args);
 
+// Math Functions
+static data native_pow(data* args);
+static data native_ln(data* args);
+static data native_log(data* args);
+
 static native_function native_functions[] = {
     { "printCallStack", 1, native_printCallStack },
     { "reverseString", 1, native_reverseString },
@@ -33,7 +39,10 @@ static native_function native_functions[] = {
     { "getc", 0, native_getc },
     { "printBytecode", 0, native_printBytecode },
     { "garbageCollect", 0, native_garbageCollect },
-    { "printFreeMemory", 0, native_printFreeMemory }
+    { "printFreeMemory", 0, native_printFreeMemory },
+    { "pow", 2, native_pow },
+    { "ln", 1, native_ln },
+    { "log", 1, native_log }
 };
 
 static double native_to_numeric(data* t) {
@@ -58,7 +67,21 @@ static data native_getc(data* args) {
     char result[2];
     result[0] = getc(stdin);
     result[1] = 0;
-    return make_data(T_STRING, data_value_str(result));
+    return make_data(D_STRING, data_value_str(result));
+}
+
+static data native_pow(data* args) {
+	double a = native_to_numeric(args);
+	double b = native_to_numeric(args + 1);
+	return make_data(D_NUMBER, data_value_num(pow(a, b)));
+}
+
+static data native_ln(data* args) {
+	return make_data(D_NUMBER, data_value_num(log(native_to_numeric(args))));
+}
+
+static data native_log(data* args) {
+	return make_data(D_NUMBER, data_value_num(log10(native_to_numeric(args))));
 }
 
 static data native_exec(data* args) {
