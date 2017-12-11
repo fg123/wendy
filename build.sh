@@ -26,7 +26,9 @@ echo Build Done.
 
 echo Compiling Wendy Library Files
 mkdir -p bin/wendy-lib
-rm -f bin/wendy-lib/*
+# Some modules may be dependent on other modules, 
+#   write some kind of check for that here?
+#rm -f bin/wendy-lib/*
 for f in src/wendy-lib/*.w ; do
 	bin/wendy "$f" -c
 	cp -R "${f%.w}.wc" bin/wendy-lib/
