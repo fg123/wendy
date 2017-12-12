@@ -15,7 +15,7 @@ for f in *.w ; do
 	filestems+=(${f%.w})
 done
 
-build_order="$(../../tools/dependency-resolve ${filestems[*]})"
+build_order="$(../../bin/dependency-resolve ${filestems[*]})"
 
 while read -r line; do
 	# $line is the stem to build
