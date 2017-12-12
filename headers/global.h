@@ -55,7 +55,8 @@ typedef enum {
     SETTINGS_TOKEN_LIST_PRINT = 5,
     SETTINGS_OPTIMIZE = 6,
     SETTINGS_REPL = 7,
-    SETTINGS_VERBOSE = 8 } settings_flags;
+    SETTINGS_VERBOSE = 8,
+	SETTINGS_OUTPUT_DEPENDENCIES = 9 } settings_flags;
 
 void set_settings_flag(settings_flags flag);
 bool get_settings_flag(settings_flags flag);

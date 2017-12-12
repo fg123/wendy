@@ -10,6 +10,7 @@
 #include "source.h"
 #include "optimizer.h"
 #include "data.h"
+#include "dependencies.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -54,6 +55,7 @@ void invalid_usage() {
     printf("    --ast             : prints out the constructed AST.\n");
     printf("    -t, --token-list  : prints out the parsed tokens.\n");
     printf("    -d --disassemble  : prints out the disassembled bytecode.\n");
+	printf("	--dependencies    : prints out the module dependencies of the file.\n");
     printf("\nWendy will enter REPL mode if no parameters are supplied.\n");
     safe_exit(1);
 }
@@ -76,6 +78,9 @@ void process_options(char** options, int len) {
         }
         else if (streq("--ast", options[i])) {
             set_settings_flag(SETTINGS_ASTPRINT);
+        }
+        else if (streq("--dependencies", options[i])) {
+            set_settings_flag(SETTINGS_OUTPUT_DEPENDENCIES);
         }
         else if (streq("-t", options[i]) ||
                  streq("--token-list", options[i])) {
@@ -210,7 +215,7 @@ int main(int argc, char** argv) {
         int file_name_length = strlen(argv[1]);
         FILE* file = fopen(argv[1], "r");
         if (!file) {
-            // Attempt to run as source.
+            // Attempt to run as source string
             push_frame("main", 0, 0);
             run(argv[1]);
             c_free_memory();
@@ -257,9 +262,18 @@ int main(int argc, char** argv) {
             if (get_settings_flag(SETTINGS_ASTPRINT)) {
                 print_ast(ast);
             }
-
-            // Generate Bytecode
-            bytecode_stream = generate_code(ast, &size);
+			
+			if (get_settings_flag(SETTINGS_OUTPUT_DEPENDENCIES)) {
+				// Perform static analysis to output dependencies
+				print_dependencies(ast);
+				c_free_memory();
+				check_leak();
+				return 0;
+			}
+			else {
+				// Generate Bytecode
+				bytecode_stream = generate_code(ast, &size);
+			}
             safe_free(tokens);
             free_ast(ast);
         }
