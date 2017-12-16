@@ -46,6 +46,7 @@ char* error_message(char* message, va_list args) {
 }
 
 void error_general(char* message, ...) {
+	error_flag = true;
     va_list args;
     va_start(args, message);
 
@@ -61,6 +62,7 @@ void error_general(char* message, ...) {
 }
 
 void error_lexer(int line, int col, char* message, ...) {
+	error_flag = true;
     va_list args;
     va_start(args, message);
 
@@ -83,6 +85,7 @@ void error_lexer(int line, int col, char* message, ...) {
 
 
 void error_compile(int line, int col, char* message, ...) {
+	error_flag = true;
     va_list args;
     va_start(args, message);
 
@@ -104,6 +107,7 @@ void error_compile(int line, int col, char* message, ...) {
 }
 
 void error_runtime(int line, char* message, ...) {
+	error_flag = true;
     va_list args;
     va_start(args, message);
 

@@ -13,6 +13,7 @@
     OP(D_STRING) \
     OP(D_NUMBER) \
     OP(D_ADDRESS) \
+    OP(D_INTERNAL_POINTER) \
     OP(D_MEMBER) \
     OP(D_FUNCTION) \
     OP(D_CLOSURE) \

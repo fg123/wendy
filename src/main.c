@@ -150,7 +150,7 @@ int main(int argc, char** argv) {
     determine_endianness();
     if (argc == 1) {
         init_source(0, "", 0, false);
-        clear_console();
+//        clear_console();
         printf("Welcome to " WENDY_VERSION " created by: Felix Guo\n");
         printf(BUILD_VERSION "\n");
         printf("Run `wendy -help` to get help.\n");

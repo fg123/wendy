@@ -66,7 +66,7 @@ bool is_numeric(data t) {
         t.type == D_STRUCT_METADATA || t.type == D_STRUCT_INSTANCE ||
         t.type == D_STRUCT_INSTANCE_HEAD || t.type == D_STRUCT_FUNCTION ||
         t.type == D_CLOSURE ||
-        t.type == D_EMPTY;
+        t.type == D_EMPTY || t.type == D_INTERNAL_POINTER;
 }
 
 bool is_boolean(data t) {
