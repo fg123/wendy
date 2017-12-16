@@ -90,3 +90,7 @@ let expand => (list) {
         else result += i
     ret result
 };
+
+let reduce => (list, fn, initial) 
+	if list.size == 0 ret initial 
+	else ret fn(list[0], reduce(list[1->list.size], fn, initial))

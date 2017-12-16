@@ -2,7 +2,7 @@
  * stack.w: WendyScript 2.0
  * Created by Felix Guo
  */
-struct node => (val, next);
+struct node => (v, next);
 struct stack => (head) [push, pop, top];
 stack.init => () {
     this.head = none;
@@ -19,5 +19,5 @@ stack.pop => () {
 };
 
 stack.top => () {
-    ret this.head.val;
+    ret this.head.v;
 };
