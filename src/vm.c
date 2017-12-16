@@ -690,10 +690,54 @@ static data eval_binop(operator op, data a, data b) {
     if (op == O_MEMBER) {
         // Member Access! Supports two built in, size and type, value.
         // Left side should be a token.
+		// Regular Member, Must be either struct or a struct instance.
+		//   Check for Regular Member before checking for built-in ones
         if (b.type != D_MEMBER_IDENTIFIER) {
             error_runtime(line, VM_MEMBER_NOT_IDEN);
             return false_data();
         }
+		if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
+			// Either will be allowed to look through static parameters.
+			address metadata = (int)(a.value.number);
+			memory_register_A = metadata;
+			if (a.type == D_STRUCT_INSTANCE) {
+				// metadata actually points to the STRUCT_INSTANE_HEADER
+				//   right now.
+				metadata = (address)(memory[metadata].value.number);
+			}
+			data_type struct_type = a.type;
+			address struct_header = a.value.number;
+
+			int params_passed = 0;
+			int size = (int)(memory[metadata].value.number);
+			for (int i = 0; i < size; i++) {
+				data mdata = memory[metadata + i];
+				if (mdata.type == D_STRUCT_SHARED &&
+					streq(mdata.value.string, b.value.string)) {
+					// Found the static member we were looking for
+					data result = copy_data(memory[metadata + i + 1]);
+					if (result.type == D_FUNCTION) {
+						result.type = D_STRUCT_FUNCTION;
+					}
+					return result;
+				}
+				else if (mdata.type == D_STRUCT_PARAM) {
+					if (struct_type == D_STRUCT_INSTANCE &&
+						streq(mdata.value.string, b.value.string)) {
+						// Found the instance member we were looking for.
+						// Address of the STRUCT_INSTANCE_HEADER offset by
+						//   params_passed + 1;
+						address loc = struct_header + params_passed + 1;
+						data result = copy_data(memory[loc]);
+						if (result.type == D_FUNCTION) {
+							result.type = D_STRUCT_FUNCTION;
+						}
+						return result;
+					}
+					params_passed++;
+				}
+			}
+		}
         if (streq("size", b.value.string)) {
             return size_of(a);
         }
@@ -707,51 +751,8 @@ static data eval_binop(operator op, data a, data b) {
             return char_of(a);
         }
         else {
-            // Regular Member, Must be either struct or a struct instance.
-            if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
-                // Either will be allowed to look through static parameters.
-                address metadata = (int)(a.value.number);
-                memory_register_A = metadata;
-                if (a.type == D_STRUCT_INSTANCE) {
-                    // metadata actually points to the STRUCT_INSTANE_HEADER
-                    //   right now.
-                    metadata = (address)(memory[metadata].value.number);
-                }
-                data_type struct_type = a.type;
-                address struct_header = a.value.number;
-
-                int params_passed = 0;
-                int size = (int)(memory[metadata].value.number);
-                for (int i = 0; i < size; i++) {
-                    data mdata = memory[metadata + i];
-                    if (mdata.type == D_STRUCT_SHARED &&
-                        streq(mdata.value.string, b.value.string)) {
-                        // Found the static member we were looking for
-                        data result = copy_data(memory[metadata + i + 1]);
-                        if (result.type == D_FUNCTION) {
-                            result.type = D_STRUCT_FUNCTION;
-                        }
-                        return result;
-                    }
-                    else if (mdata.type == D_STRUCT_PARAM) {
-                        if (struct_type == D_STRUCT_INSTANCE &&
-                            streq(mdata.value.string, b.value.string)) {
-                            // Found the instance member we were looking for.
-                            // Address of the STRUCT_INSTANCE_HEADER offset by
-                            //   params_passed + 1;
-                            address loc = struct_header + params_passed + 1;
-                            data result = copy_data(memory[loc]);
-                            if (result.type == D_FUNCTION) {
-                                result.type = D_STRUCT_FUNCTION;
-                            }
-                            return result;
-                        }
-                        params_passed++;
-                    }
-                }
-            }
-            error_runtime(line, VM_MEMBER_NOT_EXIST, b.value.string);
-            return false_data();
+			error_runtime(line, VM_MEMBER_NOT_EXIST, b.value.string);
+			return false_data();
         }
     }
     if (a.type == D_NUMBER && b.type == D_NUMBER) {

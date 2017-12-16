@@ -14,7 +14,7 @@ for var in "$@"; do
 	fi
 done
 
-make clean -s
+#make clean -s
 if (( $release == 1)); then
 	echo Building WendyScript with Release
 	make -s release=-DRELEASE

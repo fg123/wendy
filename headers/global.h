@@ -41,7 +41,7 @@
 // Compiler/VM Settings
 #define SETTINGS_COUNT 9
 #define OPERATOR_OVERLOAD_PREFIX "#@"
-#define LOOP_COUNTER_PREFIX ":\""
+#define LOOP_COUNTER_PREFIX ":\")"
 
 #define ENUM(x) x,
 #define STRING(x) #x,
