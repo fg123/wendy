@@ -224,7 +224,9 @@ static statement* optimize_statement(statement* state) {
         state->op.expr_statement = optimize_expr(state->op.expr_statement);
     }
     else if (state->type == S_BLOCK) {
-        // Already Optmized Through Scan Stage
+		if (!state->op.block_statement) {
+			return 0;	
+		}
     }
     else if (state->type == S_STRUCT) {
         state->op.struct_statement.init_fn =
@@ -238,6 +240,12 @@ static statement* optimize_statement(statement* state) {
         state->op.if_statement.condition =
             optimize_expr(state->op.if_statement.condition);
         expr* condition = state->op.if_statement.condition;
+		
+		state->op.if_statement.statement_true = 
+			optimize_statement(state->op.if_statement.statement_true);
+		state->op.if_statement.statement_false = 
+			optimize_statement(state->op.if_statement.statement_false);
+			
         statement* run_if_false = state->op.if_statement.statement_false;
         statement* run_if_true = state->op.if_statement.statement_true;
         if (condition->type == E_LITERAL && condition->op.lit_expr.t_type == T_TRUE) {
@@ -261,6 +269,15 @@ static statement* optimize_statement(statement* state) {
     else if (state->type == S_LOOP) {
         state->op.loop_statement.condition =
             optimize_expr(state->op.loop_statement.condition);
+		state->op.loop_statement.statement_true = 
+			optimize_statement(state->op.loop_statement.statement_true);
+		if (!state->op.loop_statement.statement_true) {
+			// Empty Body
+            traverse_expr(state->op.loop_statement.condition, 
+				optimize_safe_free_remove_usage, optimize_safe_free, 
+				optimize_safe_free, optimize_safe_free);
+			return 0;
+		}
     }
     return state;
 }
