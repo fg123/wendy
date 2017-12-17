@@ -349,7 +349,12 @@ static statement* parse_statement() {
     sm->src_line = first.t_line;
     switch (first.t_type) {
         case T_LEFT_BRACE: {
-            statement_list* sl = parse_statement_list();
+			if (peek().t_type == T_RIGHT_BRACE) {
+				// Non-Empty Statement Block
+				consume(T_RIGHT_BRACE);
+				return 0;
+			}
+			statement_list* sl = parse_statement_list();
             consume(T_RIGHT_BRACE);
             sm->type = S_BLOCK;
             sm->op.block_statement = sl;
