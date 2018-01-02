@@ -2,6 +2,7 @@
 #include "error.h"
 #include "execpath.h"
 #include "global.h"
+#include "native.h"
 #include "scanner.h"
 #include "debugger.h"
 #include "ast.h"
@@ -44,8 +45,9 @@ void clear_console() {
 // main.c: used to handle REPL and calling the interpreter on a file.
 
 void invalid_usage() {
-    printf("usage: wendy [file|string] [options] \n\n");
+    printf("usage: wendy [file|string] [options] [arguments to program] \n\n");
     printf("    [file|string]     : is either a compiled WendyScript file, a raw source file, or a source string to run.\n\n");
+	printf("Arguments to program can be read using the system module.\n\n");
     printf("Options:\n");
     printf("    -h, --help        : shows this message.\n");
     printf("    --nogc            : disables garbage-collection.\n");
@@ -61,7 +63,8 @@ void invalid_usage() {
 }
 
 void process_options(char** options, int len) {
-    for (int i = 0; i < len; i++) {
+	int i;
+    for (i = 0; i < len; i++) {
         if (streq("-c", options[i]) ||
             streq("--compile", options[i])) {
             set_settings_flag(SETTINGS_COMPILE);
@@ -91,9 +94,13 @@ void process_options(char** options, int len) {
             set_settings_flag(SETTINGS_DISASSEMBLE);
         }
         else {
-            invalid_usage();
+			// Once we hit a not-valid option, the rest are all arguments to
+			//   program.
+			break;
         }
     }
+	program_arguments_count = len - i;
+	program_arguments = &options[i];	
 }
 
 void run(char* input_string) {

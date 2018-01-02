@@ -375,6 +375,7 @@ static bool scan_token() {
             col = 1;
             return false;
         case '"': handle_string('"'); break;
+		case '$': add_token(T_DOLLAR_SIGN); break;
         case '\'': handle_string('\''); break;
         default:
             if (is_digit(c)) {

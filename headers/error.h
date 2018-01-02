@@ -44,19 +44,25 @@ void error_compile(int line, int col, char* message, ...);
 #define AST_STRUCT_NAME_IDENTIFIER "Struct name must be an identifier!"
 #define AST_UNRECOGNIZED_IMPORT "Unrecognized import, expected an identifier!"
 #define AST_OPERATOR_OVERLOAD_NO_OPERATOR "Expected an operator!"
+
 // Optimizer Errors
 #define OPTIMIZER_NO_STATEMENT_BLOCK "Identifier declared outside of statement block!?"
 
 // CodeGen Messages:
 #define CODEGEN_LVALUE_EXPECTED_IDENTIFIER "Expected identifier in lvalue expression."
 #define CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL \
-    "Right parameter of member access binary operator must be a LITERAL expression."
+	"Right parameter of member access binary operator must be a LITERAL expression."
 #define CODEGEN_INVALID_LVALUE_BINOP \
-    "Invalid binary operator in lvalue expression."
+	"Invalid binary operator in lvalue expression."
 #define CODEGEN_INVALID_LVALUE \
-    "Invalid lvalue expression!"
+	"Invalid lvalue expression!"
 #define CODEGEN_EXPECTED_IDENTIFIER AST_EXPECTED_IDENTIFIER
 #define CODEGEN_REQ_FILE_READ_ERR SCAN_REQ_FILE_READ_ERR
+
+#define CODEGEN_BYTECODE_INVALID_OPCODE "Inline Bytecode: Invalid Opcode '%s'"
+#define CODEGEN_BYTECODE_UNEXPECTED_OPERATOR "Inline Bytecode: Unexpected Operator '%s'. Operators must follow BIN or UNA opcode."
+#define CODEGEN_BYTECODE_UNEXPECTED_DATA_NO_CONTENT "Inline Bytecode: Found a data_type specifier but no content!"
+#define CODEGEN_BYTECODE_UNEXPECTED_RAW_BYTE "Inline Bytecode: Found raw byte specifier '$' but no content!"
 
 // Operators Messages
 #define OPERATORS_INVALID_UNARY "Invalid unary operator!"
@@ -83,7 +89,6 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_MEMBER_NOT_EXIST "Member '%s' does not exist in struct."
 #define VM_COND_EVAL_NOT_BOOL "Condition must evaluate to true or false."
 #define VM_FN_CALL_NOT_FN "Initiated function call but did not find function to call."
-#define VM_NOT_A_LIST_OR_STRING "You can only access the nth item of a list or a string."
 #define VM_INVALID_LIST_SUBSCRIPT "List index must be a number or a range!"
 #define VM_MEMBER_NOT_IDEN "Tried to access invalid member!"
 #define VM_MATH_DISASTER "Division by 0!"

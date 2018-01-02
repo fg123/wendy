@@ -3,7 +3,8 @@
  * Provides system functions
  */
 
-struct System => [printCallStack, printFreeMemory, examineMemory, exec, getc, printBytecode, gc];
+struct System => [printCallStack, printFreeMemory, examineMemory, exec, getc, printBytecode, gc, program];
+struct Program => [args];
 struct GarbageCollector => [collect];
 
 GarbageCollector.collect => () native garbageCollect;
@@ -13,4 +14,10 @@ System.examineMemory => (from, to) native examineMemory;
 System.exec => (command) native exec;
 System.getc => () native getc;
 System.printBytecode => () native printBytecode;
-System.gc => () GarbageCollector
+System.gc => () GarbageCollector;
+System.program = Program();
+{
+	// Prevent Global Scope Pollution
+	let args => () native getProgramArgs;
+	Program.args = args();
+}

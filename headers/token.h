@@ -73,7 +73,8 @@
     OP(T_NATIVE) \
     OP(T_NONE) \
     OP(T_NONERET) \
-    OP(T_MEMBER)
+    OP(T_MEMBER) \
+	OP(T_DOLLAR_SIGN)
 
 typedef enum {
     FOREACH_TOKEN(ENUM)

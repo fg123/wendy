@@ -25,7 +25,7 @@ char* w_strdup(const char *s) {
     return p;
 }
 
-inline bool streq(char* a, char* b) {
+inline bool streq(const char* a, const char* b) {
     return strcmp(a, b) == 0;
 }
 

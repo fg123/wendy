@@ -1,4 +1,4 @@
-/* 
+/*
  * linkedlist.w: WendyScript 2.0
  * Created by Felix Guo
  */
@@ -12,12 +12,12 @@ linkedlist.init => () {
 
 linkedlist.print => () {
 	let curr = this.head;
-	let actualList = []
-	for curr != none
-		actualList += curr.val
-		curr = curr.next
-
-	actualList
+	let actualList = [];
+	for curr != none {
+		actualList += curr.val;
+		curr = curr.next;
+	}
+	actualList;
 };
 
 

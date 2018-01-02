@@ -47,28 +47,29 @@
 #define STRING(x) #x,
 
 typedef enum {
-    SETTINGS_COMPILE = 0,
-    SETTINGS_NOGC = 1,
-    SETTINGS_ASTPRINT = 2,
-    SETTINGS_DISASSEMBLE = 3,
-    SETTINGS_STRICT_ERROR = 4,
-    SETTINGS_TOKEN_LIST_PRINT = 5,
-    SETTINGS_OPTIMIZE = 6,
-    SETTINGS_REPL = 7,
-    SETTINGS_VERBOSE = 8,
+	SETTINGS_COMPILE = 0,
+	SETTINGS_NOGC = 1,
+	SETTINGS_ASTPRINT = 2,
+	SETTINGS_DISASSEMBLE = 3,
+	SETTINGS_STRICT_ERROR = 4,
+	SETTINGS_TOKEN_LIST_PRINT = 5,
+	SETTINGS_OPTIMIZE = 6,
+	SETTINGS_REPL = 7,
+	SETTINGS_VERBOSE = 8,
 	SETTINGS_OUTPUT_DEPENDENCIES = 9 } settings_flags;
 
 void set_settings_flag(settings_flags flag);
 bool get_settings_flag(settings_flags flag);
 void determine_endianness();
 
-bool streq(char* a, char* b);
+bool streq(const char* a, const char* b);
 
 extern bool is_big_endian;
 extern bool last_printed_newline;
 
 char* w_strdup(const char* s);
 #define strdup(x) w_strdup(x)
+#define array_size(foo) (sizeof(foo)/sizeof(foo[0]))
 
 // Safe Malloc Implementation
 

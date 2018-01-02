@@ -143,6 +143,31 @@ static expr_list* identifier_list() {
     return list;
 }
 
+static expr_list* token_list(token_type end_delimiter) {
+	if (peek().t_type == end_delimiter) return 0;
+	expr_list* list = safe_malloc(sizeof(expr_list));
+	list->next = 0;
+	expr** curr = &list->elem;
+	expr_list* curr_list = list;
+	while (1) {
+		*curr = make_lit_expr(advance());
+		if (peek().t_type != end_delimiter) {
+			curr_list->next = safe_malloc(sizeof(expr_list));
+			curr_list = curr_list->next;
+			curr_list->next = 0;
+			curr = &curr_list->elem;
+		} else break;
+	}
+	if (error_thrown) {
+        // rollback
+        traverse_expr_list(list,
+            ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
+        return 0;
+    }
+    else {
+        return list;
+    }
+}
 static expr_list* expression_list(token_type end_delimiter) {
     if (peek().t_type == end_delimiter) return 0;
     expr_list* list = safe_malloc(sizeof(expr_list));
@@ -159,7 +184,7 @@ static expr_list* expression_list(token_type end_delimiter) {
         } else break;
     }
     if (error_thrown) {
-        // Rollback
+        // rollback
         traverse_expr_list(list,
             ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
         return 0;
@@ -360,6 +385,16 @@ static statement* parse_statement() {
             sm->op.block_statement = sl;
             break;
         }
+		case T_DOLLAR_SIGN: {
+			// Bytecode Block
+			consume(T_LEFT_BRACE);
+			// Build with no separator!
+			expr_list* el = token_list(T_RIGHT_BRACE); 
+			consume(T_RIGHT_BRACE);
+			sm->type = S_BYTECODE;
+			sm->op.bytecode_statement = el;
+			break;
+		}
         case T_LET: {
             // Read an expression for a LVALUE
             token lvalue;
@@ -657,6 +692,9 @@ void traverse_statement(statement* state,
         traverse_expr(state->op.loop_statement.condition, a, b, c, d);
         traverse_statement(state->op.loop_statement.statement_true, a, b, c, d);
     }
+	else if (state->type == S_BYTECODE) {
+		traverse_expr_list(state->op.bytecode_statement, a, b, c, d);
+	}
     indentation--;
     if(!pre_order) c(state);
 }
@@ -797,6 +835,9 @@ static void print_s(void* s) {
     else if (state->type == S_EMPTY) {
         printf("Empty Statement\n");
     }
+	else if (state->type == S_BYTECODE) {
+		printf("Bytecode Statement\n");
+	}
     printf(RESET);
 }
 static void print_sl(void* sl) {
