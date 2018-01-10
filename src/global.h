@@ -70,9 +70,9 @@ extern bool last_printed_newline;
 char* w_strdup(const char* s);
 #define strdup(x) w_strdup(x)
 #define array_size(foo) (sizeof(foo)/sizeof(foo[0]))
+#define UNUSED(var) (void)(var)
 
 // Safe Malloc Implementation
-
 #ifdef RELEASE
 #define safe_malloc(size) safe_malloc_impl(size, __FILE__, __LINE__)
 #define safe_free(ptr) safe_free_impl(ptr, __FILE__, __LINE__)

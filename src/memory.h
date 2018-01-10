@@ -18,7 +18,7 @@ typedef struct {
 
 typedef struct mem_block mem_block;
 struct mem_block {
-    unsigned int size;
+    size_t size;
     address start;
     mem_block* next;
 };
@@ -49,7 +49,7 @@ void check_memory(int line);
 
 // garbage_collect() collects unused memory and stores it in the linked list
 //   free_memory. Returns true if some memory was collected and false otherwise.
-bool garbage_collect(int size);
+bool garbage_collect(size_t size);
 
 // print_free_memory() prints out a list of the free memory blocks available
 //   in Wendy
@@ -57,14 +57,14 @@ void print_free_memory();
 
 // has_memory(size) returns true if a memory block of that size can be found
 //   and false otherwise.
-bool has_memory(int size);
+bool has_memory(size_t size);
 
 // pls_give_memory(size) requests memory from Wendy and returns the address
 //   of the requested block.
-address pls_give_memory(int size, int line);
+address pls_give_memory(size_t size, int line);
 
 // here_u_go(a, size) returns memory to Wendy
-void here_u_go(address a, int size);
+void here_u_go(address a, size_t size);
 
 // memory_pointer stores the address of the next available memory space
 extern address memory_pointer;

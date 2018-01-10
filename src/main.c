@@ -318,7 +318,8 @@ int main(int argc, char** argv) {
             }
             else {
                 int new_file_length = file_name_length + 2;
-                char* compile_path = safe_malloc(length * sizeof(char));
+                char* compile_path = safe_malloc(new_file_length * sizeof(char));
+                compile_path[0] = 0;
                 strcpy(compile_path, argv[1]);
                 strcat(compile_path, "c");
 

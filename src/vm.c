@@ -87,7 +87,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 		else {
 			bytecode = safe_malloc(bytecode_size * sizeof(uint8_t));
 		}
-		int index_start_at = 0;
 		//printf("Saved Size: %ld\n", saved_size);
 		if (saved_size != 0) {
 			start_at = saved_size - 1;
@@ -368,8 +367,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_PLIST: {
-				int size = bytecode[i++];
-				for (int j = memory_register + size - 1;
+				size_t size = bytecode[i++];
+				for (address j = memory_register + size - 1;
 						j >= memory_register; j--) {
 					memory[j] = pop_arg(line);
 				}
@@ -409,7 +408,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				if (t.type != D_STRUCT && t.type != D_STRUCT_INSTANCE) {
 					error_runtime(line, VM_NOT_A_STRUCT);
 				}
-				int params_passed = 0;
 				address metadata = (int)(t.value.number);
 				if (t.type == D_STRUCT_INSTANCE) {
 					// metadata actually points to the STRUCT_INSTANCE_HEAD
@@ -540,11 +538,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				i = addr;
 				// push closure variables
 				address cloc = memory[loc + 1].value.number;
-				if (cloc != -1) {
+				// TODO: Figure out what the fuck is going on here...?
+				if (cloc != (unsigned int)-1) {
 					size_t size = closure_list_sizes[cloc];
-					for (int i = 0; i < size; i++) {
+					for (size_t i = 0; i < size; i++) {
 						copy_stack_entry(closure_list[cloc][i], line);
-						//printf("COPIED: %s\n", closure_list[cloc][i].id);
 					}
 				}
 				address adr = push_memory(top, line);
@@ -1031,8 +1029,8 @@ static data eval_binop(operator op, data a, data b) {
 			}
 			return result;
 		}
-		else if (op == O_MUL) {
-			// String Duplication
+		else if (op == O_MUL && (a.type == D_NUMBER || b.type == D_NUMBER)) {
+			// String Duplication (String and Number)
 			int times = 0;
 			char* string;
 			int size;
@@ -1042,7 +1040,7 @@ static data eval_binop(operator op, data a, data b) {
 				size = times * strlen(b.value.string) + 1;
 				string = b.value.string;
 			}
-			else if (b.type == D_NUMBER) {
+			else {
 				times = (int) b.value.number;
 				size = times * strlen(a.value.string) + 1;
 				string = a.value.string;

@@ -1,8 +1,8 @@
 #include "debugger.h"
+#include "error.h"
+#include "memory.h"
 #include <stdio.h>
 #include <stdbool.h>
-#include <error.h>
-#include <memory.h>
 
 // Implementation of the debugger
 //   Support for 128 breakpoints.

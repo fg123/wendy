@@ -7,6 +7,9 @@
 #include <stdio.h>
 
 // Implementation of Optimization Algorithms
+// Note: this file is particularly messy because the normal AST traversal algorithm doesn't
+//   apply here. The optimizer passes does not only read from the AST, but readily mutates
+//   it as well.
 
 // Linked list node of identifiers within a statement block
 typedef struct id_node id_node;
@@ -18,7 +21,7 @@ struct id_node {
     id_node* next;
 };
 
-// Statement Scope Block
+// Statement scope block to simulate function calls and checking if identifiers exist.
 typedef struct statement_block statement_block;
 struct statement_block {
     id_node* id_list;
@@ -46,9 +49,11 @@ static inline bool is_boolean(token t) {
 }
 
 static id_node* find_id_node(char* id, int line, int col) {
+    UNUSED(line);
+    UNUSED(col);
     // Search in each block and each list. Returns null if not found for now.
-    //   ToDo, perform identifier checking here, but will need to add in
-    //     special cases like `this` for OOP
+    // TODO: perform identifier checking here, but will need to add in
+    //   special cases like `this` for OOP
     statement_block* b = curr_statement_block;
     while (b) {
         id_node* n = b->id_list;
@@ -64,7 +69,10 @@ static id_node* find_id_node(char* id, int line, int col) {
 }
 
 static void remove_entry(char* id, int line, int col) {
+    UNUSED(line);
+    UNUSED(col);
     // Basic LL Search and Remove
+    // TODO: Convert to cleaner LL search remove without "prev"
     statement_block* b = curr_statement_block;
     while (b) {
         id_node* p = 0;
@@ -124,28 +132,44 @@ static void add_modified(char* id, int line, int col) {
     print_statement_blocks();
 }
 
-void optimize_safe_free(void* ptr) {
-    safe_free(ptr);
-}
 
-void optimize_safe_free_remove_usage(void* expre) {
-    expr* expression = (expr*)expre;
+void optimize_safe_free_e(expr* expression, traversal_algorithm* algo) {
+    UNUSED(algo);
     if (expression->type == E_LITERAL
         && expression->op.lit_expr.t_type == T_IDENTIFIER) {
         remove_usage(expression->op.lit_expr.t_data.string,
                 expression->line, expression->col);
     }
-    optimize_safe_free(expre);
+    safe_free(expression);
 }
+void optimize_safe_free_el(expr_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+void optimize_safe_free_s(statement* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+void optimize_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+
+traversal_algorithm optimize_safe_free_impl = {
+    optimize_safe_free_e,
+    optimize_safe_free_el, 
+    optimize_safe_free_s, 
+    optimize_safe_free_sl,
+    HANDLE_AFTER_CHILDREN, 0
+};
 
 statement_list* optimize_ast(statement_list* ast) {
-    return scan_statement_list_with_new_block(ast);
+    statement_list* result = scan_statement_list_with_new_block(ast);
+    free_statement_blocks(curr_statement_block);
+    return result;
 }
 
 static void free_statement_block(statement_block* block) {
     if (!block) return;
     free_id_nodes(curr_statement_block->id_list);
     safe_free(block);
+}
+
+void free_statement_blocks(statement_block* block) {
+    if (!block) return;
+    free_statement_blocks(block->next);
+    free_statement_block(block);
 }
 
 static void free_id_nodes(id_node* node) {
@@ -210,8 +234,7 @@ static statement* optimize_statement(statement* state) {
             remove_entry(state->op.let_statement.lvalue.t_data.string,
                 state->op.let_statement.lvalue.t_line,
                 state->op.let_statement.lvalue.t_col);
-            traverse_statement(state, optimize_safe_free_remove_usage,
-                optimize_safe_free, optimize_safe_free, optimize_safe_free);
+            traverse_statement(state, &optimize_safe_free_impl);
 
             return 0;
         }
@@ -250,18 +273,14 @@ static statement* optimize_statement(statement* state) {
         statement* run_if_true = state->op.if_statement.statement_true;
         if (condition->type == E_LITERAL && condition->op.lit_expr.t_type == T_TRUE) {
             // Always going to be true!
-            traverse_statement(run_if_false, optimize_safe_free_remove_usage,
-                optimize_safe_free, optimize_safe_free, optimize_safe_free);
-            traverse_expr(condition, optimize_safe_free_remove_usage,
-                optimize_safe_free, optimize_safe_free, optimize_safe_free);
+            traverse_statement(run_if_false, &optimize_safe_free_impl);
+            traverse_expr(condition, &optimize_safe_free_impl);
             safe_free(state);
             return run_if_true;
         }
         else if (condition->type == E_LITERAL && condition->op.lit_expr.t_type == T_FALSE) {
-            traverse_statement(run_if_true, optimize_safe_free_remove_usage,
-                optimize_safe_free, optimize_safe_free, optimize_safe_free);
-            traverse_expr(condition, optimize_safe_free_remove_usage,
-                optimize_safe_free, optimize_safe_free, optimize_safe_free);
+            traverse_statement(run_if_true, &optimize_safe_free_impl);
+            traverse_expr(condition, &optimize_safe_free_impl);
             safe_free(state);
             return run_if_false;
         }
@@ -273,9 +292,7 @@ static statement* optimize_statement(statement* state) {
 			optimize_statement(state->op.loop_statement.statement_true);
 		if (!state->op.loop_statement.statement_true) {
 			// Empty Body
-            traverse_expr(state->op.loop_statement.condition, 
-				optimize_safe_free_remove_usage, optimize_safe_free, 
-				optimize_safe_free, optimize_safe_free);
+            traverse_expr(state->op.loop_statement.condition, &optimize_safe_free_impl);
 			return 0;
 		}
     }
@@ -314,7 +331,7 @@ static expr* optimize_expr(expr* expression) {
             }
         }
     }
-    else if (expression->type == E_BINARY || expression->type == E_BIN_LVALUE) {
+    else if (expression->type == E_BINARY) {
         expression->op.bin_expr.left =
             optimize_expr(expression->op.bin_expr.left);
         expression->op.bin_expr.right =
@@ -467,8 +484,7 @@ static expr* optimize_expr(expr* expression) {
                 // Only optimize if not lists
             if (get_usage(expression->op.assign_expr.lvalue->op.lit_expr.t_data.string,
                     expression->line, expression->col) == 0) {
-                traverse_expr(expression, optimize_safe_free_remove_usage,
-                    optimize_safe_free, optimize_safe_free, optimize_safe_free);
+                traverse_expr(expression, &optimize_safe_free_impl);
                 return 0;
             }
             expression->op.assign_expr.rvalue =
@@ -559,7 +575,7 @@ static void scan_expr(expr* expression) {
                 expression->line, expression->col);
         }
     }
-    else if (expression->type == E_BINARY || expression->type == E_BIN_LVALUE) {
+    else if (expression->type == E_BINARY) {
         scan_expr(expression->op.bin_expr.left);
         scan_expr(expression->op.bin_expr.right);
     }

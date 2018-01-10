@@ -100,6 +100,7 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_STRING_STRING_INVALID_OPERATOR "Invalid operator '%s' between string and string."
 #define VM_INVALID_NEGATE "Negation operand must be a number."
 #define VM_INVALID_NATIVE_CALL "Natively linked function '%s' not found!"
+#define VM_INVALID_NATIVE_NUMBER_OF_ARGS "Natively linked function call '%s' does not match expected number of arguments!"
 
 // Colors
 #ifdef _WIN32

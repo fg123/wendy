@@ -8,20 +8,12 @@
 
 #define match(...) fnmatch(sizeof((token_type []) {__VA_ARGS__}) / sizeof(token_type), __VA_ARGS__)
 
-// Wrapping SafeFree from global for use as a function pointer.
-void ast_safe_free(void* ptr) {
-    safe_free(ptr);
-}
-
 static token* tokens = 0;
 static size_t length = 0;
-static int curr_index = 0;
-static bool pre_order = 0;
-static int indentation = 0;
+static size_t curr_index = 0;
 static bool error_thrown = false;
 
 // Forward Declarations
-
 static expr* make_lit_expr(token t);
 static expr* make_bin_expr(expr* left, token op, expr* right);
 static expr* make_una_expr(token op, expr* operand);
@@ -31,21 +23,43 @@ static expr* make_func_expr(expr_list* parameters, statement* body);
 static expr* make_native_func_expr(expr_list* parameters, token name);
 static expr* make_assign_expr(expr* left, expr* right, token op);
 static expr* make_if_expr(expr* condition, expr* if_true, expr* if_false);
-static expr* make_lvalue_expr(expr* left, token op, expr* right);
-static expr* parse_expression();
 static statement* parse_statement();
 static statement_list* parse_statement_list();
 static expr* expression();
 static expr* or();
-static void print_e(void* expre);
-static void print_el(void* expre);
-static void print_s(void* expre);
-static void print_sl(void* expre);
 static bool check(token_type t);
 static token advance();
 static token previous();
 
 // Public Methods
+// Wrapping safe_free macro for use as a function pointer.
+void ast_safe_free_e(expr* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+
+traversal_algorithm ast_safe_free_impl = 
+{           
+    ast_safe_free_e, 
+    ast_safe_free_el, 
+    ast_safe_free_s, 
+    ast_safe_free_sl,
+    HANDLE_AFTER_CHILDREN, 0
+};
+
+static void print_e(expr*, traversal_algorithm*);
+static void print_el(expr_list*, traversal_algorithm*);
+static void print_s(statement*, traversal_algorithm*);
+static void print_sl(statement_list*, traversal_algorithm*);
+static traversal_algorithm print_ast_impl = 
+{
+    print_e,
+    print_el,
+    print_s, 
+    print_sl,
+    HANDLE_BEFORE_CHILDREN, 0
+};
+
 statement_list* generate_ast(token* _tokens, size_t _length) {
     error_thrown = false;
     tokens = _tokens;
@@ -55,14 +69,11 @@ statement_list* generate_ast(token* _tokens, size_t _length) {
 }
 
 void print_ast(statement_list* ast) {
-    pre_order = true;
-    traverse_statement_list(ast, print_e, print_el, print_s, print_sl);
+    traverse_ast(ast, &print_ast_impl);
 }
 
 void free_ast(statement_list* ast) {
-    pre_order = false;
-    traverse_statement_list(ast,
-        ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
+    traverse_ast(ast, &ast_safe_free_impl);
 }
 
 bool ast_error_flag() {
@@ -160,8 +171,7 @@ static expr_list* token_list(token_type end_delimiter) {
 	}
 	if (error_thrown) {
         // rollback
-        traverse_expr_list(list,
-            ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
+        traverse_expr_list(list, &ast_safe_free_impl);
         return 0;
     }
     else {
@@ -185,8 +195,7 @@ static expr_list* expression_list(token_type end_delimiter) {
     }
     if (error_thrown) {
         // rollback
-        traverse_expr_list(list,
-            ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
+        traverse_expr_list(list, &ast_safe_free_impl);
         return 0;
     }
     else {
@@ -196,7 +205,6 @@ static expr_list* expression_list(token_type end_delimiter) {
 
 static expr* lvalue() {
     expr* exp = or();
-    token last = previous();
     return exp;
 }
 
@@ -336,7 +344,6 @@ static expr* assignment() {
         left = make_assign_expr(left, right, op);
     }
     else if (match(T_DEFFN)) {
-        token op = make_token(T_EQUAL, make_data_str("equal"));
         consume(T_LEFT_PAREN);
         expr_list* parameters = expression_list(T_RIGHT_PAREN);
         consume(T_RIGHT_PAREN);
@@ -359,8 +366,7 @@ static expr* expression() {
     expr* res = assignment();
     if (error_thrown) {
         // Rollback
-        traverse_expr(res,
-            ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
+        traverse_expr(res, &ast_safe_free_impl);
         return 0;
     }
     else {
@@ -613,8 +619,7 @@ static statement* parse_statement() {
     match(T_SEMICOLON);
     if (error_thrown) {
         // Rollback
-        traverse_statement(sm,
-            ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
+        traverse_statement(sm, &ast_safe_free_impl);
         return 0;
     }
     return sm;
@@ -636,8 +641,7 @@ static statement_list* parse_statement_list() {
     }
     if (error_thrown) {
         // Rollback
-        traverse_statement_list(ast,
-            ast_safe_free, ast_safe_free, ast_safe_free, ast_safe_free);
+        traverse_statement_list(ast, &ast_safe_free_impl);
         return 0;
     }
     else {
@@ -646,121 +650,112 @@ static statement_list* parse_statement_list() {
 }
 
 // Expression Traversal:
-/*  void (*a)(expr*), void (*b)(expr_list*),
-    void (*c)(statement*), void (*d)(statement_list*) */
-void traverse_statement_list(statement_list* list,
-        void (*a)(void*), void (*b)(void*),
-        void (*c)(void*), void (*d)(void*)) {
+void traverse_statement_list(statement_list* list, traversal_algorithm* algo) {
     if (!list) return;
-    if (pre_order) d(list);
-    indentation++;
-    traverse_statement(list->elem, a, b, c, d);
-    indentation--;
-    traverse_statement_list(list->next, a, b, c, d);
-    if (!pre_order) d(list);
+    if (algo->type == HANDLE_BEFORE_CHILDREN) {
+        algo->handle_statement_list(list, algo);
+    }
+    algo->level++;
+    traverse_statement(list->elem, algo);
+    algo->level--;
+    traverse_statement_list(list->next, algo);
+    if (algo->type == HANDLE_AFTER_CHILDREN) {
+        algo->handle_statement_list(list, algo);
+    }
 }
 
-void traverse_statement(statement* state,
-        void (*a)(void*), void (*b)(void*),
-        void (*c)(void*), void (*d)(void*)) {
+void traverse_statement(statement* state, traversal_algorithm* algo) {
     if (!state) return;
-    if (pre_order) c(state);
-    indentation++;
+    if (algo->type == HANDLE_BEFORE_CHILDREN) algo->handle_statement(state, algo);
+    algo->level++;
     if (state->type == S_LET) {
-        traverse_expr(state->op.let_statement.rvalue, a, b, c, d);
+        traverse_expr(state->op.let_statement.rvalue, algo);
     }
     else if (state->type == S_OPERATION) {
-        traverse_expr(state->op.operation_statement.operand, a, b, c, d);
+        traverse_expr(state->op.operation_statement.operand, algo);
     }
     else if (state->type == S_EXPR) {
-        traverse_expr(state->op.expr_statement, a, b, c, d);
+        traverse_expr(state->op.expr_statement, algo);
     }
     else if (state->type == S_BLOCK) {
-        traverse_statement_list(state->op.block_statement, a, b, c, d);
+        traverse_statement_list(state->op.block_statement, algo);
     }
     else if (state->type == S_STRUCT) {
-        traverse_expr(state->op.struct_statement.init_fn, a, b, c, d);
-        traverse_expr_list(state->op.struct_statement.instance_members, a, b, c, d);
-        traverse_expr_list(state->op.struct_statement.static_members, a, b, c, d);
+        traverse_expr(state->op.struct_statement.init_fn, algo);
+        traverse_expr_list(state->op.struct_statement.instance_members, algo);
+        traverse_expr_list(state->op.struct_statement.static_members, algo);
     }
     else if (state->type == S_IF) {
-        traverse_expr(state->op.if_statement.condition, a, b, c, d);
-        traverse_statement(state->op.if_statement.statement_true, a, b, c, d);
-        traverse_statement(state->op.if_statement.statement_false, a, b, c, d);
+        traverse_expr(state->op.if_statement.condition, algo);
+        traverse_statement(state->op.if_statement.statement_true, algo);
+        traverse_statement(state->op.if_statement.statement_false, algo);
     }
     else if (state->type == S_LOOP) {
-        traverse_expr(state->op.loop_statement.condition, a, b, c, d);
-        traverse_statement(state->op.loop_statement.statement_true, a, b, c, d);
+        traverse_expr(state->op.loop_statement.condition, algo);
+        traverse_statement(state->op.loop_statement.statement_true, algo);
     }
 	else if (state->type == S_BYTECODE) {
-		traverse_expr_list(state->op.bytecode_statement, a, b, c, d);
+		traverse_expr_list(state->op.bytecode_statement, algo);
 	}
-    indentation--;
-    if(!pre_order) c(state);
+    algo->level--;
+    if (algo->type == HANDLE_AFTER_CHILDREN) algo->handle_statement(state, algo);
 }
 
-void traverse_expr(expr* expression,
-        void (*a)(void*), void (*b)(void*),
-        void (*c)(void*), void (*d)(void*)) {
+void traverse_expr(expr* expression, traversal_algorithm* algo) {
     if (!expression) return;
-    if (pre_order) a(expression);
-    indentation++;
+    if (algo->type == HANDLE_BEFORE_CHILDREN) algo->handle_expr(expression, algo);
+    algo->level++;
     if (expression->type == E_LITERAL) {
 
     }
-    else if (expression->type == E_BINARY || expression->type == E_BIN_LVALUE) {
-        traverse_expr(expression->op.bin_expr.left, a, b, c, d);
-        traverse_expr(expression->op.bin_expr.right, a, b, c, d);
+    else if (expression->type == E_BINARY) {
+        traverse_expr(expression->op.bin_expr.left, algo);
+        traverse_expr(expression->op.bin_expr.right, algo);
     }
     else if (expression->type == E_IF) {
-        traverse_expr(expression->op.if_expr.condition, a, b, c, d);
-        traverse_expr(expression->op.if_expr.expr_true, a, b, c, d);
-        traverse_expr(expression->op.if_expr.expr_false, a, b, c, d);
+        traverse_expr(expression->op.if_expr.condition, algo);
+        traverse_expr(expression->op.if_expr.expr_true, algo);
+        traverse_expr(expression->op.if_expr.expr_false, algo);
     }
     else if (expression->type == E_UNARY) {
-        traverse_expr(expression->op.una_expr.operand, a, b, c, d);
+        traverse_expr(expression->op.una_expr.operand, algo);
     }
     else if (expression->type == E_CALL) {
-        traverse_expr(expression->op.call_expr.function, a, b, c, d);
-        traverse_expr_list(expression->op.call_expr.arguments, a, b, c, d);
+        traverse_expr(expression->op.call_expr.function, algo);
+        traverse_expr_list(expression->op.call_expr.arguments, algo);
     }
     else if (expression->type == E_LIST) {
-        traverse_expr_list(expression->op.list_expr.contents, a, b, c, d);
+        traverse_expr_list(expression->op.list_expr.contents, algo);
     }
     else if (expression->type == E_FUNCTION) {
-        traverse_expr_list(expression->op.func_expr.parameters, a, b, c, d);
-        traverse_statement(expression->op.func_expr.body, a, b, c, d);
+        traverse_expr_list(expression->op.func_expr.parameters, algo);
+        traverse_statement(expression->op.func_expr.body, algo);
     }
     else if (expression->type == E_ASSIGN) {
-        traverse_expr(expression->op.assign_expr.lvalue, a, b, c, d);
-        traverse_expr(expression->op.assign_expr.rvalue, a, b, c, d);
+        traverse_expr(expression->op.assign_expr.lvalue, algo);
+        traverse_expr(expression->op.assign_expr.rvalue, algo);
     }
-    indentation--;
-    if (!pre_order) a(expression);
+    algo->level--;
+    if (algo->type == HANDLE_AFTER_CHILDREN) algo->handle_expr(expression, algo);
 }
 
-void traverse_expr_list(expr_list* list,
-        void (*a)(void*), void (*b)(void*),
-        void (*c)(void*), void (*d)(void*)) {
+void traverse_expr_list(expr_list* list, traversal_algorithm* algo) {
     if (!list) return;
-    if (pre_order) b(list);
-    indentation++;
-    traverse_expr(list->elem, a, b, c, d);
-    indentation--;
-    traverse_expr_list(list->next, a, b, c, d);
-    if (!pre_order) b(list);
+    if (algo->type == HANDLE_BEFORE_CHILDREN) algo->handle_expr_list(list, algo);
+    algo->level++;
+    traverse_expr(list->elem, algo);
+    algo->level--;
+    traverse_expr_list(list->next, algo);
+    if (algo->type == HANDLE_AFTER_CHILDREN) algo->handle_expr_list(list, algo);
 }
-static void print_indent() {
-    char a[50] = {0};
-    for (int i = 0; i < indentation; i++) {
-        strcat(a, "| ");
+static void print_indent(traversal_algorithm* algo) {
+    for (int i = 0; i < algo->level; i++) {
+        printf("| ");
     }
-    strcat(a, "`-");
-    printf("%s", a);
+    printf("`-");
 }
-static void print_e(void* expre) {
-    print_indent();
-    expr* expression = (expr*)expre;
+static void print_e(expr* expression, traversal_algorithm* algo) {
+    print_indent(algo);
     printf(YEL);
     if (expression->type == E_LITERAL) {
         printf("Literal Expression " GRN);
@@ -774,9 +769,6 @@ static void print_e(void* expre) {
     }
     else if (expression->type == E_IF) {
         printf("Conditional Expression\n");
-    }
-    else if (expression->type == E_BIN_LVALUE) {
-        printf("Binary LValue Expression\n");
     }
     else if (expression->type == E_UNARY) {
         printf("Unary Expression\n");
@@ -795,13 +787,13 @@ static void print_e(void* expre) {
     }
     printf(RESET);
 }
-static void print_el(void* el) {
-    print_indent();
+static void print_el(expr_list* el, traversal_algorithm* algo) {
+    UNUSED(el);
+    print_indent(algo);
     printf(CYN "<Expression List Item>\n" RESET);
 }
-static void print_s(void* s) {
-    print_indent();
-    statement* state = (statement*)s;
+static void print_s(statement* state, traversal_algorithm* algo) {
+    print_indent(algo);
     printf(BLU);
     if (state->type == S_LET) {
         printf("Let Statement " GRN "(%s)\n" RESET,
@@ -840,16 +832,14 @@ static void print_s(void* s) {
 	}
     printf(RESET);
 }
-static void print_sl(void* sl) {
-    print_indent();
+static void print_sl(statement_list* sl, traversal_algorithm* algo) {
+    UNUSED(sl);
+    print_indent(algo);
     printf(MAG "<Statement List Item %p>\n" RESET, sl);
 }
 
-static void traverse_ast(statement_list* list,
-        void (*a)(void*), void (*b)(void*),
-        void (*c)(void*), void (*d)(void*), bool order) {
-    pre_order = false;
-    traverse_statement_list(list, a, b, c, d);
+void traverse_ast(statement_list* list, traversal_algorithm* algo) {
+    traverse_statement_list(list, algo);
 }
 
 static expr* make_lit_expr(token t) {
@@ -858,16 +848,6 @@ static expr* make_lit_expr(token t) {
     node->op.lit_expr = t;
     node->line = t.t_line;
     node->col = t.t_col;
-    return node;
-}
-static expr* make_lvalue_expr(expr* left, token op, expr* right) {
-    expr* node = safe_malloc(sizeof(expr));
-    node->type = E_BIN_LVALUE;
-    node->op.bin_expr.operator = op;
-    node->op.bin_expr.left = left;
-    node->op.bin_expr.right = right;
-    node->line = op.t_line;
-    node->col = op.t_col;
     return node;
 }
 static expr* make_bin_expr(expr* left, token op, expr* right) {

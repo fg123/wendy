@@ -1,9 +1,9 @@
 #include "scanner.h"
 #include "error.h"
 #include "global.h"
+#include "execpath.h"
 #include <string.h>
 #include <stdio.h>
-#include <execpath.h>
 #include <stdbool.h>
 
 static size_t source_len;
@@ -16,6 +16,7 @@ static size_t t_curr; // t_curr is used to keep track of addToken
 static size_t line;
 static size_t col;
 
+static bool scan_token();
 static void add_token(token_type type);
 static void add_token_V(token_type type, token_data val);
 
@@ -64,7 +65,6 @@ static bool is_alpha_numeric(char c) {
 // handle_import() imports the string contents of the given file, otherwise
 //   leaves it for code_gen
 static void handle_import() {
-
     add_token(T_REQ);
     // we scan a string
     // t_curr points to space after REQ
@@ -158,7 +158,7 @@ static void handle_string(char endChar) {
     memcpy(value, &source[start + 1], s_length);
     value[s_length] = '\0';
     size_t s = 0;
-    for (int i = 0; i < s_length; i++) {
+    for (size_t i = 0; i < s_length; i++) {
         if (value[i] == '\\' && i != s_length - 1) {
             switch(value[++i]) {
                 case 'n':
@@ -436,14 +436,14 @@ static void add_token_V(token_type type, token_data val) {
 }
 
 void print_token_list(token* tokens, size_t size) {
-    for(int i = 0; i < size; i++) {
+    for(size_t i = 0; i < size; i++) {
 
         if (tokens[i].t_type == T_NUMBER) {
-            printf("%d - %s -> %f\n", i,
+            printf("%zd - %s -> %f\n", i,
                 token_string[tokens[i].t_type], tokens[i].t_data.number);
         }
         else {
-            printf("%d - %s -> %s\n", i,
+            printf("%zd - %s -> %s\n", i,
                 token_string[tokens[i].t_type], tokens[i].t_data.string);
         }
     }

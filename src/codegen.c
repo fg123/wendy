@@ -45,7 +45,7 @@ static void guarantee_size() {
 }
 
 static void write_string(char* string) {
-	for (int i = 0; string[i]; i++) {
+	for (size_t i = 0; string[i]; i++) {
 		write_byte(string[i]);
 	}
 	write_byte(0);
@@ -57,7 +57,7 @@ static void write_address(address a) {
 	if (!is_big_endian) pos += sizeof(a);
 	size += sizeof(a);
 	uint8_t* first = (void*)&a;
-	for (int i = 0; i < sizeof(address); i++) {
+	for (size_t i = 0; i < sizeof(address); i++) {
 		bytecode[is_big_endian ? pos++ : --pos] = first[i];
 	}
 	guarantee_size();
@@ -66,7 +66,7 @@ static void write_address(address a) {
 static void write_address_at(address a, int pos) {
 	if (!is_big_endian) pos += sizeof(address);
 	uint8_t* first = (void*)&a;
-	for (int i = 0; i < sizeof(address); i++) {
+	for (size_t i = 0; i < sizeof(address); i++) {
 		bytecode[is_big_endian ? pos++ : --pos] = first[i];
 	}
 }
@@ -74,7 +74,7 @@ static void write_address_at(address a, int pos) {
 static void write_double_at(double a, int pos) {
 	if (!is_big_endian) pos += sizeof(a);
 	uint8_t* p = (void*)&a;
-	for (int i = 0; i < sizeof(double); i++) {
+	for (size_t i = 0; i < sizeof(double); i++) {
 		bytecode[is_big_endian ? pos++ : --pos] = p[i];
 	}
 }
@@ -84,7 +84,7 @@ static void write_double(double a) {
 	if (!is_big_endian) pos += sizeof(a);
 	size += sizeof(double);
 	uint8_t* p = (void*)&a;
-	for (int i = 0; i < sizeof(double); i++) {
+	for (size_t i = 0; i < sizeof(double); i++) {
 		bytecode[is_big_endian ? pos++ : --pos] = p[i];
 	}
 	guarantee_size();
@@ -118,7 +118,6 @@ static inline void write_opcode(opcode op) {
 static void codegen_expr(void* expre);
 static void codegen_statement(void* expre);
 static void codegen_statement_list(void* expre);
-static void codegen_call_lvalue_expr(expr* expression);
 
 static void codegen_lvalue_expr(expr* expression) {
 	if (expression->type == E_LITERAL) {
@@ -727,7 +726,7 @@ data get_data(uint8_t* bytecode, unsigned int* end) {
 	if (is_numeric(t)) {
 		if (!is_big_endian) i += sizeof(double);
 		unsigned char * p = (void*)&t.value.number;
-		for (int j = 0; j < sizeof(double); j++) {
+		for (size_t j = 0; j < sizeof(double); j++) {
 			p[j] = bytecode[is_big_endian ? i++ : --i];
 		}
 		if (!is_big_endian) i += sizeof(double);
@@ -755,7 +754,7 @@ address get_address(uint8_t* bytecode, unsigned int* end) {
 	if (!is_big_endian) i += sizeof(address);
 	address result = 0;
 	unsigned char * p = (void*)&result;
-	for (int j = 0; j < sizeof(address); j++) {
+	for (size_t j = 0; j < sizeof(address); j++) {
 		p[j] = bytecode[is_big_endian ? i++ : --i];
 	}
 	*end += sizeof(address);
@@ -767,7 +766,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 	fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: ", &bytecode[0], 0);
 	fprintf(buffer, YEL WENDY_VM_HEADER);
 	fprintf(buffer, GRN "\n.code\n");
-	int maxlen = 12;
+	int max_len = 12;
 	int baseaddr = 0;
 	unsigned int i = 0;
 	if (!get_settings_flag(SETTINGS_REPL)) {
@@ -784,8 +783,8 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 		if (op == OP_PUSH) {
 			data t = get_data(&bytecode[i], &i);
 			if (t.type == D_STRING) {
-				p += fprintf(buffer, "%.*s ", maxlen, t.value.string);
-				if (strlen(t.value.string) > maxlen) {
+				p += fprintf(buffer, "%.*s ", max_len, t.value.string);
+				if (strlen(t.value.string) > (size_t) max_len) {
 					p += fprintf(buffer, ">");
 				}
 			}
@@ -800,8 +799,8 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 		else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW ||
 				 op == OP_IMPORT || op == OP_MEMPTR) {
 			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", maxlen, c);
-			if (strlen(c) > maxlen) {
+			p += fprintf(buffer, "%.*s ", max_len, c);
+			if (strlen(c) > (size_t) max_len) {
 				p += fprintf(buffer, ">");
 			}
 			if (op == OP_IMPORT) {
@@ -828,27 +827,27 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 			p += fprintf(buffer, "0x%X ",
 				get_address(bytecode + i + baseaddr, &i));
 			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", maxlen, c);
-			if (strlen(c) > maxlen) {
+			p += fprintf(buffer, "%.*s ", max_len, c);
+			if (strlen(c) > (size_t) max_len) {
 				p += fprintf(buffer, ">");
 			}
 		}
 		else if (op == OP_LBIND) {
 			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", maxlen, c);
+			p += fprintf(buffer, "%.*s ", max_len, c);
 			c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", maxlen, c);
+			p += fprintf(buffer, "%.*s ", max_len, c);
 		}
 		else if (op == OP_NATIVE) {
 			p += fprintf(buffer, "%d ", get_address(bytecode + i, &i));
 			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s", maxlen, c);
+			p += fprintf(buffer, "%.*s", max_len, c);
 		}
 		while (p++ < 30) {
 			fprintf(buffer, " ");
 		}
 		fprintf(buffer, CYN "| ");
-		for (int j = start; j < i; j++) {
+		for (size_t j = start; j < i; j++) {
 			if (j != start) fprintf(buffer, " ");
 			fprintf(buffer, "%02X", bytecode[j]);
 			if (j > start + 2) {
@@ -874,7 +873,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 static void write_address_at_buffer(address a, uint8_t* buffer, size_t loc) {
 	if (!is_big_endian) loc += sizeof(address);
 	unsigned char * p = (void*)&a;
-	for (int i = 0; i < sizeof(address); i++) {
+	for (size_t i = 0; i < sizeof(address); i++) {
 		buffer[is_big_endian ? loc++ : --loc] = p[i];
 	}
 }
@@ -885,21 +884,20 @@ static void write_data_at_buffer(data t, uint8_t* buffer, size_t loc) {
 		// Writing a double
 		if (!is_big_endian) loc += sizeof(double);
 		unsigned char * p = (void*)&t.value.number;
-		for (int i = 0; i < sizeof(double); i++) {
+		for (size_t i = 0; i < sizeof(double); i++) {
 			buffer[is_big_endian ? loc++ : --loc] = p[i];
 		}
 	}
 }
 
-// loops through, offsets all addresses based on import linking location
 void offset_addresses(uint8_t* buffer, size_t length, int offset) {
+	UNUSED(length);
 	unsigned int i = 0;
 	if (!get_settings_flag(SETTINGS_REPL)) {
 		i = verify_header(buffer);
 	}
 	for (;;) {
 		opcode op = buffer[i++];
-
 		if (op == OP_PUSH) {
 			size_t tokLoc = i;
 			data t = get_data(buffer + i, &i);

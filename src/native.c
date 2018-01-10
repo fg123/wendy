@@ -58,6 +58,7 @@ static char* native_to_string(data* t) {
 }
 
 static data native_getProgramArgs(data* args) {
+	UNUSED(args);
 	data* array = safe_malloc(sizeof(data) * program_arguments_count);
 	int size = 0;
 	for (int i = 0; i < program_arguments_count; i++) {
@@ -71,16 +72,19 @@ static data native_getProgramArgs(data* args) {
 }
 
 static data native_garbageCollect(data* args) {
+	UNUSED(args);
 	garbage_collect(0);
 	return noneret_data();
 }
 
 static data native_printFreeMemory(data* args) {
+	UNUSED(args);
 	print_free_memory();
 	return noneret_data();
 }
 
 static data native_getc(data* args) {
+	UNUSED(args);
 	char result[2];
 	result[0] = getc(stdin);
 	result[1] = 0;
@@ -103,6 +107,8 @@ static data native_log(data* args) {
 
 static data native_exec(data* args) {
 	char* command = native_to_string(args);
+	UNUSED(command);
+	//TODO: Find some way to allow this!?
 	//system(command);
 	return noneret_data();
 }
@@ -113,6 +119,7 @@ static data native_printCallStack(data* args) {
 }
 
 static data native_printBytecode(data* args) {
+	UNUSED(args);
 	print_current_bytecode();
 	return noneret_data();
 }
@@ -171,6 +178,9 @@ void native_call(char* function_name, int expected_args, int line) {
 	for (int i = 0; i < functions; i++) {
 		if(streq(native_functions[i].name, function_name)) {
 			int argc = native_functions[i].argc;
+			if (expected_args != argc) {
+				error_runtime(line, VM_INVALID_NATIVE_NUMBER_OF_ARGS, function_name);
+			}
 			data* arg_list = safe_malloc(sizeof(data) * argc);
 			// Popped in reverse order
 			for (int j = argc - 1; j >= 0; j--) {

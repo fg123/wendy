@@ -10,9 +10,6 @@
 // scan_tokens(source) creates a list of tokens from the source
 int scan_tokens(char* source_, token** destination, size_t* alloc_size);
 
-// scan_token() processes the next token
-static bool scan_token();
-
 // print_token_list() prints the list of tokens
 void print_token_list(token* tokens, size_t size);
 

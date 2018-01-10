@@ -29,8 +29,7 @@
 // Inspired by https://lambda.uta.edu/cse5317/notes/node26.html
 
 typedef struct expr {
-    enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_ASSIGN,
-            E_BIN_LVALUE, E_IF }
+    enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_ASSIGN, E_IF }
         type;
     union { token                                           lit_expr;
             struct {    token               operator;
@@ -94,6 +93,23 @@ typedef struct statement_list {
     struct statement_list*  next;
 } statement_list;
 
+typedef enum traversal_algorithm_type { 
+    HANDLE_BEFORE_CHILDREN, HANDLE_AFTER_CHILDREN 
+    } traversal_algorithm_type;
+
+typedef struct traversal_algorithm {
+    void (*handle_expr)(expr *, struct traversal_algorithm*);
+    void (*handle_expr_list)(expr_list *, struct traversal_algorithm*);
+    void (*handle_statement)(statement *, struct traversal_algorithm*);
+    void (*handle_statement_list)(statement_list *, struct traversal_algorithm*);
+    traversal_algorithm_type type;
+
+    // Internal tracker of which level of traversal
+    int level;
+} traversal_algorithm;
+
+extern traversal_algorithm ast_safe_free_impl;
+
 // generate_ast(tokens, length) generates an ast based on the tokens/length
 statement_list* generate_ast(token* tokens, size_t length);
 
@@ -107,17 +123,10 @@ void print_ast(statement_list* ast);
 //   false otherwise
 bool ast_error_flag();
 
-void traverse_expr(expr* expression,
-        void (*a)(void*), void (*b)(void*),
-        void (*c)(void*), void (*d)(void*));
-void traverse_expr_list(expr_list* list,
-        void (*a)(void*), void (*b)(void*),
-        void (*c)(void*), void (*d)(void*));
-void traverse_statement_list(statement_list* list,
-        void (*a)(void*), void (*b)(void*),
-        void (*c)(void*), void (*d)(void*));
-void traverse_statement(statement* state,
-        void (*a)(void*), void (*b)(void*),
-        void (*c)(void*), void (*d)(void*));
+void traverse_ast(statement_list*, traversal_algorithm*);
+void traverse_expr(expr*, traversal_algorithm*);
+void traverse_expr_list(expr_list*, traversal_algorithm*);
+void traverse_statement_list(statement_list*, traversal_algorithm*);
+void traverse_statement(statement*, traversal_algorithm*);
 
 #endif
