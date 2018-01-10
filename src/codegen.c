@@ -526,6 +526,7 @@ static data_type literal_type_to_data_type(token_type t) {
 			return D_OBJ_TYPE;
 		case T_MEMBER:
 			return D_MEMBER_IDENTIFIER;
+		default:;
 	}
 	return D_EMPTY;
 }
@@ -732,8 +733,8 @@ data get_data(uint8_t* bytecode, unsigned int* end) {
 		if (!is_big_endian) i += sizeof(double);
 	}
 	else {
-		t.value.string = bytecode + i;
-		i += strlen(bytecode + i) + 1;
+		t.value.string = (char*)bytecode + i;
+		i += strlen((char*)bytecode + i) + 1;
 	}
 	*end = start + i;
 	return t;
@@ -744,7 +745,7 @@ void write_bytecode(uint8_t* bytecode, FILE* buffer) {
 }
 
 char* get_string(uint8_t* bytecode, unsigned int* end) {
-	*end += strlen(bytecode) + 1;
+	*end += strlen((char*)bytecode) + 1;
 	return (char *)bytecode;
 }
 

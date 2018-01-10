@@ -2,7 +2,7 @@
 
 mkdir -p bin
 mkdir -p build
-sed -i 's/    /\t/g' makefile
+sed -i '' 's/    /\t/g' makefile
 
 buildOnly=0
 release=0
@@ -24,7 +24,7 @@ else
 fi
 echo Build Done.
 
-./build-libraries.sh
+bash ./build-libraries.sh
 
 if (( $buildOnly == 0 )); then
 	echo Running Tests...

@@ -9,6 +9,7 @@ operator token_operator_unary(token op) {
             return O_NOT;
         case T_TILDE:
             return O_COPY;
+		default:;
     }
     error_compile(op.t_line, op.t_col, OPERATORS_INVALID_UNARY);
     return 0;
@@ -34,6 +35,7 @@ operator token_operator_binary(token op) {
         case T_DOT: return O_MEMBER;
         case T_LEFT_BRACK: return O_SUBSCRIPT;
         case T_TILDE: return O_IN;
+		default:;
     }
     error_compile(op.t_line, op.t_col, OPERATORS_INVALID_BINARY);
     return 0;

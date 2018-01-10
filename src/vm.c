@@ -1081,8 +1081,8 @@ static data eval_binop(operator op, data a, data b) {
 	}
 	else {
 		error_runtime(line, VM_TYPE_ERROR, operator_string[op]);
-		return none_data();
 	}
+	return none_data();
 }
 
 static data value_of(data a) {

@@ -35,7 +35,7 @@ bool data_equal(data* a, data* b) {
 	}
 }
 
-data destroy_data(data* d) {
+void destroy_data(data* d) {
 	if (!is_numeric(*d)) {
 		safe_free(d->value.string);
 	}

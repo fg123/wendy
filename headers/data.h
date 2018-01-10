@@ -55,7 +55,7 @@ typedef struct {
 
 data make_data(data_type type, data_value value);
 data copy_data(data d);
-data destroy_data(data* d);
+void destroy_data(data* d);
 
 data_value data_value_str(char *str);
 data_value data_value_num(double num);
