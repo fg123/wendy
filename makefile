@@ -4,8 +4,8 @@ ODIR = build
 BINDIR = bin
 SRCDIR = src
 INCDIR = src
-CFLAGS= -lreadline -g -lm -Wall -Wextra -Werror $(release)
 CFLAGSNOLINK = -g -Wall -Wextra -Werror $(release)
+CFLAGS= -lreadline -lm $(CFLAGSNOLINK) $(release)
 
 _DEPS = scanner.h token.h error.h memory.h execpath.h debugger.h ast.h vm.h codegen.h source.h native.h optimizer.h imports.h data.h operators.h global.h dependencies.h
 DEPS = $(patsubst %,$(INCDIR)/%,$(_DEPS))

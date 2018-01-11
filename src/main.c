@@ -58,6 +58,7 @@ void invalid_usage() {
     printf("    -t, --token-list  : prints out the parsed tokens.\n");
     printf("    -d --disassemble  : prints out the disassembled bytecode.\n");
 	printf("	--dependencies    : prints out the module dependencies of the file.\n");
+    printf("    --sandbox         : runs the VM in sandboxed mode, ie. no file access and no native execution calls.\n");
     printf("\nWendy will enter REPL mode if no parameters are supplied.\n");
     safe_exit(1);
 }
@@ -84,6 +85,9 @@ void process_options(char** options, int len) {
         }
         else if (streq("--dependencies", options[i])) {
             set_settings_flag(SETTINGS_OUTPUT_DEPENDENCIES);
+        }
+        else if (streq("--sandbox", options[i])) {
+            set_settings_flag(SETTINGS_SANDBOXED);
         }
         else if (streq("-t", options[i]) ||
                  streq("--token-list", options[i])) {

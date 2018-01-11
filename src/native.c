@@ -107,9 +107,9 @@ static data native_log(data* args) {
 
 static data native_exec(data* args) {
 	char* command = native_to_string(args);
-	UNUSED(command);
-	//TODO: Find some way to allow this!?
-	//system(command);
+	if (!get_settings_flag(SETTINGS_SANDBOXED)) {
+		system(command);
+	}
 	return noneret_data();
 }
 

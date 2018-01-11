@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 // global.h - Felix Guo
-// This file contains information that the majority of WendyScript modules use.
+// This file contains global information and utility functions.
 
 // Main Information
 #define WENDY_VERSION "Wendy 2.0"
@@ -39,13 +39,13 @@
 #define MEMREGSTACK_SIZE 100
 
 // Compiler/VM Settings
-#define SETTINGS_COUNT 9
 #define OPERATOR_OVERLOAD_PREFIX "#@"
 #define LOOP_COUNTER_PREFIX ":\")"
 
 #define ENUM(x) x,
 #define STRING(x) #x,
 
+#define SETTINGS_COUNT 10
 typedef enum {
 	SETTINGS_COMPILE = 0,
 	SETTINGS_NOGC = 1,
@@ -56,12 +56,13 @@ typedef enum {
 	SETTINGS_OPTIMIZE = 6,
 	SETTINGS_REPL = 7,
 	SETTINGS_VERBOSE = 8,
-	SETTINGS_OUTPUT_DEPENDENCIES = 9 } settings_flags;
+	SETTINGS_OUTPUT_DEPENDENCIES = 9,
+	SETTINGS_SANDBOXED = 10 } settings_flags;
 
 void set_settings_flag(settings_flags flag);
 bool get_settings_flag(settings_flags flag);
-void determine_endianness();
 
+void determine_endianness();
 bool streq(const char* a, const char* b);
 
 extern bool is_big_endian;
