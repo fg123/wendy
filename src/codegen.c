@@ -113,8 +113,6 @@ static inline void write_opcode(opcode op) {
 	guarantee_size();
 }
 
-// Generates Evaluates lValue expr and stores in memory register
-
 static void codegen_expr(void* expre);
 static void codegen_statement(void* expre);
 static void codegen_statement_list(void* expre);
@@ -860,7 +858,6 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 			}
 		}
 		if (printSourceLine > 0 && !get_settings_flag(SETTINGS_REPL)) {
-			// Memory Bug here when we have comments
 			printf(RESET " %s", get_source_line(printSourceLine));
 		}
 		fprintf(buffer, "\n" RESET);
@@ -881,7 +878,6 @@ static void write_address_at_buffer(address a, uint8_t* buffer, size_t loc) {
 static void write_data_at_buffer(data t, uint8_t* buffer, size_t loc) {
 	buffer[loc++] = t.type;
 	if (t.type == D_ADDRESS) {
-		// Writing a double
 		if (!is_big_endian) loc += sizeof(double);
 		unsigned char * p = (void*)&t.value.number;
 		for (size_t i = 0; i < sizeof(double); i++) {
@@ -901,9 +897,7 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 		if (op == OP_PUSH) {
 			size_t tokLoc = i;
 			data t = get_data(buffer + i, &i);
-			//printf("%X PUSHED A TOKEN HERE WITH TYPE %d, %d\n", tokLoc - 1, t.t_type, T_ADDRESS);
 			if (t.type == D_ADDRESS) {
-				//printf("%X Token here address %X\n",i, (int)t.t_data.number);
 				t.value.number += offset;
 				write_data_at_buffer(t, buffer, tokLoc);
 			}
@@ -939,7 +933,7 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 			get_string(buffer + i, &i);
 		}
 		else if (op == OP_ASSERT) {
-			i++; // the next int!
+			i++;
 			get_string(buffer + i, &i);
 		}
 		else if (op == OP_NATIVE) {
@@ -955,4 +949,3 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 		}
 	}
 }
-

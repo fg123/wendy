@@ -141,6 +141,8 @@ data get_data(uint8_t* bytecode, unsigned int* end);
 //   endianness as required
 address get_address(uint8_t* bytecode, unsigned int* end);
 
+// get_string(bytecode, end) returns a pointer to the string as well as
+//   advances end to the byte after the string
 char *get_string(uint8_t *bytecode, unsigned int *end);
 
 // verify_header(bytecode) checks the header for information,

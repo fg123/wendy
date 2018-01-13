@@ -209,7 +209,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_WHERE: {
 				char* id = get_string(bytecode + i, &i);
-				memory_register = get_address_of_id(id, i);
+				memory_register = get_address_of_id(id, line);
 				memory_register_A = memory_register;
 				break;
 			}
@@ -283,7 +283,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				// TODO Some Memory Issues Here No Doubt
 				char* user_index = get_string(bytecode + i, &i);
 				char* loop_index_string = get_string(bytecode + i, &i);
-				data loop_index_token = *(get_value_of_id(loop_index_string, i));
+				data loop_index_token = *(get_value_of_id(loop_index_string, line));
 				int index = loop_index_token.value.number;
 				data condition = pop_arg(line);
 				data res = loop_index_token;
@@ -307,7 +307,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					r.value.string[1] = 0;
 					res = r;
 				}
-				address mem_to_mod = get_address_of_id(user_index, i);
+				address mem_to_mod = get_address_of_id(user_index, line);
 				replace_memory(res, mem_to_mod, -1);
 				break;
 			}
@@ -861,7 +861,6 @@ static data eval_binop(operator op, data a, data b) {
 			false_data() : true_data();
 	}
 
-	// Done number operations: past here, addresses are numbers too.
 	if (a.type == D_LIST || b.type == D_LIST) {
 		if (a.type == D_LIST && b.type == D_LIST) {
 			address start_a = a.value.number;

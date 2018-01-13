@@ -18,7 +18,7 @@ static size_t col;
 
 static bool scan_token();
 static void add_token(token_type type);
-static void add_token_V(token_type type, token_data val);
+static void add_token_with_value(token_type type, token_data val);
 
 static bool is_at_end() {
     return current >= source_len;
@@ -72,7 +72,6 @@ static void handle_import() {
     while(!scan_token()) {
         start = current;
     }
-
     if (tokens[t_curr - 1].t_type == T_STRING) {
         int str_loc = t_curr - 1;
         char* path = tokens[str_loc].t_data.string;
@@ -80,7 +79,6 @@ static void handle_import() {
 
         char* buffer;
         FILE * f = fopen(path, "r");
-        //printf("Attempting to open %s\n", path);
         if (f) {
             fseek (f, 0, SEEK_END);
             length = ftell (f);
@@ -97,11 +95,9 @@ static void handle_import() {
                 source_len = newlen;
                 // at this point, we inset the buffer into the source
                 // current should be the next item, we move it down buffer bytes
-                //printf("old source: \n%s\n", source);
                 memmove(&source[current + strlen(buffer)],
                         &source[current], o_source_len - current + 1);
                 memcpy(&source[current], buffer, strlen(buffer));
-                //printf("newsource: \n%s\n", source);
             }
             safe_free(buffer);
             fclose (f);
@@ -117,13 +113,11 @@ static void handle_obj_type() {
         if (peek() == '\n') line++;
         advance();
     }
-
     if (is_at_end()) {
         error_lexer(line, col, SCAN_EXPECTED_TOKEN, ">");
         return;
     }
-
-    // The closing >.
+    // The closing >
     advance();
 
     // Trim the surrounding quotes.
@@ -133,7 +127,7 @@ static void handle_obj_type() {
     memcpy(value, &source[start + 1], s_length);
     value[s_length] = '\0';
 
-    add_token_V(T_OBJ_TYPE, make_data_str(value));
+    add_token_with_value(T_OBJ_TYPE, make_data_str(value));
 }
 
 static void handle_string(char endChar) {
@@ -176,7 +170,7 @@ static void handle_string(char endChar) {
         }
     }
     value[s] = 0;
-    add_token_V(T_STRING, make_data_str(value));
+    add_token_with_value(T_STRING, make_data_str(value));
 }
 
 // identifier() processes the next identifier and also handles wendyScript
@@ -188,9 +182,9 @@ static void identifier() {
     memcpy(text, &source[start], current - start);
     text[current - start] = '\0';
 
-    if (streq(text, "and"))   { add_token(T_AND); }
+    if (streq(text, "and"))       { add_token(T_AND); }
     else if (streq(text, "else")) { add_token(T_ELSE); }
-    else if (streq(text, "false"))    { add_token(T_FALSE); }
+    else if (streq(text, "false")){ add_token(T_FALSE); }
     else if (streq(text, "if"))   { add_token(T_IF); }
     else if (streq(text, "or"))   { add_token(T_OR); }
     else if (streq(text, "true")) { add_token(T_TRUE); }
@@ -234,11 +228,10 @@ static void handle_number() {
     memcpy(num_s, &source[start], current-start);
     num_s[current - start] = '\0';
     double num = strtod(num_s, NULL);
-    add_token_V(T_NUMBER, make_data_num(num));
+    add_token_with_value(T_NUMBER, make_data_num(num));
 }
 
 static bool ignore_next = false;
-// returns true if we sucessfully scanned, false if it was whitespace
 static bool scan_token() {
     char c = advance();
     switch(c) {
@@ -255,12 +248,7 @@ static bool scan_token() {
         case ',': add_token(T_COMMA); break;
         case '.': add_token(T_DOT); break;
         case '-':
-            if (t_curr == 0 || (is_digit(peek()) &&
-                    precedence(tokens[t_curr - 1]))) {
-                advance();
-                handle_number();
-            }
-            else if (match('=')) {
+            if (match('=')) {
                 add_token(T_ASSIGN_MINUS);
             }
             else if (match('-')) {
@@ -346,7 +334,6 @@ static bool scan_token() {
             if (match('/')) {
                 // A comment goes until the end of the line.
                 while (peek() != '\n' && !is_at_end()) advance();
-                line++;
                 col = 1;
             }
             else if (match('>')) {
@@ -388,7 +375,6 @@ static bool scan_token() {
                 error_lexer(line, col, SCAN_UNEXPECTED_CHARACTER, c);
             }
             break;
-        // OP_END SWITCH HERE
     }
     return true;
 }
@@ -418,10 +404,10 @@ static void add_token(token_type type) {
     char val[current - start + 1];
     memcpy(val, &source[start], current - start);
     val[current - start] = '\0';
-    add_token_V(type, make_data_str(val));
+    add_token_with_value(type, make_data_str(val));
 }
 
-static void add_token_V(token_type type, token_data val) {
+static void add_token_with_value(token_type type, token_data val) {
     if (type == T_NONE) { tokens[t_curr++] = none_token(); }
     else if (type == T_TRUE) { tokens[t_curr++] = true_token(); }
     else if (type == T_FALSE) { tokens[t_curr++] = false_token(); }
@@ -437,15 +423,13 @@ static void add_token_V(token_type type, token_data val) {
 
 void print_token_list(token* tokens, size_t size) {
     for(size_t i = 0; i < size; i++) {
-
         if (tokens[i].t_type == T_NUMBER) {
-            printf("%zd - %s -> %f\n", i,
+            printf("[%zd][Line %d] - %s -> %f\n", i, tokens[i].t_line,
                 token_string[tokens[i].t_type], tokens[i].t_data.number);
         }
         else {
-            printf("%zd - %s -> %s\n", i,
+            printf("[%zd][Line %d] - %s -> %s\n", i, tokens[i].t_line,
                 token_string[tokens[i].t_type], tokens[i].t_data.string);
         }
     }
 }
-

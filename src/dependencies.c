@@ -7,7 +7,7 @@ static void do_nothing_sl(statement_list* e, traversal_algorithm* algo) { UNUSED
 static void handle_statement(statement* s, traversal_algorithm* algo) {
 	UNUSED(algo);
 	if (s->type == S_IMPORT) {
-		// Has Dependency
+		// Log Dependency
 		printf("%s\n", s->op.import_statement.t_data.string);
 	}
 }

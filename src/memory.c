@@ -4,8 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 
-// Memory.c, provides functions for the interpreter to manipulate the local
-//   WendyScript memory
+// Memory.c, provides functions for the interpreter to manipulate memory
 
 #define FUNCTION_START_CHAR '>'
 #define AUTOFRAME_START_CHAR '<'
@@ -181,9 +180,7 @@ address pls_give_memory(size_t size, int line) {
         }
     }
     // No free memory blocks???
-//  printf("Test: %d\b", garbage_collect(size));
-    if(garbage_collect(size)) {
-        // try again
+    if (garbage_collect(size)) {
         return pls_give_memory(size, line);
     }
     else {
@@ -251,8 +248,8 @@ void init_memory() {
 
     // Initialize linked list of Free Memory
     free_memory = safe_malloc(sizeof(mem_block));
-    free_memory->size = MEMORY_SIZE - ARGSTACK_SIZE;
-    free_memory->start = 0;
+    free_memory->size = MEMORY_SIZE - ARGSTACK_SIZE - RESERVED_MEMORY;
+    free_memory->start = RESERVED_MEMORY;
     free_memory->next = 0;
 
     // Initialize Call Stack

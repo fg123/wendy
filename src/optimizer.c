@@ -7,9 +7,9 @@
 #include <stdio.h>
 
 // Implementation of Optimization Algorithms
-// Note: this file is particularly messy because the normal AST traversal algorithm doesn't
-//   apply here. The optimizer passes does not only read from the AST, but readily mutates
-//   it as well.
+// Note: this file is particularly messy because the normal AST traversal 
+//   algorithm doesn't apply here. The optimizer passes does not only read from 
+//   the AST, but readily mutates it as well.
 
 // Linked list node of identifiers within a statement block
 typedef struct id_node id_node;
@@ -42,7 +42,6 @@ static void scan_statement_list(statement_list* list);
 static void scan_statement(statement* state);
 static void scan_expr(expr* expression);
 static void scan_expr_list(expr_list* list);
-static void print_statement_blocks();
 
 static inline bool is_boolean(token t) {
     return t.t_type == T_TRUE || t.t_type == T_FALSE;
@@ -72,25 +71,16 @@ static void remove_entry(char* id, int line, int col) {
     UNUSED(line);
     UNUSED(col);
     // Basic LL Search and Remove
-    // TODO: Convert to cleaner LL search remove without "prev"
     statement_block* b = curr_statement_block;
     while (b) {
-        id_node* p = 0;
-        id_node* n = b->id_list;
+        id_node** n = &b->id_list;
         while (n) {
-            if (streq(n->id_name, id)) {
-                // remove this one
-                if (p) {
-                    p->next = n->next;
-                }
-                else {
-                    b->id_list = n->next;
-                }
-                safe_free(n);
+            if (streq((*n)->id_name, id)) {
+                *n = (*n)->next;
+                safe_free(*n);
                 return;
             }
-            p = n;
-            n = n->next;
+            n = &((*n)->next);
         }
         b = b->next;
     }
@@ -99,13 +89,11 @@ static void remove_entry(char* id, int line, int col) {
 static void add_usage(char* id, int line, int col) {
     id_node* r = find_id_node(id, line, col);
     if (r) r->usage_count++;
-    print_statement_blocks();
 }
 
 static void remove_usage(char* id, int line, int col) {
     id_node* r = find_id_node(id, line, col);
     if (r) r->usage_count--;
-    print_statement_blocks();
 }
 
 static int get_usage(char* id, int line, int col) {
@@ -129,9 +117,7 @@ static int get_modified(char* id, int line, int col) {
 static void add_modified(char* id, int line, int col) {
     id_node* r = find_id_node(id, line, col);
     if (r) r->modified_count++;
-    print_statement_blocks();
 }
-
 
 void optimize_safe_free_e(expr* expression, traversal_algorithm* algo) {
     UNUSED(algo);
@@ -178,7 +164,6 @@ static void free_id_nodes(id_node* node) {
     safe_free(node);
 }
 
-
 static void add_node(char* id, expr* value) {
     if (!curr_statement_block) {
         error_general(OPTIMIZER_NO_STATEMENT_BLOCK);
@@ -190,7 +175,6 @@ static void add_node(char* id, expr* value) {
     new_node->usage_count = 0;
     new_node->next = curr_statement_block->id_list;
     curr_statement_block->id_list = new_node;
-    print_statement_blocks();
 }
 
 static void make_new_block() {
@@ -198,17 +182,17 @@ static void make_new_block() {
     new_block->next = curr_statement_block;
     new_block->id_list = 0;
     curr_statement_block = new_block;
-    print_statement_blocks();
 }
 
 static void delete_block() {
     statement_block* next = curr_statement_block->next;
     free_statement_block(curr_statement_block);
     curr_statement_block = next;
-    print_statement_blocks();
 }
 
 static statement_list* scan_optimize_statement_list(statement_list* list) {
+    // We run two passes of optimization for some unknown reason. I added this
+    //   back in the day and I can't remember why :)
     scan_statement_list(list);
     list = optimize_statement_list(list);
     list = optimize_statement_list(list);
@@ -240,8 +224,7 @@ static statement* optimize_statement(statement* state) {
         }
     }
     else if (state->type == S_OPERATION) {
-        /*state->op.operation_statement.operand =
-            optimize_expr(state->op.operation_statement.operand);*/
+        
     }
     else if (state->type == S_EXPR) {
         state->op.expr_statement = optimize_expr(state->op.expr_statement);
@@ -448,8 +431,8 @@ static expr* optimize_expr(expr* expression) {
             (operand->op.lit_expr.t_type == T_TRUE ||
             operand->op.lit_expr.t_type == T_FALSE)) {
             // Apply here
-            operand->op.lit_expr.t_type =
-                operand->op.lit_expr.t_type == T_TRUE ? T_FALSE : T_TRUE;
+            operand->op.lit_expr =
+                operand->op.lit_expr.t_type == T_TRUE ? false_token() : true_token();
             safe_free(expression);
             return operand;
         }
@@ -619,20 +602,4 @@ static void scan_expr_list(expr_list* list) {
     if (!list) return;
     scan_expr(list->elem);
     scan_expr_list(list->next);
-}
-
-static void print_statement_blocks() {
-    /*printf("STATEMENT BLOCKS \n");
-    statement_block* b = curr_statement_block;
-    while (b) {
-        printf("Block: \n");
-        id_node* n = b->id_list;
-        while (n) {
-            printf("    %s, modified %d, usage %d\n", n->id_name, n->modified_count,
-                n->usage_count);
-            n = n->next;
-        }
-        b = b->next;
-    }
-    printf("\n");*/
 }

@@ -123,7 +123,6 @@ data list_header_data(int size) {
 	return res;
 }
 
-
 void print_data(const data* t) {
 	print_data_inline(t, stdout);
 	printf("\n");

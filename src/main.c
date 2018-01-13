@@ -229,9 +229,7 @@ int main(int argc, char** argv) {
             // Attempt to run as source string
             push_frame("main", 0, 0);
             run(argv[1]);
-            c_free_memory();
-            check_leak();
-            return 0;
+            goto wendy_exit;
         }
         // Compute File Size
         fseek(file, 0, SEEK_END);
@@ -277,9 +275,7 @@ int main(int argc, char** argv) {
 			if (get_settings_flag(SETTINGS_OUTPUT_DEPENDENCIES)) {
 				// Perform static analysis to output dependencies
 				print_dependencies(ast);
-				c_free_memory();
-				check_leak();
-				return 0;
+				goto wendy_exit;
 			}
 			else {
 				// Generate Bytecode
@@ -348,6 +344,7 @@ int main(int argc, char** argv) {
         safe_free(bytecode_stream);
     }
     free_source();
+wendy_exit:
     c_free_memory();
     check_leak();
     return 0;
