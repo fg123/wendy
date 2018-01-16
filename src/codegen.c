@@ -311,10 +311,9 @@ static void codegen_statement(void* expre) {
 		// Request Memory to Store MetaData
 		write_opcode(OP_REQ);
 		write_byte(push_size);
-		write_opcode(OP_PLIST);
+		write_opcode(OP_WRITE);
 		write_byte(push_size);
-		// Now there's a List Token at the top of the stack.
-		write_opcode(OP_CHTYPE);
+		write_opcode(OP_MKPTR);
 		write_byte(D_STRUCT);
 
 		write_opcode(OP_RBW);
@@ -394,6 +393,7 @@ static void codegen_statement(void* expre) {
 			write_opcode(OP_WHERE);
 			write_string(state->op.loop_statement.index_var.t_data.string);
 			write_opcode(OP_WRITE);
+			write_byte(1);
 		}
 		write_opcode(OP_JMP);
 		write_address(loop_start_addr);
@@ -617,10 +617,10 @@ static void codegen_expr(void* expre) {
 		}
 		// Memory Register should still be where lvalue is
 		write_opcode(OP_WRITE);
+		write_byte(1);
 	}
 	else if (expression->type == E_UNARY) {
 		codegen_expr(expression->op.una_expr.operand);
-//      write_opcode(tok_to_opcode(expression->op.una_expr.operator, false));
 		write_opcode(OP_UNA);
 		write_byte(token_operator_unary(expression->op.una_expr.operator));
 	}
@@ -641,8 +641,10 @@ static void codegen_expr(void* expre) {
 		write_opcode(OP_REQ);
 		// For the Header
 		write_byte(count + 1);
-		write_opcode(OP_PLIST);
+		write_opcode(OP_WRITE);
 		write_byte(count + 1);
+		write_opcode(OP_MKPTR);
+		write_byte(D_LIST);
 	}
 	else if (expression->type == E_FUNCTION) {
 		write_opcode(OP_JMP);
@@ -692,9 +694,9 @@ static void codegen_expr(void* expre) {
 		write_data(make_data(D_STRING, data_value_str("self")));
 		write_opcode(OP_REQ);
 		write_byte(3);
-		write_opcode(OP_PLIST);
+		write_opcode(OP_WRITE);
 		write_byte(3);
-		write_opcode(OP_CHTYPE);
+		write_opcode(OP_MKPTR);
 		write_byte(D_FUNCTION);
 	}
 }
@@ -806,11 +808,11 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 				p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
 			}
 		}
-		else if (op == OP_CHTYPE) {
+		else if (op == OP_CHTYPE || op == OP_MKPTR) {
 			data_type t = bytecode[i++];
 			p += fprintf(buffer, "%s", data_string[t]);
 		}
-		else if (op == OP_REQ || op == OP_PLIST) {
+		else if (op == OP_REQ || op == OP_WRITE) {
 			p += fprintf(buffer, "0x%X", bytecode[i++]);
 		}
 		else if (op == OP_SRC) {
@@ -940,8 +942,9 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 			get_address(buffer + i, &i);
 			get_string(buffer + i, &i);
 		}
-		else if (op == OP_CHTYPE || op == OP_REQ || op == OP_PLIST ||
-				 op == OP_BIN || op == OP_UNA || op == OP_RBIN) {
+		else if (op == OP_CHTYPE || op == OP_REQ || op == OP_MKPTR ||
+				 op == OP_BIN || op == OP_UNA || op == OP_RBIN || 
+				 op == OP_WRITE) {
 			i++;
 		}
 		if (op == OP_HALT) {

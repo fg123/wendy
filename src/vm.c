@@ -87,7 +87,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 		else {
 			bytecode = safe_malloc(bytecode_size * sizeof(uint8_t));
 		}
-		//printf("Saved Size: %ld\n", saved_size);
 		if (saved_size != 0) {
 			start_at = saved_size - 1;
 		}
@@ -98,13 +97,10 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 		for (size_t i = 0; i < size; i++) {
 			bytecode[start_at + i] = new_bytecode[i];
 		}
-		// printf("New bytecode: \n");
-		// print_bytecode(bytecode, stdout);
 	}
 	for (i = start_at;;) {
 		reset_error_flag();
 		opcode op = bytecode[i++];
-		//printf("Run: %x: %s\n", i - 1, opcode_string[op]);
 		switch (op) {
 			case OP_PUSH: {
 				data t = get_data(bytecode + i, &i);
@@ -366,13 +362,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				memory[memory_register] = value;
 				break;
 			}
-			case OP_PLIST: {
-				size_t size = bytecode[i++];
-				for (address j = memory_register + size - 1;
-						j >= memory_register; j--) {
-					memory[j] = pop_arg(line);
-				}
-				push_arg(make_data(D_LIST, data_value_num(memory_register)), line);
+			case OP_MKPTR: {
+				push_arg(make_data((data_type) bytecode[i++], 
+					data_value_num(memory_register)), line);
 				break;
 			}
 			case OP_NTHPTR: {
@@ -557,14 +549,17 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_WRITE: {
-				data value = pop_arg(line);
-				if (value.type == D_FUNCTION) {
-					// Write Name to Function
-					char* bind_name = last_pushed_identifier;
-					address fn_adr = value.value.number;
-					strcpy(memory[fn_adr + 2].value.string, bind_name);
+				size_t size = bytecode[i++];
+				for (address j = memory_register + size - 1;
+						j >= memory_register; j--) {
+					memory[j] = pop_arg(line);
+					if (memory[j].type == D_FUNCTION) {
+						// Write Name to Function
+						char* bind_name = last_pushed_identifier;
+						address fn_adr = memory[j].value.number;
+						strcpy(memory[fn_adr + 2].value.string, bind_name);
+					}
 				}
-				memory[memory_register] = value;
 				break;
 			}
 			case OP_OUT: {
