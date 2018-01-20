@@ -1,4 +1,5 @@
-/* list.w: WendyScript 2.0
+/* 
+ * list.w: WendyScript 2.0
  * Created by Felix Guo
  * Provides map(), filter(), sort(), zip()
  */

@@ -33,7 +33,8 @@
     OP(D_NONE) \
     OP(D_TRUE) \
     OP(D_FALSE) \
-    OP(D_MEMBER_IDENTIFIER)
+    OP(D_MEMBER_IDENTIFIER) \
+    OP(D_ANY)
 
 typedef enum {
     FOREACH_DATA(ENUM)

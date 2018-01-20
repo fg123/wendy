@@ -121,9 +121,9 @@ static void consume(token_type t) {
         advance();
     }
     else {
-        token t = previous();
-        error_lexer(t.t_line, t.t_col, AST_EXPECTED_TOKEN,
-            token_string[t.t_type]);
+        token tok = previous();
+        error_lexer(tok.t_line, tok.t_col, AST_EXPECTED_TOKEN,
+            token_string[t]);
         advance();
         error_thrown = true;
         return;
@@ -154,7 +154,7 @@ static expr_list* identifier_list() {
     return list;
 }
 
-static expr_list* token_list(token_type end_delimiter) {
+static expr_list* read_bytecode_token_list(token_type end_delimiter) {
 	if (peek().t_type == end_delimiter) return 0;
 	expr_list* list = safe_malloc(sizeof(expr_list));
 	list->next = 0;
@@ -395,7 +395,7 @@ static statement* parse_statement() {
 			// Bytecode Block
 			consume(T_LEFT_BRACE);
 			// Build with no separator!
-			expr_list* el = token_list(T_RIGHT_BRACE); 
+			expr_list* el = read_bytecode_token_list(T_RIGHT_BRACE); 
 			consume(T_RIGHT_BRACE);
 			sm->type = S_BYTECODE;
 			sm->op.bytecode_statement = el;

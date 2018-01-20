@@ -161,7 +161,6 @@ int main(int argc, char** argv) {
     determine_endianness();
     if (argc == 1) {
         init_source(0, "", 0, false);
-//        clear_console();
         printf("Welcome to " WENDY_VERSION " created by: Felix Guo\n");
         printf(BUILD_VERSION "\n");
         printf("Run `wendy -help` to get help.\n");
@@ -202,6 +201,7 @@ int main(int argc, char** argv) {
             add_history(source_to_run);
             run(source_to_run);
             has_run = true;
+            unwind_stack();
         }
         safe_free(source_to_run);
 

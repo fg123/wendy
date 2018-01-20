@@ -20,6 +20,10 @@ address mem_reg_pointer = 0;
 // pointer to the end of the main frame
 address main_end_pointer = 0;
 
+static inline bool is_at_main() {
+    return frame_pointer == 0;
+}
+
 void write_memory(unsigned int location, data d) {
     destroy_data(memory + location);
     memory[location] = d;
@@ -356,6 +360,8 @@ bool pop_frame(bool is_ret, address* ret) {
     //printf("POPPED RET:%d\n", is_ret);
     //print_call_stack();
     // trace back until we hit a FUNC
+    if (is_at_main()) return true;
+
     address trace = frame_pointer;
     if (is_ret) {
         // character [ is a function frame pointer, we trace until we find it
@@ -504,7 +510,9 @@ void copy_stack_entry(stack_entry se, int line) {
     call_stack[stack_pointer] = se;
     call_stack[stack_pointer].is_closure = true;
     stack_pointer++;
-    if (frame_pointer == 0) { main_end_pointer = stack_pointer; }
+    if (is_at_main()) { 
+        main_end_pointer = stack_pointer; 
+    }
     check_memory(line);
 }
 
@@ -515,7 +523,7 @@ void push_stack_entry(char* id, address val, int line) {
     strncpy(new_entry.id, id, MAX_IDENTIFIER_LEN);
     new_entry.id[MAX_IDENTIFIER_LEN] = 0; // null term
     call_stack[stack_pointer++] = new_entry;
-    if (frame_pointer == 0) {
+    if (is_at_main()) {
         // currently in main function
         main_end_pointer = stack_pointer;
     }
@@ -610,4 +618,11 @@ address pop_mem_reg() {
         return 0;
     }
     return mem_reg_stack[--mem_reg_pointer];
+}
+
+void unwind_stack() {
+    address pointer;
+    while (!is_at_main()) {
+        pop_frame(true, &pointer);
+    }
 }

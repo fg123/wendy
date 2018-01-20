@@ -417,76 +417,79 @@ static void codegen_statement(void* expre) {
 		while (curr) {
 			expr* ep = curr->elem;
 			token byte = ep->op.lit_expr;
-			bool identifier_matched = false;
-			if (byte.t_type == T_IDENTIFIER) {
-				// OPCODE or DATA_TYPE, otherwise fall to else and becomes
-				//   regular IDENTIFIER
-				bool found = false;
-				for (size_t i = 0; i < array_size(opcode_string); i++) {
-					if (streq(opcode_string[i], byte.t_data.string)) {
-						write_opcode((opcode) i);
-						found = true;
-						break;
-					}
+			// We want to match identifiers and strings last because there are
+			//   keywords that are read from the scanner as the wrong tokens.
+			// eg. "ret" will come here as a T_RET and not a T_IDENTIFIER
+			if (precedence(byte)) {
+				// Check last byte for Binary or Unary
+				if (bytecode[size - 1] == OP_BIN) {
+					write_byte(token_operator_binary(byte));
 				}
-				if (!found) {
-					for (size_t i = 0; i < array_size(data_string); i++) {
-						if (streq(data_string[i], byte.t_data.string)) {
-							curr = curr->next;
-							if (!curr) {
-								error_lexer(ep->line, ep->col,
-									CODEGEN_BYTECODE_UNEXPECTED_DATA_NO_CONTENT);
-								break;
-							}
-							// Curr contains the content we want.
-							token b = curr->elem->op.lit_expr;
-							if (b.t_type == T_NUMBER) {
-								write_data(make_data((data_type) i,
-									data_value_num(b.t_data.number)));
-							}
-							else {
-								write_data(make_data((data_type) i,
-									data_value_str(b.t_data.string)));
-							}
+				else if (bytecode[size - 1] == OP_UNA) {
+					write_byte(token_operator_unary(byte));
+				}
+				else {
+					error_lexer(ep->line, ep->col,
+						CODEGEN_BYTECODE_UNEXPECTED_OPERATOR, byte.t_data.string);
+				}
+			}
+			else if (byte.t_type == T_DOLLAR_SIGN) {
+				// Check next byte
+				curr = curr->next;
+				if (!curr) {
+					error_lexer(ep->line, ep->col,
+						CODEGEN_BYTECODE_UNEXPECTED_RAW_BYTE);
+					break;
+				}
+				// Curr contains the content we want.
+				token b = curr->elem->op.lit_expr;
+				if (b.t_type == T_NUMBER) {
+					write_byte((uint8_t) b.t_data.number);
+				}
+				else {
+					write_string(b.t_data.string);
+				}
+			}
+			else {
+				bool identifier_matched = false;
+				if (byte.t_type != T_STRING && byte.t_type != T_NUMBER) {
+					// OPCODE or DATA_TYPE, otherwise fall to else and becomes
+					//   regular IDENTIFIER
+					bool found = false;
+					for (size_t i = 0; i < array_size(opcode_string); i++) {
+						if (streq(opcode_string[i], byte.t_data.string)) {
+							write_opcode((opcode) i);
 							found = true;
 							break;
 						}
 					}
+					if (!found) {
+						for (size_t i = 0; i < array_size(data_string); i++) {
+							if (streq(data_string[i], byte.t_data.string)) {
+								curr = curr->next;
+								if (!curr) {
+									error_lexer(ep->line, ep->col,
+										CODEGEN_BYTECODE_UNEXPECTED_DATA_NO_CONTENT);
+									break;
+								}
+								// Curr contains the content we want.
+								token b = curr->elem->op.lit_expr;
+								if (b.t_type == T_NUMBER) {
+									write_data(make_data((data_type) i,
+										data_value_num(b.t_data.number)));
+								}
+								else {
+									write_data(make_data((data_type) i,
+										data_value_str(b.t_data.string)));
+								}
+								found = true;
+								break;
+							}
+						}
+					}
+					if (found) identifier_matched = true;
 				}
-				if (found) identifier_matched = true;
-			}
-			if (!identifier_matched) {
-				if (precedence(byte)) {
-					// Check last byte for Binary or Unary
-					if (bytecode[size - 1] == OP_BIN) {
-						write_byte(token_operator_binary(byte));
-					}
-					else if (bytecode[size - 1] == OP_UNA) {
-						write_byte(token_operator_unary(byte));
-					}
-					else {
-						error_lexer(ep->line, ep->col,
-							CODEGEN_BYTECODE_UNEXPECTED_OPERATOR, byte.t_data.string);
-					}
-				}
-				else if (byte.t_type == T_DOLLAR_SIGN) {
-					// Check next byte
-					curr = curr->next;
-					if (!curr) {
-						error_lexer(ep->line, ep->col,
-							CODEGEN_BYTECODE_UNEXPECTED_RAW_BYTE);
-						break;
-					}
-					// Curr contains the content we want.
-					token b = curr->elem->op.lit_expr;
-					if (b.t_type == T_NUMBER) {
-						write_byte((uint8_t) b.t_data.number);
-					}
-					else {
-						write_string(b.t_data.string);
-					}
-				}
-				else {
+				if (!identifier_matched) {
 					write_data(literal_to_data(byte));
 				}
 			}

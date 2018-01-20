@@ -160,4 +160,8 @@ void push_mem_reg(address memory_register);
 // pop_mem_reg() pops the saved memory register
 address pop_mem_reg();
 
+// unwind_stack() pops all stack frames other than the main
+//   * used after each run in REPL in case REPL leaves the stack in a non-
+//   stable state
+void unwind_stack();
 #endif

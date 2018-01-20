@@ -86,9 +86,9 @@
 //                 [string]  |   what it should be, prints error if not
 // 0x1B | MPTR   |           | sets memory_register to number of the item at
 //                               memory_register
-// 0x1C | DIN    |           | moves data from element in top of the stack to
+// 0x1C |-DIN    |           | moves data from element in top of the stack to
 //                               data register
-// 0x1D | DOUT   |           | moves data from data register to top of the
+// 0x1D |-DOUT   |           | moves data from data register to top of the
 //                               stack
 // 0x1E | CLOSUR |           | binds a closure, pushes a closure to the top of
 //                               the stack.
@@ -106,7 +106,7 @@ typedef enum opcode {
     OP_PUSH, OP_POP, OP_BIN, OP_UNA, OP_CALL, OP_RET, OP_BIND, OP_REQ, OP_WHERE,
     OP_OUT, OP_OUTL, OP_IN, OP_MKPTR, OP_RANGE, OP_READ, OP_WRITE, OP_JMP,
     OP_JIF, OP_FRM, OP_END, OP_LJMP, OP_LBIND, OP_INC, OP_DEC, OP_NTHPTR,
-    OP_MEMPTR, OP_ASSERT, OP_MPTR, OP_DIN, OP_DOUT, OP_CLOSUR, OP_RBIN,
+    OP_MEMPTR, OP_ASSERT, OP_MPTR, OP_CLOSUR, OP_RBIN,
     OP_RBW, OP_CHTYPE, OP_HALT, OP_SRC, OP_NATIVE, OP_IMPORT }
     opcode;
 
@@ -114,7 +114,7 @@ static char* opcode_string[] = {
     "push", "pop", "bin", "una", "call", "ret", "bind", "req",
     "where", "out", "outl", "in", "mkptr", "range", "read", "write", "jmp",
     "jif", "frm", "end", "ljmp", "lbind", "inc", "dec", "nthptr",
-    "memptr", "assert", "mptr", "din", "dout", "closur", "rbin", "rbw", "chtype",
+    "memptr", "assert", "mptr", "closur", "rbin", "rbw", "chtype",
     "halt", "src", "native", "import"
 };
 

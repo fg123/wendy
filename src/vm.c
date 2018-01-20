@@ -14,7 +14,6 @@
 
 static address memory_register = 0;
 static address memory_register_A = 0;
-static data_value data_register;
 static int line;
 static address i = 0;
 static uint8_t* bytecode = 0;
@@ -223,16 +222,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			case OP_RET: {
 				pop_frame(true, &i);
 				memory_register = pop_mem_reg();
-				break;
-			}
-			case OP_DIN: {
-				data* t = top_arg(line);
-				data_register = t->value;
-				break;
-			}
-			case OP_DOUT: {
-				data* t = top_arg(line);
-				t->value = data_register;
 				break;
 			}
 			case OP_LJMP: {
@@ -1127,6 +1116,10 @@ static data type_of(data a) {
 			return make_data(D_OBJ_TYPE, data_value_str("list"));
 		case D_STRUCT:
 			return make_data(D_OBJ_TYPE, data_value_str("struct"));
+		case D_OBJ_TYPE:
+			return make_data(D_OBJ_TYPE, data_value_str("type"));
+		case D_ANY:
+			return make_data(D_ANY, data_value_str("any"));
 		case D_STRUCT_INSTANCE: {
 			data instance_loc = memory[(int)(a.value.number)];
 			return make_data(D_OBJ_TYPE, data_value_str(
