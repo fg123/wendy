@@ -292,16 +292,13 @@ static bool scan_token() {
         case '*': add_token(match('=') ? T_ASSIGN_STAR : T_STAR); break;
         case '!': add_token(match('=') ? T_NOT_EQUAL : T_NOT); break;
         case '=':
-            if (match('='))
-            {
+            if (match('=')) {
                 add_token(T_EQUAL_EQUAL);
             }
-            else if (match('>'))
-            {
+            else if (match('>')) {
                 add_token(T_DEFFN);
             }
-            else
-            {
+            else {
                 add_token(T_EQUAL);
             }
             break;

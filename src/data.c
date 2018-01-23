@@ -93,6 +93,12 @@ data none_data() {
 	return t;
 }
 
+data any_data() {
+	data t = make_data(D_ANY, data_value_str("used to refer to one or some of "
+		"a thing or number of things, no matter how much or many."));
+	return t;
+}
+
 data noneret_data() {
 	data t = make_data(D_NONERET, data_value_str("<noneret>"));
 	return t;

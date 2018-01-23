@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdarg.h>
 
 static address memory_register = 0;
 static address memory_register_A = 0;
@@ -34,6 +35,25 @@ address get_instruction_pointer() {
 
 void vm_cleanup_if_repl() {
 	safe_free(bytecode);
+}
+
+#define num_args(...)  (sizeof((char*[]){__VA_ARGS__})/sizeof(char*))
+#define first_that(condition, ...) first_that_impl(condition, num_args(__VA_ARGS__), __VA_ARGS__)
+static char* first_that_impl(bool (*condition)(char*), int count, ...) {
+	va_list ap;
+	va_start(ap, count);
+	for (int i = 0; i < count; i++) {
+		char* s = va_arg(ap, char*);
+		if (condition(s)) {
+			return s;
+		}
+	}
+	va_end(ap);
+	return 0;
+}
+
+static bool _id_exist(char* fn) {
+	return id_exist(fn, true);
 }
 
 static inline char* get_binary_overload_name(operator op, data a, data b) {
@@ -132,36 +152,50 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				operator op = bytecode[i++];
 				data b = pop_arg(line);
 				data a = pop_arg(line);
-				char* fn_name = get_binary_overload_name(op, a, b);
-				if (id_exist(fn_name, true)) {
+				char* a_and_b = get_binary_overload_name(op, a, b);
+				char* any_a = get_binary_overload_name(op, any_data(), b);
+				char* any_b = get_binary_overload_name(op, a, any_data());
+				char* fn_name = first_that(_id_exist, a_and_b, any_a, any_b);
+				if (fn_name) {
 					push_arg(a, line);
 					push_arg(b, line);
 					push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
-					safe_free(fn_name);
+					safe_free(a_and_b);
+					safe_free(any_a);
+					safe_free(any_b);
 					goto wendy_vm_call;
 				}
 				else {
 					push_arg(eval_binop(op, a, b), line);
 				}
-				safe_free(fn_name);
+				safe_free(a_and_b);
+				safe_free(any_a);
+				safe_free(any_b);
 				break;
 			}
 			case OP_RBIN: {
 				operator op = bytecode[i++];
 				data a = pop_arg(line);
 				data b = pop_arg(line);
-				char* fn_name = get_binary_overload_name(op, a, b);
-				if (id_exist(fn_name, true)) {
+				char* a_and_b = get_binary_overload_name(op, a, b);
+				char* any_a = get_binary_overload_name(op, any_data(), b);
+				char* any_b = get_binary_overload_name(op, a, any_data());
+				char* fn_name = first_that(_id_exist, a_and_b, any_a, any_b);
+				if (fn_name) {
 					push_arg(b, line);
 					push_arg(a, line);
 					push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
-					safe_free(fn_name);
+					safe_free(a_and_b);
+					safe_free(any_a);
+					safe_free(any_b);
 					goto wendy_vm_call;
 				}
 				else {
 					push_arg(eval_binop(op, a, b), line);
 				}
-				safe_free(fn_name);
+				safe_free(a_and_b);
+				safe_free(any_a);
+				safe_free(any_b);
 				break;
 			}
 			case OP_UNA: {

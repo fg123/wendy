@@ -68,6 +68,7 @@ data time_data();
 data noneret_data();
 data none_data();
 data false_data();
+data any_data();
 data true_data();
 data range_data(int start, int end);
 int range_start(data r);
