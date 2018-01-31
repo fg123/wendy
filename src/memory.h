@@ -23,15 +23,15 @@ struct mem_block {
     mem_block* next;
 };
 
-data* memory;
-mem_block* free_memory;
-stack_entry* call_stack;
-address* mem_reg_stack;
+extern data* memory;
+extern mem_block* free_memory;
+extern stack_entry* call_stack;
+extern address* mem_reg_stack;
 
 // Includes a list of closures, used to store temporary stack frames.
 //   The size of the closure lists is also stored for easy iteration.
-stack_entry** closure_list;
-size_t* closure_list_sizes;
+extern stack_entry** closure_list;
+extern size_t* closure_list_sizes;
 
 extern address frame_pointer;
 extern address stack_pointer;
@@ -39,10 +39,10 @@ extern address closure_list_pointer;
 extern address arg_pointer;
 
 // init_memory() allocates the memory
-void init_memory();
+void init_memory(void);
 
 // c_free_memory() deallocates the memory
-void c_free_memory();
+void c_free_memory(void);
 
 // check_memory(line) ensures all the pointers are within the memory space
 void check_memory(int line);
@@ -53,7 +53,7 @@ bool garbage_collect(size_t size);
 
 // print_free_memory() prints out a list of the free memory blocks available
 //   in Wendy
-void print_free_memory();
+void print_free_memory(void);
 
 // has_memory(size) returns true if a memory block of that size can be found
 //   and false otherwise.
@@ -102,7 +102,7 @@ address push_memory_a(data* a, int size, int line);
 address push_memory_array(data* a, int size, int line);
 
 // pop_memory() removes a data from the memory after a push operation
-data pop_memory();
+data pop_memory(void);
 
 // replace_memory(t, a) places the data t in the address a
 void replace_memory(data t, address a, int line);
@@ -145,11 +145,11 @@ data pop_arg(int line);
 data* top_arg(int line);
 
 // clear_arg_stack() clears the operational stack
-void clear_arg_stack();
+void clear_arg_stack(void);
 
 // create_closure() creates a closure with the current stack frame and returns
 //   the index of the closure frame
-address create_closure();
+address create_closure(void);
 
 // write_state(fp) writes the current state for debugging to the file fp
 void write_state(FILE* fp);
@@ -158,10 +158,10 @@ void write_state(FILE* fp);
 void push_mem_reg(address memory_register);
 
 // pop_mem_reg() pops the saved memory register
-address pop_mem_reg();
+address pop_mem_reg(void);
 
 // unwind_stack() pops all stack frames other than the main
 //   * used after each run in REPL in case REPL leaves the stack in a non-
 //   stable state
-void unwind_stack();
+void unwind_stack(void);
 #endif

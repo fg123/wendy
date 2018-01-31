@@ -16,7 +16,7 @@ static size_t t_curr; // t_curr is used to keep track of addToken
 static size_t line;
 static size_t col;
 
-static bool scan_token();
+static bool scan_token(void);
 static void add_token(token_type type);
 static void add_token_with_value(token_type type, token_data val);
 

@@ -121,7 +121,7 @@ void print_ast(statement_list* ast);
 
 // ast_error_flag() returns true if the AST module encountered an error, and
 //   false otherwise
-bool ast_error_flag();
+bool ast_error_flag(void);
 
 void traverse_ast(statement_list*, traversal_algorithm*);
 void traverse_expr(expr*, traversal_algorithm*);

@@ -106,19 +106,19 @@ token_data make_data_num(double i);
 token_data make_data_str(char* s);
 
 // none_token() returns a none token
-token none_token();
+token none_token(void);
 
 // none_ret() returns a noneret token
-token noneret_token();
+token noneret_token(void);
 
 // false_token() returns a false token
-token false_token();
+token false_token(void);
 
 // true_token() returns a true token
-token true_token();
+token true_token(void);
 
 // empty_token() returns an empty token
-token empty_token();
+token empty_token(void);
 
 // print_token(t) prints the value of the token to the string
 void print_token(const token* t);

@@ -10,15 +10,24 @@
 #define AUTOFRAME_START_CHAR '<'
 #define RA_START_CHAR '#'
 
+
+data* memory;
+mem_block* free_memory;
+stack_entry* call_stack;
+address* mem_reg_stack;
+stack_entry** closure_list;
+size_t* closure_list_sizes;
+
 address frame_pointer = 0;
 address stack_pointer = 0;
 address arg_pointer = 0;
 address closure_list_pointer = 0;
-size_t closure_list_size = 0;
-address mem_reg_pointer = 0;
+
+static size_t closure_list_size = 0;
+static address mem_reg_pointer = 0;
 
 // pointer to the end of the main frame
-address main_end_pointer = 0;
+static address main_end_pointer = 0;
 
 static inline bool is_at_main() {
     return frame_pointer == 0;

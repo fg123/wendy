@@ -143,9 +143,6 @@ void w_error(char* message);
 //   a debugger error message
 void d_error(char* message);
 
-// free_error() frees the allocated space for the source
-void free_error();
-
-void reset_error_flag();
-bool get_error_flag();
+void reset_error_flag(void);
+bool get_error_flag(void);
 #endif

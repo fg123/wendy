@@ -64,12 +64,12 @@ data_value data_value_size(int size);
 bool is_numeric(data t);
 bool is_boolean(data t);
 
-data time_data();
-data noneret_data();
-data none_data();
-data false_data();
-data any_data();
-data true_data();
+data time_data(void);
+data noneret_data(void);
+data none_data(void);
+data false_data(void);
+data any_data(void);
+data true_data(void);
 data range_data(int start, int end);
 int range_start(data r);
 int range_end(data r);

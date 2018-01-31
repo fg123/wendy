@@ -12,11 +12,11 @@
 
 // vm_run(bytecode) runs the given bytecode.
 void vm_run(uint8_t* bytecode, size_t size);
-void vm_cleanup_if_repl();
+void vm_cleanup_if_repl(void);
 
 // get_instruction_pointer() returns the current instruction pointer.
-address get_instruction_pointer();
+address get_instruction_pointer(void);
 
 // print_current_bytecode() prints the current executing bytecode
-void print_current_bytecode();
+void print_current_bytecode(void);
 #endif

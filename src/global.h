@@ -62,7 +62,7 @@ typedef enum {
 void set_settings_flag(settings_flags flag);
 bool get_settings_flag(settings_flags flag);
 
-void determine_endianness();
+void determine_endianness(void);
 bool streq(const char* a, const char* b);
 
 extern bool is_big_endian;
@@ -74,7 +74,7 @@ char* w_strdup(const char* s);
 #define UNUSED(var) (void)(var)
 
 // Safe Malloc Implementation
-#ifdef RELEASE
+#ifndef RELEASE
 #define safe_malloc(size) safe_malloc_impl(size, __FILE__, __LINE__)
 #define safe_free(ptr) safe_free_impl(ptr, __FILE__, __LINE__)
 #define safe_calloc(num, size) safe_calloc_impl(num, size, __FILE__, __LINE__)
@@ -95,8 +95,8 @@ void* safe_malloc_impl(size_t size, char* filename, int line_num);
 void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num);
 void safe_free_impl(void* ptr, char* filename, int line_num);
 
-void free_alloc();
-void check_leak();
+void free_alloc(void);
+void check_leak(void);
 void safe_exit(int code);
 
 #endif

@@ -23,20 +23,20 @@ static expr* make_func_expr(expr_list* parameters, statement* body);
 static expr* make_native_func_expr(expr_list* parameters, token name);
 static expr* make_assign_expr(expr* left, expr* right, token op);
 static expr* make_if_expr(expr* condition, expr* if_true, expr* if_false);
-static statement* parse_statement();
-static statement_list* parse_statement_list();
-static expr* expression();
-static expr* or();
+static statement* parse_statement(void);
+static statement_list* parse_statement_list(void);
+static expr* expression(void);
+static expr* or(void);
 static bool check(token_type t);
-static token advance();
-static token previous();
+static token advance(void);
+static token previous(void);
 
 // Public Methods
 // Wrapping safe_free macro for use as a function pointer.
-void ast_safe_free_e(expr* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
-void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
-void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
-void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+static void ast_safe_free_e(expr* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+static void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+static void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+static void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
 
 traversal_algorithm ast_safe_free_impl = 
 {           
@@ -558,7 +558,7 @@ static statement* parse_statement() {
 
             expr_list* parameters = 0;
             if (instance_members) {
-                int saved_before_pop = curr_index;
+                size_t saved_before_pop = curr_index;
                 curr_index = saved_before_iden;
                 parameters = identifier_list();
                 curr_index = saved_before_pop;
@@ -608,13 +608,13 @@ static statement* parse_statement() {
             }
             break;
         }
-        default:
+        default: {
             // We advanced it so we gotta roll back.
             curr_index--;
             // Handle as expression.
             sm->type = S_EXPR;
             sm->op.expr_statement = expression();
-            break;
+        }
     }
     match(T_SEMICOLON);
     if (error_thrown) {
@@ -835,7 +835,7 @@ static void print_s(statement* state, traversal_algorithm* algo) {
 static void print_sl(statement_list* sl, traversal_algorithm* algo) {
     UNUSED(sl);
     print_indent(algo);
-    printf(MAG "<Statement List Item %p>\n" RESET, sl);
+    printf(MAG "<Statement List Item %p>\n" RESET, (void*)sl);
 }
 
 void traverse_ast(statement_list* list, traversal_algorithm* algo) {
