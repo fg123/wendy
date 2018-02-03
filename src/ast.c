@@ -135,7 +135,7 @@ static expr_list* identifier_list() {
     list->next = 0;
     expr** curr = &list->elem;
     expr_list* curr_list = list;
-    while (1) {
+    forever {
         if (match(T_IDENTIFIER)) {
             *curr = make_lit_expr(previous());
             if (match(T_COMMA)) {
@@ -160,7 +160,7 @@ static expr_list* read_bytecode_token_list(token_type end_delimiter) {
 	list->next = 0;
 	expr** curr = &list->elem;
 	expr_list* curr_list = list;
-	while (1) {
+	forever {
 		*curr = make_lit_expr(advance());
 		if (peek().t_type != end_delimiter) {
 			curr_list->next = safe_malloc(sizeof(expr_list));
@@ -184,7 +184,7 @@ static expr_list* expression_list(token_type end_delimiter) {
     list->next = 0;
     expr** curr = &list->elem;
     expr_list* curr_list = list;
-    while (1) {
+    forever {
         *curr = expression();
         if (match(T_COMMA)) {
             curr_list->next = safe_malloc(sizeof(expr_list));
@@ -649,7 +649,6 @@ static statement_list* parse_statement_list() {
     }
 }
 
-// Expression Traversal:
 void traverse_statement_list(statement_list* list, traversal_algorithm* algo) {
     if (!list) return;
     if (algo->type == HANDLE_BEFORE_CHILDREN) {
@@ -835,7 +834,7 @@ static void print_s(statement* state, traversal_algorithm* algo) {
 static void print_sl(statement_list* sl, traversal_algorithm* algo) {
     UNUSED(sl);
     print_indent(algo);
-    printf(MAG "<Statement List Item %p>\n" RESET, (void*)sl);
+    printf(MAG "<Statement List Item %p>\n" RESET, sl);
 }
 
 void traverse_ast(statement_list* list, traversal_algorithm* algo) {

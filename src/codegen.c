@@ -775,7 +775,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 	if (!get_settings_flag(SETTINGS_REPL)) {
 		i = verify_header(bytecode);
 	}
-	for (;;) {
+	forever {
 		unsigned int start = i;
 		fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
 		opcode op = bytecode[i++];
@@ -897,7 +897,7 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 	if (!get_settings_flag(SETTINGS_REPL)) {
 		i = verify_header(buffer);
 	}
-	for (;;) {
+	forever {
 		opcode op = buffer[i++];
 		if (op == OP_PUSH) {
 			size_t tokLoc = i;

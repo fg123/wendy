@@ -648,14 +648,11 @@ static data eval_binop(operator op, data a, data b) {
 		}
 		int list_size = a.type == D_STRING ? strlen(a.value.string) :
 											 list_header.value.number;
-//      printf("LIST SIZE IS: %d\n", list_size);
-		// Pull list header reference from list object.
 		address id_address = a.value.number;
 		if (b.type != D_NUMBER && b.type != D_RANGE) {
 			error_runtime(line, VM_INVALID_LIST_SUBSCRIPT);
 			return none_data();
 		}
-//      printf("TDATA NUM IS %d\n", (int)(b.value.number));
 		if ((b.type == D_NUMBER && (int)(b.value.number) >= list_size) ||
 			(b.type == D_RANGE &&
 			((range_start(b) > list_size || range_end(b) > list_size ||
@@ -1110,8 +1107,7 @@ static data value_of(data a) {
 }
 
 static data char_of(data a) {
-	if (a.type == D_NUMBER && a.value.number >= CHAR_MIN
-		&& a.value.number <= CHAR_MAX) {
+	if (a.type == D_NUMBER && a.value.number >= 0 && a.value.number <= 127) {
 		data res = make_data(D_STRING, data_value_str(" "));
 		res.value.string[0] = (char)a.value.number;
 		return res;
@@ -1153,7 +1149,7 @@ static data type_of(data a) {
 		case D_OBJ_TYPE:
 			return make_data(D_OBJ_TYPE, data_value_str("type"));
 		case D_ANY:
-			return make_data(D_ANY, data_value_str("any"));
+			return make_data(D_OBJ_TYPE, data_value_str("any"));
 		case D_STRUCT_INSTANCE: {
 			data instance_loc = memory[(int)(a.value.number)];
 			return make_data(D_OBJ_TYPE, data_value_str(

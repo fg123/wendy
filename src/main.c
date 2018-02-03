@@ -175,7 +175,7 @@ int main(int argc, char** argv) {
         set_settings_flag(SETTINGS_REPL);
         push_frame("main", 0, 0);
         bool has_run = false;
-        while (1) {
+        forever {
             size_t source_size = 1;
             source_to_run[0] = 0;
             bool first = true;

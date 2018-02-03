@@ -1,4 +1,4 @@
-//#define _GNU_SOURCE
+#define _GNU_SOURCE
 #include "error.h"
 #include "memory.h"
 #include "source.h"

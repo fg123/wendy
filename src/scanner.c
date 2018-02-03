@@ -220,7 +220,6 @@ static void handle_number() {
     if (peek() == '.' && is_digit(peek_next())) {
         // Consume the "."
         advance();
-
         while (is_digit(peek())) advance();
     }
 
