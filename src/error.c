@@ -20,7 +20,7 @@ bool get_error_flag() {
 }
 
 // Error Functions:
-void print_verbose_info() {
+void print_verbose_info(void) {
 	if (get_settings_flag(SETTINGS_VERBOSE)) {
 		fprintf(stderr, RED "VERBOSE ERROR DUMP\n" RESET);
 		fprintf(stderr, GRN "Limits\n" RESET);

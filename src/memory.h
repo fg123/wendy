@@ -11,16 +11,16 @@
 typedef unsigned int address;
 
 typedef struct {
-    char id[MAX_IDENTIFIER_LEN + 1];
-    address val;
-    bool is_closure;
+	char id[MAX_IDENTIFIER_LEN + 1];
+	address val;
+	bool is_closure;
 } stack_entry;
 
 typedef struct mem_block mem_block;
 struct mem_block {
-    size_t size;
-    address start;
-    mem_block* next;
+	size_t size;
+	address start;
+	mem_block* next;
 };
 
 extern data* memory;
@@ -155,7 +155,7 @@ address create_closure(void);
 void write_state(FILE* fp);
 
 // push_mem_reg(memory_register) saves the memory register to the stack
-void push_mem_reg(address memory_register);
+void push_mem_reg(address memory_register, int line);
 
 // pop_mem_reg() pops the saved memory register
 address pop_mem_reg(void);

@@ -10,90 +10,90 @@
 //   [scanner].
 
 #define FOREACH_TOKEN(OP) \
-    OP(T_EMPTY) \
-    OP(T_LEFT_PAREN) \
-    OP(T_RIGHT_PAREN) \
-    OP(T_LEFT_BRACE) \
-    OP(T_RIGHT_BRACE) \
-    OP(T_LEFT_BRACK) \
-    OP(T_RIGHT_BRACK) \
-    OP(T_DEBUG) \
-    OP(T_COMMA) \
-    OP(T_DOT) \
-    OP(T_MINUS) \
-    OP(T_PLUS) \
-    OP(T_ASSIGN_PLUS) \
-    OP(T_ASSIGN_MINUS) \
-    OP(T_ASSIGN_STAR) \
-    OP(T_ASSIGN_SLASH) \
-    OP(T_ASSIGN_INTSLASH) \
-    OP(T_SEMICOLON) \
-    OP(T_SLASH) \
-    OP(T_STAR) \
-    OP(T_COLON) \
-    OP(T_AT) \
-    OP(T_HASH) \
-    OP(T_PERCENT) \
-    OP(T_INTSLASH) \
-    OP(T_TILDE) \
-    OP(T_RANGE_OP) \
-    OP(T_NOT) \
-    OP(T_NOT_EQUAL) \
-    OP(T_EQUAL) \
-    OP(T_EQUAL_EQUAL) \
-    OP(T_GREATER) \
-    OP(T_GREATER_EQUAL) \
-    OP(T_LESS) \
-    OP(T_LESS_EQUAL) \
-    OP(T_LAMBDA) \
-    OP(T_B_COMMENT_START) \
-    OP(T_B_COMMENT_END) \
-    OP(T_IDENTIFIER) \
-    OP(T_STRING) \
-    OP(T_NUMBER) \
-    OP(T_OBJ_TYPE) \
-    OP(T_AND) \
-    OP(T_OR) \
-    OP(T_IF) \
-    OP(T_IN) \
-    OP(T_ELSE) \
-    OP(T_ELSEIF) \
-    OP(T_TRUE) \
-    OP(T_FALSE) \
-    OP(T_LET) \
-    OP(T_SET) \
-    OP(T_LOOP) \
-    OP(T_DEFFN) \
-    OP(T_RET) \
-    OP(T_INPUT) \
-    OP(T_INC) \
-    OP(T_DEC) \
-    OP(T_STRUCT) \
-    OP(T_REQ) \
-    OP(T_NATIVE) \
-    OP(T_NONE) \
-    OP(T_NONERET) \
-    OP(T_MEMBER) \
+	OP(T_EMPTY) \
+	OP(T_LEFT_PAREN) \
+	OP(T_RIGHT_PAREN) \
+	OP(T_LEFT_BRACE) \
+	OP(T_RIGHT_BRACE) \
+	OP(T_LEFT_BRACK) \
+	OP(T_RIGHT_BRACK) \
+	OP(T_DEBUG) \
+	OP(T_COMMA) \
+	OP(T_DOT) \
+	OP(T_MINUS) \
+	OP(T_PLUS) \
+	OP(T_ASSIGN_PLUS) \
+	OP(T_ASSIGN_MINUS) \
+	OP(T_ASSIGN_STAR) \
+	OP(T_ASSIGN_SLASH) \
+	OP(T_ASSIGN_INTSLASH) \
+	OP(T_SEMICOLON) \
+	OP(T_SLASH) \
+	OP(T_STAR) \
+	OP(T_COLON) \
+	OP(T_AT) \
+	OP(T_HASH) \
+	OP(T_PERCENT) \
+	OP(T_INTSLASH) \
+	OP(T_TILDE) \
+	OP(T_RANGE_OP) \
+	OP(T_NOT) \
+	OP(T_NOT_EQUAL) \
+	OP(T_EQUAL) \
+	OP(T_EQUAL_EQUAL) \
+	OP(T_GREATER) \
+	OP(T_GREATER_EQUAL) \
+	OP(T_LESS) \
+	OP(T_LESS_EQUAL) \
+	OP(T_LAMBDA) \
+	OP(T_B_COMMENT_START) \
+	OP(T_B_COMMENT_END) \
+	OP(T_IDENTIFIER) \
+	OP(T_STRING) \
+	OP(T_NUMBER) \
+	OP(T_OBJ_TYPE) \
+	OP(T_AND) \
+	OP(T_OR) \
+	OP(T_IF) \
+	OP(T_IN) \
+	OP(T_ELSE) \
+	OP(T_ELSEIF) \
+	OP(T_TRUE) \
+	OP(T_FALSE) \
+	OP(T_LET) \
+	OP(T_SET) \
+	OP(T_LOOP) \
+	OP(T_DEFFN) \
+	OP(T_RET) \
+	OP(T_INPUT) \
+	OP(T_INC) \
+	OP(T_DEC) \
+	OP(T_STRUCT) \
+	OP(T_REQ) \
+	OP(T_NATIVE) \
+	OP(T_NONE) \
+	OP(T_NONERET) \
+	OP(T_MEMBER) \
 	OP(T_DOLLAR_SIGN)
 
 typedef enum {
-    FOREACH_TOKEN(ENUM)
+	FOREACH_TOKEN(ENUM)
 } token_type;
 
 static const char *token_string[] = {
-    FOREACH_TOKEN(STRING)
+	FOREACH_TOKEN(STRING)
 };
 
 typedef union {
-    double number;
-    char string[MAX_STRING_LEN];
+	double number;
+	char string[MAX_STRING_LEN];
 } token_data;
 
 typedef struct {
-    token_type t_type;
-    int t_line;
-    int t_col;
-    token_data t_data;
+	token_type t_type;
+	int t_line;
+	int t_col;
+	token_data t_data;
 } token;
 
 // make_token(t, d) returns a new token

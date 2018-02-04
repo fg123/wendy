@@ -36,7 +36,7 @@ int verify_header(uint8_t* bytecode) {
 	return 0;
 }
 
-static void guarantee_size() {
+static void guarantee_size(void) {
 	if (size + CODEGEN_PAD_SIZE > capacity) {
 		capacity *= 2;
 		uint8_t* re = safe_realloc(bytecode, capacity * sizeof(uint8_t));
@@ -811,7 +811,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 				p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
 			}
 		}
-		else if (op == OP_CHTYPE || op == OP_MKPTR) {
+		else if (op == OP_MKPTR) {
 			data_type t = bytecode[i++];
 			p += fprintf(buffer, "%s", data_string[t]);
 		}
@@ -945,8 +945,8 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 			get_address(buffer + i, &i);
 			get_string(buffer + i, &i);
 		}
-		else if (op == OP_CHTYPE || op == OP_REQ || op == OP_MKPTR ||
-				 op == OP_BIN || op == OP_UNA || op == OP_RBIN || 
+		else if (op == OP_REQ || op == OP_MKPTR ||
+				 op == OP_BIN || op == OP_UNA || op == OP_RBIN ||
 				 op == OP_WRITE) {
 			i++;
 		}

@@ -121,6 +121,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 		}
 	}
 	for (i = start_at;;) {
+		if (free_memory->size == 107060) {
+			printf("BROKEN\n");
+		}
 		reset_error_flag();
 		opcode op = bytecode[i++];
 		switch (op) {
@@ -148,7 +151,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_POP: {
-				pop_arg(line);
+				data r = pop_arg(line);
+				destroy_data(&r);
 				break;
 			}
 			case OP_BIN: {
@@ -172,6 +176,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				}
 				else {
 					push_arg(eval_binop(op, a, b), line);
+					destroy_data(&a);
+					destroy_data(&b);
 				}
 				safe_free(a_and_b);
 				safe_free(any_a);
@@ -199,6 +205,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				}
 				else {
 					push_arg(eval_binop(op, a, b), line);
+					destroy_data(&a);
+					destroy_data(&b);
 				}
 				safe_free(a_and_b);
 				safe_free(any_a);
@@ -217,6 +225,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				}
 				else {
 					push_arg(eval_uniop(op, a), line);
+					destroy_data(&a);
 				}
 				safe_free(fn_name);
 				break;
@@ -226,11 +235,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				address args = get_address(ag, &i);
 				char* name = get_string(bytecode + i, &i);
 				native_call(name, args, line);
-				break;
-			}
-			case OP_CHTYPE: {
-				data* t = top_arg(line);
-				t->type = bytecode[i++];
 				break;
 			}
 			case OP_BIND: {
@@ -300,7 +304,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				}
 				if (jump)  {
 					// Pop Condition too!
-					pop_arg(line);
+					data res = pop_arg(line);
+					destroy_data(&res);
 					i = end_of_loop;
 				}
 				break;
@@ -309,10 +314,10 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				// TODO Some Memory Issues Here No Doubt
 				char* user_index = get_string(bytecode + i, &i);
 				char* loop_index_string = get_string(bytecode + i, &i);
-				data loop_index_token = *(get_value_of_id(loop_index_string, line));
-				int index = loop_index_token.value.number;
+				data* loop_index_token = get_value_of_id(loop_index_string, line);
+				int index = loop_index_token->value.number;
 				data condition = pop_arg(line);
-				data res = loop_index_token;
+				data res;
 				if (condition.type == D_LIST) {
 					address lst = condition.value.number;
 					res = copy_data(memory[lst + 1 + index]);
@@ -333,8 +338,12 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					r.value.string[1] = 0;
 					res = r;
 				}
+				else {
+					res = copy_data(*loop_index_token);
+				}
 				address mem_to_mod = get_address_of_id(user_index, line);
 				replace_memory(res, mem_to_mod, -1);
+				destroy_data(&condition);
 				break;
 			}
 			case OP_INC: {
@@ -355,7 +364,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_FRM: {
 				push_auto_frame(i, "automatic", line);
-				push_mem_reg(memory_register);
+				push_mem_reg(memory_register, line);
 				break;
 			}
 			case OP_MPTR: {
@@ -393,7 +402,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_MKPTR: {
-				push_arg(make_data((data_type) bytecode[i++], 
+				push_arg(make_data((data_type) bytecode[i++],
 					data_value_num(memory_register)), line);
 				break;
 			}
@@ -414,6 +423,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					error_runtime(line, VM_LIST_REF_OUT_RANGE);
 				}
 				memory_register = lst_start + index + 1;
+				destroy_data(&in);
 				break;
 			}
 			case OP_CLOSUR: {
@@ -491,6 +501,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				if (top.type == D_FALSE) {
 					i = addr;
 				}
+				destroy_data(&top);
 				break;
 			}
 			case OP_CALL:
@@ -508,7 +519,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				}
 				push_frame(function_disp, i, line);
 				safe_free(function_disp);
-				push_mem_reg(memory_register);
+				push_mem_reg(memory_register, line);
 				if (top.type == D_STRUCT) {
 					address j = top.value.number;
 					top = memory[j + 3];
@@ -575,14 +586,14 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_READ: {
-				push_arg(memory[memory_register], line);
+				push_arg(copy_data(memory[memory_register]), line);
 				break;
 			}
 			case OP_WRITE: {
 				size_t size = bytecode[i++];
 				for (address j = memory_register + size - 1;
 						j >= memory_register; j--) {
-					memory[j] = pop_arg(line);
+					replace_memory(pop_arg(line), j, line);
 					if (memory[j].type == D_FUNCTION) {
 						// Write Name to Function
 						char* bind_name = last_pushed_identifier;
@@ -597,6 +608,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				if (t.type != D_NONERET) {
 					print_data(&t);
 				}
+				destroy_data(&t);
 				break;
 			}
 			case OP_OUTL: {
@@ -604,6 +616,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				if (t.type != D_NONERET) {
 					print_data_inline(&t, stdout);
 				}
+				destroy_data(&t);
 				break;
 			}
 			case OP_IN: {

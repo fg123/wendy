@@ -8,50 +8,50 @@
 // This module manages the data model for WendyScript
 
 #define FOREACH_DATA(OP) \
-    OP(D_EMPTY) \
-    OP(D_IDENTIFIER) \
-    OP(D_STRING) \
-    OP(D_NUMBER) \
-    OP(D_ADDRESS) \
-    OP(D_INTERNAL_POINTER) \
-    OP(D_MEMBER) \
-    OP(D_FUNCTION) \
-    OP(D_CLOSURE) \
-    OP(D_LIST) \
-    OP(D_LIST_HEADER) \
-    OP(D_RANGE) \
-    OP(D_OBJ_TYPE) \
-    OP(D_STRUCT) \
-    OP(D_STRUCT_NAME) \
-    OP(D_STRUCT_METADATA) \
-    OP(D_STRUCT_SHARED) \
-    OP(D_STRUCT_PARAM) \
-    OP(D_STRUCT_INSTANCE) \
-    OP(D_STRUCT_INSTANCE_HEAD) \
-    OP(D_STRUCT_FUNCTION) \
-    OP(D_NONERET) \
-    OP(D_NONE) \
-    OP(D_TRUE) \
-    OP(D_FALSE) \
-    OP(D_MEMBER_IDENTIFIER) \
-    OP(D_ANY) // No way for client to construct this, can only have a type <any>
+	OP(D_EMPTY) \
+	OP(D_IDENTIFIER) \
+	OP(D_STRING) \
+	OP(D_NUMBER) \
+	OP(D_ADDRESS) \
+	OP(D_INTERNAL_POINTER) \
+	OP(D_MEMBER) \
+	OP(D_FUNCTION) \
+	OP(D_CLOSURE) \
+	OP(D_LIST) \
+	OP(D_LIST_HEADER) \
+	OP(D_RANGE) \
+	OP(D_OBJ_TYPE) \
+	OP(D_STRUCT) \
+	OP(D_STRUCT_NAME) \
+	OP(D_STRUCT_METADATA) \
+	OP(D_STRUCT_SHARED) \
+	OP(D_STRUCT_PARAM) \
+	OP(D_STRUCT_INSTANCE) \
+	OP(D_STRUCT_INSTANCE_HEAD) \
+	OP(D_STRUCT_FUNCTION) \
+	OP(D_NONERET) \
+	OP(D_NONE) \
+	OP(D_TRUE) \
+	OP(D_FALSE) \
+	OP(D_MEMBER_IDENTIFIER) \
+	OP(D_ANY) // No way for client to construct this, can only have a type <any>
 
 typedef enum {
-    FOREACH_DATA(ENUM)
+	FOREACH_DATA(ENUM)
 } data_type;
 
 static const char *data_string[] = {
-    FOREACH_DATA(STRING)
+	FOREACH_DATA(STRING)
 };
 
 typedef union {
-    double number;
-    char* string;
+	double number;
+	char* string;
 } data_value;
 
 typedef struct {
-    data_type type;
-    data_value value;
+	data_type type;
+	data_value value;
 } data;
 
 data make_data(data_type type, data_value value);
