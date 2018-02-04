@@ -211,24 +211,29 @@ static data native_readRaw(data* args) {
 }
 
 static data native_readFile(data* args) {
-	char* file = native_to_string(args);
-	FILE *f = fopen(file, "rb");
-	fseek(f, 0, SEEK_END);
-	long fsize = ftell(f);
-	fseek(f, 0, SEEK_SET);  //same as rewind(f);
-	data_value r;
-	r.string = safe_malloc(fsize + 1);
-	fread(r.string, fsize, 1, f);
-	fclose(f);
-	r.string[fsize] = 0;
-	return make_data(D_STRING, r);
+	if (!get_settings_flag(SETTINGS_SANDBOXED)) {
+		char* file = native_to_string(args);
+		FILE *f = fopen(file, "rb");
+		fseek(f, 0, SEEK_END);
+		long fsize = ftell(f);
+		fseek(f, 0, SEEK_SET);  //same as rewind(f);
+		data_value r;
+		r.string = safe_malloc(fsize + 1);
+		fread(r.string, fsize, 1, f);
+		fclose(f);
+		r.string[fsize] = 0;
+		return make_data(D_STRING, r);
+	}
+	return noneret_data();
 }
 
 static data native_writeFile(data* args) {
-	char* file = native_to_string(args);
-	char* content = native_to_string(args + 1);
-	FILE *f = fopen(file, "wb");
-	fwrite(content, 1, strlen(content), f);
+	if (!get_settings_flag(SETTINGS_SANDBOXED)) {
+		char* file = native_to_string(args);
+		char* content = native_to_string(args + 1);
+		FILE *f = fopen(file, "wb");
+		fwrite(content, 1, strlen(content), f);
+	}
 	return noneret_data();
 }
 
