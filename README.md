@@ -28,9 +28,7 @@ WendyScript can be compiled and run online at [felixguo.me/#wendyScript](http://
 
 Technical implementation details can be found at the [wiki](https://github.com/fg123/wendy/wiki).
 
-The source can be built by using the build.sh file.
+The source can be built by simply running.
 ```
-./build.sh
+make
 ```
-This script will run a `make clean`, `make` as well as execute a variety of input-output tests in the `/tests` folder.
-This ensures the build of WendyScript works as intended.
