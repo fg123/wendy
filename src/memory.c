@@ -465,7 +465,7 @@ data* top_arg(int line) {
 data pop_arg(int line) {
 	if (arg_pointer != MEMORY_SIZE - 1) {
 		data ret = copy_data(memory[++arg_pointer]);
-		destroy_data(&memory[arg_pointer - 1]);
+		destroy_data(&memory[arg_pointer]);
 		return ret;
 	}
 	error_runtime(line, MEMORY_STACK_UNDERFLOW);
@@ -572,7 +572,6 @@ address get_address_of_id(char* id, int line) {
 	}
 	address frame_ptr = get_fn_frame_ptr();
 	for (size_t i = stack_pointer - 1; i > frame_ptr; i--) {
-	//for (size_t i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
 		if (streq(id, call_stack[i].id)) {
 			return call_stack[i].val;
 		}
@@ -592,7 +591,6 @@ address get_stack_pos_of_id(char* id, int line) {
 	}
 	address frame_ptr = get_fn_frame_ptr();
 	for (size_t i = stack_pointer - 1; i > frame_ptr; i--) {
-	//for (size_t i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
 		if (streq(id, call_stack[i].id)) {
 			return i;
 		}

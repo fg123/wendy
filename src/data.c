@@ -56,7 +56,7 @@ data_value data_value_str(char *str) {
 
 data_value data_value_size(int size) {
 	data_value r;
-	r.string = safe_calloc((size + 1), sizeof(int));
+	r.string = safe_calloc((size + 1), sizeof(char));
 	return r;
 }
 

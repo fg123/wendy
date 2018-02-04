@@ -121,9 +121,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 		}
 	}
 	for (i = start_at;;) {
-		if (free_memory->size == 107060) {
-			printf("BROKEN\n");
-		}
 		reset_error_flag();
 		opcode op = bytecode[i++];
 		switch (op) {
@@ -618,6 +615,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				destroy_data(&t);
 				break;
 			}
+			// DEPRECATED
 			case OP_IN: {
 				// Scan one line from the input.
 				char buffer[MAX_STRING_LEN];
@@ -956,7 +954,7 @@ static data eval_binop(operator op, data a, data b) {
 				for (int i = 0; i < size_a; i++) {
 					new_list[n++] = copy_data(memory[start_a + i + 1]);
 				}
-				new_list[n++] = b;
+				new_list[n++] = copy_data(b);
 				address new_adr = push_memory_a(new_list, size_a + 1, line);
 				safe_free(new_list);
 				return make_data(D_LIST, data_value_num(new_adr));
@@ -989,7 +987,7 @@ static data eval_binop(operator op, data a, data b) {
 				// element + list
 				data* new_list = safe_malloc((size_b + 1) * sizeof(data));
 				int n = 0;
-				new_list[n++] = a;
+				new_list[n++] = copy_data(a);
 				for (int i = 0; i < size_b; i++) {
 					new_list[n++] = copy_data(memory[start_b + i + 1]);
 				}

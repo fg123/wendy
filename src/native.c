@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include <errno.h>
 
 char** program_arguments = 0;
 int program_arguments_count = 0;
@@ -27,6 +28,10 @@ static data native_printBytecode(data* args);
 static data native_garbageCollect(data* args);
 static data native_printFreeMemory(data* args);
 static data native_getProgramArgs(data* args);
+static data native_read(data* args);
+static data native_readRaw(data* args);
+static data native_readFile(data* args);
+static data native_writeFile(data* args);
 
 // Math Functions
 static data native_pow(data* args);
@@ -46,7 +51,11 @@ static native_function native_functions[] = {
 	{ "pow", 2, native_pow },
 	{ "ln", 1, native_ln },
 	{ "log", 1, native_log },
-	{ "getProgramArgs", 0, native_getProgramArgs }
+	{ "getProgramArgs", 0, native_getProgramArgs },
+	{ "io_read", 0, native_read },
+	{ "io_readRaw", 0, native_readRaw },
+	{ "io_readFile", 1, native_readFile },
+	{ "io_writeFile", 2, native_writeFile }
 };
 
 static double native_to_numeric(data* t) {
@@ -172,6 +181,57 @@ static data native_examineMemory(data* args) {
 	return noneret_data();
 }
 
+static data native_read(data* args) {
+	UNUSED(args);
+	// Scan one line from the input.
+	char buffer[MAX_STRING_LEN];
+	while(!fgets(buffer, MAX_STRING_LEN, stdin)) {};
+
+	char* end_ptr = buffer;
+	errno = 0;
+	double d = strtod(buffer, &end_ptr);
+	// null terminator or newline character
+	if (errno != 0 || (*end_ptr != 0 && *end_ptr != 10)) {
+		size_t len = strlen(buffer);
+		// remove last newline
+		buffer[len - 1] = 0;
+		return make_data(D_STRING, data_value_str(buffer));
+	}
+	return make_data(D_NUMBER, data_value_num(d));
+}
+
+static data native_readRaw(data* args) {
+	UNUSED(args);
+	// Scan one line from the input.
+	char buffer[MAX_STRING_LEN];
+	while(!fgets(buffer, MAX_STRING_LEN, stdin)) {};
+	size_t len = strlen(buffer);
+	buffer[len - 1] = 0;
+	return make_data(D_STRING, data_value_str(buffer));
+}
+
+static data native_readFile(data* args) {
+	char* file = native_to_string(args);
+	FILE *f = fopen(file, "rb");
+	fseek(f, 0, SEEK_END);
+	long fsize = ftell(f);
+	fseek(f, 0, SEEK_SET);  //same as rewind(f);
+	data_value r;
+	r.string = safe_malloc(fsize + 1);
+	fread(r.string, fsize, 1, f);
+	fclose(f);
+	r.string[fsize] = 0;
+	return make_data(D_STRING, r);
+}
+
+static data native_writeFile(data* args) {
+	char* file = native_to_string(args);
+	char* content = native_to_string(args + 1);
+	FILE *f = fopen(file, "wb");
+	fwrite(content, 1, strlen(content), f);
+	return noneret_data();
+}
+
 void native_call(char* function_name, int expected_args, int line) {
 	int functions = sizeof(native_functions) / sizeof(native_functions[0]);
 	bool found = false;
@@ -187,6 +247,9 @@ void native_call(char* function_name, int expected_args, int line) {
 				arg_list[j] = pop_arg(line);
 			}
 			push_arg(native_functions[i].function(arg_list), line);
+			for (int i = 0; i < argc; i++) {
+				destroy_data(&arg_list[i]);
+			}
 			safe_free(arg_list);
 			found = true;
 			break;
