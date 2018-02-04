@@ -16,6 +16,10 @@
 #define write_byte(op) bytecode[size++] = op;
 
 // Implementation of Wendy ByteCode Generator
+const char* opcode_string[] = {
+	OPCODE_STRING,
+	0 // Sentinal value used when traversing through this array; acts as a NULL
+};
 
 static uint8_t* bytecode = 0;
 static size_t capacity = 0;
@@ -456,7 +460,7 @@ static void codegen_statement(void* expre) {
 					// OPCODE or DATA_TYPE, otherwise fall to else and becomes
 					//   regular IDENTIFIER
 					bool found = false;
-					for (size_t i = 0; i < array_size(opcode_string); i++) {
+					for (size_t i = 0; opcode_string[i]; i++) {
 						if (streq(opcode_string[i], byte.t_data.string)) {
 							write_opcode((opcode) i);
 							found = true;
@@ -464,7 +468,7 @@ static void codegen_statement(void* expre) {
 						}
 					}
 					if (!found) {
-						for (size_t i = 0; i < array_size(data_string); i++) {
+						for (size_t i = 0; data_string[i]; i++) {
 							if (streq(data_string[i], byte.t_data.string)) {
 								curr = curr->next;
 								if (!curr) {

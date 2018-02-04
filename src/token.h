@@ -80,9 +80,7 @@ typedef enum {
 	FOREACH_TOKEN(ENUM)
 } token_type;
 
-static const char *token_string[] = {
-	FOREACH_TOKEN(STRING)
-};
+extern const char* token_string[];
 
 typedef union {
 	double number;

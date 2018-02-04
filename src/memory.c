@@ -120,7 +120,7 @@ address create_closure(void) {
 	}
 	if (actual_size <= 0) {
 		safe_free(closure);
-		return -1;
+		return NO_CLOSURE;
 	}
 	closure = safe_realloc(closure, actual_size * sizeof(stack_entry));
 	closure_list[closure_list_pointer] = closure;

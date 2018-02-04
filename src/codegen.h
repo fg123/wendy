@@ -110,13 +110,14 @@ typedef enum opcode {
 	OP_RBW, OP_HALT, OP_SRC, OP_NATIVE, OP_IMPORT }
 	opcode;
 
-static char* opcode_string[] = {
-	"push", "pop", "bin", "una", "call", "ret", "bind", "req",
-	"where", "out", "outl", "in", "mkptr", "range", "read", "write", "jmp",
-	"jif", "frm", "end", "ljmp", "lbind", "inc", "dec", "nthptr",
-	"memptr", "assert", "mptr", "closur", "rbin", "rbw",
+#define OPCODE_STRING \
+	"push", "pop", "bin", "una", "call", "ret", "bind", "req",\
+	"where", "out", "outl", "in", "mkptr", "range", "read", "write", "jmp",\
+	"jif", "frm", "end", "ljmp", "lbind", "inc", "dec", "nthptr",\
+	"memptr", "assert", "mptr", "closur", "rbin", "rbw",\
 	"halt", "src", "native", "import"
-};
+
+extern const char* opcode_string[];
 
 // generate_code(ast) generates Wendy ByteCode based on the ast and
 //   returns the ByteArray

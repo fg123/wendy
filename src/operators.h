@@ -14,10 +14,11 @@ typedef enum {
 	O_SUBSCRIPT
 } operator;
 
-static const char *operator_string[] = {
-	"+", "-", "*", "/", "%", "\\", "and", "or", "->", "!=", "==",
-	"~", "~", ">", "<", ">=", "<=", "!", "-", ".", "["
-};
+#define OPERATOR_STRING \
+	"+", "-", "*", "/", "%", "\\", "and", "or", "->", "!=",\
+	"==", "~", "~", ">", "<", ">=", "<=", "!", "-", ".", "["
+
+extern const char* operator_string[];
 
 operator token_operator_binary(token op);
 

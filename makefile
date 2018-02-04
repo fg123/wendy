@@ -3,7 +3,7 @@ ODIR = build
 BINDIR = bin
 SRCDIR = src
 INCDIR = src
-WARNING_FLAGS = -Wall -Wextra -Werror -Wno-unused-variable -Wstrict-prototypes
+WARNING_FLAGS = -Wall -Wextra -Werror -Wstrict-prototypes
 CFLAGS = -g -std=c99 $(WARNING_FLAGS) $(release)
 EXTERNAL_LIBRARIES = -lreadline -lm
 

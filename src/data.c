@@ -7,6 +7,12 @@
 #include <time.h>
 
 // Implementation for Data Model
+
+const char* data_string[] = {
+	FOREACH_DATA(STRING)
+	0 // Sentinal value used when traversing through this array; acts as a NULL
+};
+
 data make_data(data_type type, data_value value) {
 	data _data = { type, value };
 	return _data;

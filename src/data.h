@@ -40,9 +40,7 @@ typedef enum {
 	FOREACH_DATA(ENUM)
 } data_type;
 
-static const char *data_string[] = {
-	FOREACH_DATA(STRING)
-};
+extern const char* data_string[];
 
 typedef union {
 	double number;

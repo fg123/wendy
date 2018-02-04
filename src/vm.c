@@ -571,8 +571,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				i = addr;
 				// push closure variables
 				address cloc = memory[loc + 1].value.number;
-				// TODO: Figure out what the fuck is going on here...?
-				if (cloc != (unsigned int)-1) {
+				if (cloc != NO_CLOSURE) {
 					size_t size = closure_list_sizes[cloc];
 					for (size_t i = 0; i < size; i++) {
 						copy_stack_entry(closure_list[cloc][i], line);

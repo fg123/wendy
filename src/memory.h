@@ -8,6 +8,9 @@
 // memory.h - Felix Guo
 // This module manages the memory model for WendyScript.
 
+// Sentinal value for when no closure needs to be created
+#define NO_CLOSURE (unsigned int)(-1)
+
 typedef unsigned int address;
 
 typedef struct {

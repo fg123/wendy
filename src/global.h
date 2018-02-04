@@ -70,7 +70,6 @@ extern bool last_printed_newline;
 
 char* w_strdup(const char* s);
 #define strdup(x) w_strdup(x)
-#define array_size(foo) (sizeof(foo)/sizeof(foo[0]))
 #define UNUSED(var) (void)(var)
 #define forever for(;;)
 
