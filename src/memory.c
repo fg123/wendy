@@ -449,7 +449,7 @@ void print_call_stack(int maxlines) {
 }
 
 void push_arg(data t, int line) {
-    write_memory(arg_pointer, t);
+    replace_memory(t, arg_pointer, line);
     arg_pointer--;
     check_memory(line);
 }
@@ -465,6 +465,7 @@ data* top_arg(int line) {
 data pop_arg(int line) {
     if (arg_pointer != MEMORY_SIZE - 1) {
         data ret = copy_data(memory[++arg_pointer]);
+        destroy_data(&memory[arg_pointer - 1]);
         return ret;
     }
     error_runtime(line, MEMORY_STACK_UNDERFLOW);

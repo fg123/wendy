@@ -56,7 +56,7 @@ static bool _id_exist(char* fn) {
 	return id_exist(fn, true);
 }
 
-static inline char* get_binary_overload_name(operator op, data a, data b) {
+static char* get_binary_overload_name(operator op, data a, data b) {
 	data type_a = type_of(a);
 	data type_b = type_of(b);
 	int len = strlen(OPERATOR_OVERLOAD_PREFIX);
@@ -69,10 +69,12 @@ static inline char* get_binary_overload_name(operator op, data a, data b) {
 	strcat(fn_name, type_a.value.string);
 	strcat(fn_name, operator_string[op]);
 	strcat(fn_name, type_b.value.string);
+	destroy_data(&type_a);
+	destroy_data(&type_b);
 	return fn_name;
 }
 
-static inline char* get_unary_overload_name(operator op, data a) {
+static char* get_unary_overload_name(operator op, data a) {
 	data type_a = type_of(a);
 	int len = strlen(OPERATOR_OVERLOAD_PREFIX);
 	len += strlen(operator_string[op]);
@@ -82,6 +84,7 @@ static inline char* get_unary_overload_name(operator op, data a) {
 	strcat(fn_name, OPERATOR_OVERLOAD_PREFIX);
 	strcat(fn_name, operator_string[op]);
 	strcat(fn_name, type_a.value.string);
+	destroy_data(&type_a);
 	return fn_name;
 }
 
@@ -152,9 +155,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				operator op = bytecode[i++];
 				data b = pop_arg(line);
 				data a = pop_arg(line);
+				data any_d = any_data();
 				char* a_and_b = get_binary_overload_name(op, a, b);
-				char* any_a = get_binary_overload_name(op, any_data(), b);
-				char* any_b = get_binary_overload_name(op, a, any_data());
+				char* any_a = get_binary_overload_name(op, any_d, b);
+				char* any_b = get_binary_overload_name(op, a, any_d);
+				destroy_data(&any_d);
 				char* fn_name = first_that(_id_exist, a_and_b, any_a, any_b);
 				if (fn_name) {
 					push_arg(a, line);
@@ -177,9 +182,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				operator op = bytecode[i++];
 				data a = pop_arg(line);
 				data b = pop_arg(line);
+				data any_d = any_data();
 				char* a_and_b = get_binary_overload_name(op, a, b);
-				char* any_a = get_binary_overload_name(op, any_data(), b);
-				char* any_b = get_binary_overload_name(op, a, any_data());
+				char* any_a = get_binary_overload_name(op, any_d, b);
+				char* any_b = get_binary_overload_name(op, a, any_d);
+				destroy_data(&any_d);
 				char* fn_name = first_that(_id_exist, a_and_b, any_a, any_b);
 				if (fn_name) {
 					push_arg(b, line);
@@ -382,7 +389,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					address fn_adr = value.value.number;
 					strcpy(memory[fn_adr + 2].value.string, bind_name);
 				}
-				memory[memory_register] = value;
+				replace_memory(value, memory_register, line);
 				break;
 			}
 			case OP_MKPTR: {
