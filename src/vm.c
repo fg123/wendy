@@ -339,7 +339,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					res = copy_data(*loop_index_token);
 				}
 				address mem_to_mod = get_address_of_id(user_index, line);
-				replace_memory(res, mem_to_mod, -1);
+				write_memory(mem_to_mod, res, -1);
 				destroy_data(&condition);
 				break;
 			}
@@ -395,7 +395,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					address fn_adr = value.value.number;
 					strcpy(memory[fn_adr + 2].value.string, bind_name);
 				}
-				replace_memory(value, memory_register, line);
+				write_memory(memory_register, value, line);
 				break;
 			}
 			case OP_MKPTR: {
@@ -589,7 +589,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				size_t size = bytecode[i++];
 				for (address j = memory_register + size - 1;
 						j >= memory_register; j--) {
-					replace_memory(pop_arg(line), j, line);
+					write_memory(j, pop_arg(line), line);
 					if (memory[j].type == D_FUNCTION) {
 						// Write Name to Function
 						char* bind_name = last_pushed_identifier;
@@ -629,11 +629,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					size_t len = strlen(buffer);
 					// remove last newline
 					buffer[len - 1] = 0;
-					write_memory(memory_register, make_data(D_STRING, data_value_str(buffer)));
+					write_memory(memory_register, make_data(D_STRING, data_value_str(buffer)), line);
 				}
 				else {
 					// conversion successful
-					write_memory(memory_register, make_data(D_NUMBER, data_value_num(d)));
+					write_memory(memory_register, make_data(D_NUMBER, data_value_num(d)), line);
 				}
 				break;
 			}
@@ -728,7 +728,7 @@ static data eval_binop(operator op, data a, data b) {
 				start < end ? i++ : i--) {
 				new_a[n++] = copy_data(memory[array_start + i + 1]);
 			}
-			address new_aa = push_memory_a(new_a, subarray_size, line);
+			address new_aa = push_memory_wendy_list(new_a, subarray_size, line);
 			safe_free(new_a);
 			data c = make_data(D_LIST, data_value_num(new_aa));
 			return c;
@@ -935,7 +935,7 @@ static data eval_binop(operator op, data a, data b) {
 					for (int i = 0; i < size_b; i++) {
 						new_list[n++] = copy_data(memory[start_b + i + 1]);
 					}
-					address new_adr = push_memory_a(new_list, new_size, line);
+					address new_adr = push_memory_wendy_list(new_list, new_size, line);
 					safe_free(new_list);
 					return make_data(D_LIST, data_value_num(new_adr));
 				}
@@ -955,7 +955,7 @@ static data eval_binop(operator op, data a, data b) {
 					new_list[n++] = copy_data(memory[start_a + i + 1]);
 				}
 				new_list[n++] = copy_data(b);
-				address new_adr = push_memory_a(new_list, size_a + 1, line);
+				address new_adr = push_memory_wendy_list(new_list, size_a + 1, line);
 				safe_free(new_list);
 				return make_data(D_LIST, data_value_num(new_adr));
 			}
@@ -971,7 +971,7 @@ static data eval_binop(operator op, data a, data b) {
 				for (int i = 0; i < new_size; i++) {
 					new_list[n++] = copy_data(memory[(start_a + (i % size_a)) + 1]);
 				}
-				address new_adr = push_memory_a(new_list, new_size, line);
+				address new_adr = push_memory_wendy_list(new_list, new_size, line);
 				safe_free(new_list);
 				return make_data(D_LIST, data_value_num(new_adr));
 			}
@@ -991,7 +991,7 @@ static data eval_binop(operator op, data a, data b) {
 				for (int i = 0; i < size_b; i++) {
 					new_list[n++] = copy_data(memory[start_b + i + 1]);
 				}
-				address new_adr = push_memory_a(new_list, size_b + 1, line);
+				address new_adr = push_memory_wendy_list(new_list, size_b + 1, line);
 				safe_free(new_list);
 				return make_data(D_LIST, data_value_num(new_adr));
 			}
@@ -1007,7 +1007,7 @@ static data eval_binop(operator op, data a, data b) {
 				for (int i = 0; i < new_size; i++) {
 					new_list[n++] = copy_data(memory[(start_b + (i % size_b)) + 1]);
 				}
-				address new_adr = push_memory_a(new_list, new_size, line);
+				address new_adr = push_memory_wendy_list(new_list, new_size, line);
 				safe_free(new_list);
 				return make_data(D_LIST, data_value_num(new_adr));
 			}
@@ -1191,7 +1191,7 @@ static data eval_uniop(operator op, data a) {
 			for (int i = 0; i < list_size; i++) {
 				new_a[n++] = copy_data(memory[array_start + i + 1]);
 			}
-			address new_l_loc = push_memory_a(new_a, list_size, line);
+			address new_l_loc = push_memory_wendy_list(new_a, list_size, line);
 			safe_free(new_a);
 			return make_data(D_LIST, data_value_num(new_l_loc));
 		}

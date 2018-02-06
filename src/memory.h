@@ -41,7 +41,7 @@ extern address stack_pointer;
 extern address closure_list_pointer;
 extern address arg_pointer;
 
-// init_memory() allocates the memory
+// init_memory() initializes the memory module
 void init_memory(void);
 
 // c_free_memory() deallocates the memory
@@ -69,9 +69,6 @@ address pls_give_memory(size_t size, int line);
 // here_u_go(a, size) returns memory to Wendy
 void here_u_go(address a, size_t size);
 
-// memory_pointer stores the address of the next available memory space
-extern address memory_pointer;
-
 // push_frame(name) creates a new stack frame (when starting a function call)
 void push_frame(char* name, address ret, int line);
 
@@ -86,19 +83,15 @@ void push_auto_frame(address ret, char* type, int line);
 bool pop_frame(bool is_ret, address* ret);
 
 // write_memory(location, d) safely writes new data to the given location
-void write_memory(unsigned int location, data d);
+void write_memory(unsigned int location, data d, int line);
 
 // push_memory(t) adds the given number of data t into the memory in order
 //   and returns the address of the first one
 address push_memory(data t, int line);
 
-// push_memory_s(t, size) finds a continuous block of size in memory and sets
-//   it all to the given data t.
-address push_memory_s(data t, int size, int line);
-
-// push_memory_a(t, size) finds a continuous block of size in memory and sets
+// push_memory_wendy_list(t, size) finds a continuous block of size in memory and sets
 //   it to the array a appending a list header data..
-address push_memory_a(data* a, int size, int line);
+address push_memory_wendy_list(data* a, int size, int line);
 
 // push_memory_array(a, size) finds a continuous block of size in memory and
 //   sets it to the array "a" directly.
@@ -106,9 +99,6 @@ address push_memory_array(data* a, int size, int line);
 
 // pop_memory() removes a data from the memory after a push operation
 data pop_memory(void);
-
-// replace_memory(t, a) places the data t in the address a
-void replace_memory(data t, address a, int line);
 
 // push_stack_entry(id, t) adds a new entry into the
 // stack frame (eg variable declaration).
