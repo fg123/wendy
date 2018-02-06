@@ -37,7 +37,7 @@ void vm_cleanup_if_repl() {
 	safe_free(bytecode);
 }
 
-#define num_args(...)  (sizeof((char*[]){__VA_ARGS__})/sizeof(char*))
+#define num_args(...) (sizeof((char*[]){__VA_ARGS__})/sizeof(char*))
 #define first_that(condition, ...) first_that_impl(condition, num_args(__VA_ARGS__), __VA_ARGS__)
 static char* first_that_impl(bool (*condition)(char*), int count, ...) {
 	va_list ap;
@@ -659,13 +659,19 @@ static data eval_binop(operator op, data a, data b) {
 			error_runtime(line, VM_TYPE_ERROR, operator_string[op]);
 			return none_data();
 		}
-		data list_header;
-		if (a.type == D_LIST) {
-			list_header = memory[(int)a.value.number];
+
+		int list_size;
+		if (a.type == D_STRING) {
+			list_size = strlen(a.value.string);
 		}
-		int list_size = a.type == D_STRING ? strlen(a.value.string) :
-											 list_header.value.number;
-		address id_address = a.value.number;
+		else if (a.type == D_RANGE) {
+			list_size = abs(range_end(a) - range_start(a));
+		}
+		else {
+			list_size = memory[(int)a.value.number].value.number;
+		}
+		
+		
 		if (b.type != D_NUMBER && b.type != D_RANGE) {
 			error_runtime(line, VM_INVALID_LIST_SUBSCRIPT);
 			return none_data();
@@ -697,7 +703,8 @@ static data eval_binop(operator op, data a, data b) {
 			}
 			// Add 1 to offset because of the header.
 			int offset = floor(b.value.number) + 1;
-			data* c = get_value_of_address(id_address + offset, line);
+			address list_address = a.value.number;
+			data* c = get_value_of_address(list_address + offset, line);
 			return copy_data(*c);
 		}
 		else {
@@ -717,8 +724,16 @@ static data eval_binop(operator op, data a, data b) {
 			}
 			else if (a.type == D_RANGE) {
 				// Range of a Range...
-				// TODO
-				return none_data();
+				int a_start = range_start(a);
+				int a_end = range_end(a); UNUSED(a_end);
+				int b_start = range_start(b);
+				int b_end = range_end(b);
+				// Very relaxed about ranges, don't really care if it's out of
+				//   bounds for now.
+				// if (a_start + b_start > a_end || a_start + b_end < a_start) {
+				// 	error_runtime(line, VM_RANGE_REF_OUT_OF_RANGE);
+				// }
+				return range_data(a_start + b_start, a_start + b_end);
 			}
 
 			address array_start = (int)(a.value.number);

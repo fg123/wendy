@@ -116,7 +116,7 @@ static data native_log(data* args) {
 static data native_exec(data* args) {
 	char* command = native_to_string(args);
 	if (!get_settings_flag(SETTINGS_SANDBOXED)) {
-		system(command);
+		return make_data(D_NUMBER, data_value_num(system(command)));
 	}
 	return noneret_data();
 }
