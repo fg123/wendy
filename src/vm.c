@@ -308,7 +308,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_LBIND: {
-				// TODO Some Memory Issues Here No Doubt
 				char* user_index = get_string(bytecode + i, &i);
 				char* loop_index_string = get_string(bytecode + i, &i);
 				data* loop_index_token = get_value_of_id(loop_index_string, line);
@@ -374,7 +373,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_REQ: {
-				// Memory Request Instruction
 				memory_register = pls_give_memory(bytecode[i++], line);
 				break;
 			}
@@ -670,7 +668,6 @@ static data eval_binop(operator op, data a, data b) {
 		else {
 			list_size = memory[(int)a.value.number].value.number;
 		}
-		
 		
 		if (b.type != D_NUMBER && b.type != D_RANGE) {
 			error_runtime(line, VM_INVALID_LIST_SUBSCRIPT);
