@@ -284,6 +284,11 @@ static bool scan_token(void) {
 				add_token(T_DEBUG);
 				ignore_next = true;
 			}
+			else if (match('!')) {
+				// Shebang
+				while (peek() != '\n' && !is_at_end()) advance();
+				col = 1;
+			}
 			else {
 				add_token(T_LOOP);
 			}

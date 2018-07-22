@@ -29,7 +29,7 @@ static address mem_reg_pointer = 0;
 // Pointer to the end of the main() stack frame
 static address main_end_pointer = 0;
 
-static inline bool is_at_main() {
+static inline bool is_at_main(void) {
 	return frame_pointer == 0;
 }
 static inline bool is_identifier_entry(int index) {
@@ -502,7 +502,7 @@ void push_stack_entry(char* id, address val, int line) {
 	check_memory(line);
 }
 
-address get_fn_frame_ptr() {
+address get_fn_frame_ptr(void) {
 	address trace = frame_pointer;
 	while (call_stack[trace].id[0] != CHAR(FUNCTION_START)) {
 		trace = call_stack[trace].val;
