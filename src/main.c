@@ -137,6 +137,9 @@ void run(char* input_string) {
 	if(!ast_error_flag()) {
 		size_t size;
 		uint8_t* bytecode = generate_code(ast, &size);
+		if (get_settings_flag(SETTINGS_DISASSEMBLE)) {
+			print_bytecode(bytecode, stdout);
+		}
 		vm_run(bytecode, size);
 		safe_free(bytecode);
 	}

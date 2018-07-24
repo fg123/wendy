@@ -897,9 +897,11 @@ static void write_data_at_buffer(data t, uint8_t* buffer, size_t loc) {
 
 void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 	UNUSED(length);
+	// TODO: This is a little sketchy because of the difference in
+	// headers between REPL mode and not.
 	unsigned int i = 0;
-	if (!get_settings_flag(SETTINGS_REPL)) {
-		i = verify_header(buffer);
+	if (streq(WENDY_VM_HEADER, (char*)buffer)) {
+		i += strlen(WENDY_VM_HEADER) + 1;
 	}
 	forever {
 		opcode op = buffer[i++];

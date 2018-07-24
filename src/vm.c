@@ -123,6 +123,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 	for (i = start_at;;) {
 		reset_error_flag();
 		opcode op = bytecode[i++];
+		//printf("%s\n", opcode_string[op]);
 		switch (op) {
 			case OP_PUSH: {
 				data t = get_data(bytecode + i, &i);
@@ -668,7 +669,7 @@ static data eval_binop(operator op, data a, data b) {
 		else {
 			list_size = memory[(int)a.value.number].value.number;
 		}
-		
+
 		if (b.type != D_NUMBER && b.type != D_RANGE) {
 			error_runtime(line, VM_INVALID_LIST_SUBSCRIPT);
 			return none_data();
