@@ -15,13 +15,17 @@ _OBJ = main.o debugger.o scanner.o token.o memory.o error.o execpath.o ast.o \
 	operators.o dependencies.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
-all: main libraries test
+all: setup main libraries test
 
 release: release += -DRELEASE
 release: all
 
 $(ODIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
+
+setup:
+	mkdir -p $(BINDIR)
+	mkdir -p $(ODIR)
 
 main: $(OBJ)
 	$(CC) -o $(BINDIR)/wendy $^ $(EXTERNAL_LIBRARIES) $(CFLAGS)

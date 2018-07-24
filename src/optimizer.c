@@ -338,18 +338,18 @@ static expr* optimize_expr(expr* expression) {
 				case T_INTSLASH:
 					if (b != 0) {
 						op.t_data.number = (int)(a / b);
-						break;
 					}
+					break;
 				case T_SLASH:
 					if (b != 0) {
 						op.t_data.number = a / b;
-						break;
 					}
+					break;
 				case T_PERCENT:
 					if (b != 0 && a == floor(a) && b == floor(b)) {
 						op.t_data.number = (long long)a % (long long)b;
-						break;
 					}
+					break;
 				case T_MINUS:
 					op.t_data.number = a - b;
 					break;
