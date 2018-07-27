@@ -206,7 +206,7 @@ int repl(void) {
 			else {
 				input_buffer = readline("  ");
 			}
-			if(!input_buffer) {
+			if(!input_buffer || streq(input_buffer, "quit")) {
 				printf("\n");
 				goto cleanup;
 			}
