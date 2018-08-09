@@ -234,15 +234,30 @@ static void codegen_statement(void* expre) {
 			int jumpLoc = size;
 			size += sizeof(address);
 
+			// Could either be in local directory or in standard
+			// library location. Local directory prevails.
+			static char *extension = ".wc";
+			char *local_path = safe_malloc(strlen(library_name) +
+						       strlen(extension) + 1);
+			local_path[0] = 0;
+			strcat(local_path, library_name);
+			strcat(local_path, extension);
+			FILE *f = fopen(local_path, "r");
+			safe_free(local_path);
+			if (f) {
+				goto file_found;
+			}
+			// Not found, try standard library.
 			char* path = get_path();
 			long length = 0;
 			uint8_t* buffer;
 			strcat(path, "wendy-lib/");
-			strcat(path, state->op.import_statement.t_data.string);
-			strcat(path, ".wc");
-			//printf("Attempting to open: %s\n", path);
-			FILE * f = fopen(path, "r");
+			strcat(path, library_name);
+			strcat(path, extension);
+			f = fopen(path, "r");
+			safe_free(path);
 			if (f) {
+			file_found:
 				fseek (f, 0, SEEK_END);
 				length = ftell(f);
 				fseek (f, 0, SEEK_SET);
@@ -263,7 +278,6 @@ static void codegen_statement(void* expre) {
 							state->op.import_statement.t_col,
 							CODEGEN_REQ_FILE_READ_ERR);
 			}
-			safe_free(path);
 			write_address_at(size, jumpLoc);
 		}
 	}
@@ -710,7 +724,6 @@ static void codegen_expr(void* expre) {
 
 uint8_t* generate_code(statement_list* _ast, size_t* size_ptr) {
 	capacity = CODEGEN_START_SIZE;
-	init_imported_libraries_ll();
 	bytecode = safe_malloc(capacity * sizeof(uint8_t));
 	size = 0;
 	if (!get_settings_flag(SETTINGS_REPL)) {
@@ -718,7 +731,6 @@ uint8_t* generate_code(statement_list* _ast, size_t* size_ptr) {
 	}
 	codegen_statement_list(_ast);
 	write_opcode(OP_HALT);
-	free_imported_libraries_ll();
 	*size_ptr = size;
 	return bytecode;
 }

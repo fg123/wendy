@@ -4,6 +4,7 @@
 #include "data.h"
 #include "codegen.h"
 #include "vm.h"
+#include "imports.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -25,6 +26,7 @@ static data native_examineMemory(data* args);
 static data native_exec(data* args);
 static data native_getc(data* args);
 static data native_printBytecode(data* args);
+static data native_getImportedLibraries(data* args);
 static data native_garbageCollect(data* args);
 static data native_printFreeMemory(data* args);
 static data native_getProgramArgs(data* args);
@@ -46,6 +48,7 @@ static native_function native_functions[] = {
 	{ "exec", 1, native_exec },
 	{ "getc", 0, native_getc },
 	{ "printBytecode", 0, native_printBytecode },
+	{ "getImportedLibraries", 0, native_getImportedLibraries },
 	{ "garbageCollect", 0, native_garbageCollect },
 	{ "printFreeMemory", 0, native_printFreeMemory },
 	{ "pow", 2, native_pow },
@@ -89,6 +92,28 @@ static data native_printFreeMemory(data* args) {
 	UNUSED(args);
 	print_free_memory();
 	return noneret_data();
+}
+
+static data native_getImportedLibraries(data* args) {
+	UNUSED(args);
+	import_node *node = imported_libraries;
+	// Traverse once to find length
+	size_t length = 0;
+	while (node) {
+		length++;
+		node = node->next;
+	}
+	data* library_list = safe_malloc(length * sizeof(data));
+	node = imported_libraries;
+	length = 0;
+	while (node) {
+		library_list[length++] =
+			make_data(D_STRING, data_value_str(node->name));
+		node = node->next;
+	}
+	address list_adr = push_memory_wendy_list(library_list, length, -1);
+	safe_free(library_list);
+	return make_data(D_LIST, data_value_num(list_adr));
 }
 
 static data native_getc(data* args) {

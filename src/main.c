@@ -12,6 +12,7 @@
 #include "optimizer.h"
 #include "data.h"
 #include "dependencies.h"
+#include "imports.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -52,6 +53,7 @@ void invalid_usage(void) {
 	printf("    -h, --help        : shows this message.\n");
 	printf("    --nogc            : disables garbage-collection.\n");
 	printf("    --optimize        : enables optimization algorithm (this will destroy overloaded primitive operators).\n");
+	printf("	--trace-vm        : traces each VM instruction.\n");
 	printf("    -c, --compile     : compiles the given file but does not run.\n");
 	printf("    -v, --verbose     : displays information about memory state on error.\n");
 	printf("    --ast             : prints out the constructed AST.\n");
@@ -84,6 +86,9 @@ bool process_options(char** options, int len, char** source) {
 		}
 		else if (streq("--optimize", options[i])) {
 			set_settings_flag(SETTINGS_OPTIMIZE);
+		}
+		else if (streq("--trace-vm", options[i])) {
+			set_settings_flag(SETTINGS_TRACE_VM);
 		}
 		else if (streq("--ast", options[i])) {
 			set_settings_flag(SETTINGS_ASTPRINT);
@@ -224,10 +229,12 @@ int repl(void) {
 	safe_free(source_to_run);
 
 cleanup:
+	free_imported_libraries_ll();
 	c_free_memory();
 	if (has_run) {
 		vm_cleanup_if_repl();
 	}
+	check_leak();
 	return 0;
 }
 
@@ -368,6 +375,7 @@ int main(int argc, char** argv) {
 	safe_free(bytecode_stream);
 
 wendy_exit:
+	free_imported_libraries_ll();
 	free_source();
 	c_free_memory();
 	check_leak();

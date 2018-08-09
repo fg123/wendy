@@ -3,7 +3,7 @@
  * Provides system functions
  */
 
-struct System => [printCallStack, printFreeMemory, examineMemory, exec, getc, printBytecode, gc, program];
+struct System => [printCallStack, printFreeMemory, examineMemory, exec, getc, printBytecode, gc, program, getImportedLibraries];
 struct Program => [args];
 struct GarbageCollector => [collect];
 
@@ -14,6 +14,7 @@ System.examineMemory => (from, to) native examineMemory;
 System.exec => (command) native exec;
 System.getc => () native getc;
 System.printBytecode => () native printBytecode;
+System.getImportedLibraries => () native getImportedLibraries;
 System.gc => () GarbageCollector;
 System.program = Program();
 {
