@@ -226,10 +226,10 @@ int repl(void) {
 		has_run = true;
 		unwind_stack();
 	}
-	safe_free(source_to_run);
 
 cleanup:
 	free_imported_libraries_ll();
+	safe_free(source_to_run);
 	c_free_memory();
 	if (has_run) {
 		vm_cleanup_if_repl();
