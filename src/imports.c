@@ -1,19 +1,11 @@
 #include "imports.h"
 #include "global.h"
 
+#include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 
-typedef struct import_node {
-    char* name;
-    struct import_node* next;
-} import_node;
-
 import_node* imported_libraries = 0;
-
-void init_imported_libraries_ll() {
-    imported_libraries = 0;
-}
 
 void add_imported_library(char* name) {
     import_node* new_node = safe_malloc(sizeof(import_node));

@@ -92,7 +92,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 	// Verify Header
 	address start_at;
 	size_t saved_size = bytecode_size;
-	init_imported_libraries_ll();
 	if (!get_settings_flag(SETTINGS_REPL)) {
 		bytecode = new_bytecode;
 		start_at = verify_header(bytecode);
@@ -122,8 +121,13 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 	}
 	for (i = start_at;;) {
 		reset_error_flag();
-		opcode op = bytecode[i++];
-		//printf("%s\n", opcode_string[op]);
+		opcode op = bytecode[i];
+		if (get_settings_flag(SETTINGS_TRACE_VM)) {
+			// This branch could slow down the VM but the CPU should branch
+			// predict after one or two iterations.
+			printf(BLU "<+%04X>: " RESET "%s\n", i, opcode_string[op]);
+		}
+		i += 1;
 		switch (op) {
 			case OP_PUSH: {
 				data t = get_data(bytecode + i, &i);
@@ -255,7 +259,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				char* name = get_string(bytecode + i, &i);
 				address a = get_address(bytecode + i, &i);
 				if (has_already_imported_library(name)) {
-					i = a - 1;
+					i = a;
 				}
 				else {
 					add_imported_library(name);
@@ -637,7 +641,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_HALT:
-				goto halt_exit;
+				return;
 			default:
 				error_runtime(line, VM_INVALID_OPCODE, bytecode[i], i);
 		}
@@ -646,8 +650,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			break;
 		}
 	}
-halt_exit:
-	free_imported_libraries_ll();
 }
 
 static data eval_binop(operator op, data a, data b) {

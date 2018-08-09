@@ -62,9 +62,9 @@ let zip => (list) {
 };
 
 let sum => (list) {
-    let a = 0
-    for i in list a += i
-    ret a
+    if list.size == 0 ret 0;
+    let add => (l, r) l + r;
+    ret reduce(list[0->(list.size - 1)], add, list[list.size - 1]);
 };
 
 let intersect => (list_a, list_b) {
