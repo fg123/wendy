@@ -180,6 +180,9 @@ unsigned int print_data_inline(const data* t, FILE* buf) {
 		}
 		p += fprintf(buf, "]");
 	}
+	else if (t->type == D_NAMED_ARGUMENT_NAME) {
+		p += fprintf(buf, "named: %s", t->value.string);
+	}
 	else if (t->type == D_NUMBER) {
 		size_t len = snprintf(0, 0, "%f", t->value.number);
 		char* buffer = safe_malloc(len + 1);

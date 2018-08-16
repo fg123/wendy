@@ -162,11 +162,28 @@ static void codegen_lvalue_expr(expr* expression) {
 	}
 }
 
-static void codegen_expr_list_reversed(expr_list* list) {
+static void codegen_expr_list_for_call(expr_list* list) {
 	// Let the recursion handle the reversing of the generation.
 	if (!list) return;
-	codegen_expr_list_reversed(list->next);
-	codegen_expr(list->elem);
+	codegen_expr_list_for_call(list->next);
+	if (list->elem->type != E_ASSIGN) {
+		// Simple Case
+		codegen_expr(list->elem);
+		return;
+	}
+	// Named Argument
+	expr* assign_expr = list->elem;
+	if (assign_expr->op.assign_expr.lvalue->type != E_LITERAL ||
+		assign_expr->op.assign_expr.lvalue->op.lit_expr.t_type != T_IDENTIFIER) {
+		error_lexer(assign_expr->line,
+					assign_expr->col,
+					CODEGEN_NAMED_ARGUMENT_NOT_LITERAL);
+	}
+
+	codegen_expr(assign_expr->op.assign_expr.rvalue);
+	write_opcode(OP_PUSH);
+	write_data(make_data(D_NAMED_ARGUMENT_NAME,
+		data_value_str(assign_expr->op.assign_expr.lvalue->op.lit_expr.t_data.string)));
 }
 
 static opcode tok_to_opcode(token t) {
@@ -645,7 +662,7 @@ static void codegen_expr(void* expre) {
 		write_byte(token_operator_unary(expression->op.una_expr.operator));
 	}
 	else if (expression->type == E_CALL) {
-		codegen_expr_list_reversed(expression->op.call_expr.arguments);
+		codegen_expr_list_for_call(expression->op.call_expr.arguments);
 		codegen_expr(expression->op.call_expr.function);
 		write_opcode(OP_CALL);
 	}

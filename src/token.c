@@ -40,7 +40,7 @@ token true_token() {
 }
 
 token false_token() {
-	token t =  make_token(T_FALSE, make_data_str("<false>"));
+	token t = make_token(T_FALSE, make_data_str("<false>"));
 	t.t_line = line;
 	t.t_col = col;
 	return t;
