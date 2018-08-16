@@ -162,12 +162,11 @@ static void codegen_lvalue_expr(expr* expression) {
 	}
 }
 
-static void codegen_expr_list(void* expre) {
-	expr_list* list = (expr_list*) expre;
-	while (list) {
-		codegen_expr(list->elem);
-		list = list->next;
-	}
+static void codegen_expr_list_reversed(expr_list* list) {
+	// Let the recursion handle the reversing of the generation.
+	if (!list) return;
+	codegen_expr_list_reversed(list->next);
+	codegen_expr(list->elem);
 }
 
 static opcode tok_to_opcode(token t) {
@@ -238,7 +237,7 @@ static void codegen_statement(void* expre) {
 			// library location. Local directory prevails.
 			static char *extension = ".wc";
 			char *local_path = safe_malloc(strlen(library_name) +
-						       strlen(extension) + 1);
+							   strlen(extension) + 1);
 			local_path[0] = 0;
 			strcat(local_path, library_name);
 			strcat(local_path, extension);
@@ -646,7 +645,7 @@ static void codegen_expr(void* expre) {
 		write_byte(token_operator_unary(expression->op.una_expr.operator));
 	}
 	else if (expression->type == E_CALL) {
-		codegen_expr_list(expression->op.call_expr.arguments);
+		codegen_expr_list_reversed(expression->op.call_expr.arguments);
 		codegen_expr(expression->op.call_expr.function);
 		write_opcode(OP_CALL);
 	}
@@ -685,7 +684,6 @@ static void codegen_expr(void* expre) {
 			write_opcode(OP_RET);
 		}
 		else {
-			// Parameters are reversed from AST Generation
 			expr_list* param = expression->op.func_expr.parameters;
 			while (param) {
 				token t = param->elem->op.lit_expr;

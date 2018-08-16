@@ -919,19 +919,6 @@ static expr* make_func_expr(expr_list* parameters, statement* body) {
 	token t = tokens[curr_index];
 	expr* node = safe_malloc(sizeof(expr));
 	node->type = E_FUNCTION;
-
-	// Reverse Parameters
-	expr_list* curr = parameters;
-	expr_list* prev = 0;
-	expr_list* next = 0;
-
-	while (curr) {
-		next = curr->next;
-		curr->next = prev;
-		prev = curr;
-		curr = next;
-	}
-	parameters = prev;
 	node->op.func_expr.parameters = parameters;
 	node->op.func_expr.body = body;
 	node->op.func_expr.is_native = false;
