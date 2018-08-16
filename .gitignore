@@ -11,3 +11,4 @@
 *.wc
 *.d
 .vscode
+*.err
