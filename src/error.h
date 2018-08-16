@@ -53,6 +53,10 @@ void error_compile(int line, int col, char* message, ...);
 #define CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL \
 	"Right parameter of member access binary operator must be a LITERAL expression."
 #define CODEGEN_NAMED_ARGUMENT_NOT_LITERAL "Named arguments must be a valid LITERAL identifier."
+#define CODEGEN_UNEXPECTED_FUNCTION_PARAMETER \
+	"Unexpected function parameter declaration."
+#define CODEGEN_FUNCTION_DEFAULT_VALUES_AT_END \
+	"Unexpected parameter with no default value!"
 #define CODEGEN_INVALID_LVALUE_BINOP \
 	"Invalid binary operator in lvalue expression."
 #define CODEGEN_INVALID_LVALUE \

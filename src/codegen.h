@@ -62,6 +62,7 @@
 //   `- pulls token from $MR to stack
 // 0x0F | WRITE  | [size]    | (...) (a) -> (...)
 //   `- writes top [size] of stack to $MR
+//   `- if top of stack is END_OF_ARGUMENTs or NAMED_ARGUMENT, we don't write
 // 0x10 | JMP    | [address] |
 //   `- jumps to the given address in bytecode
 // 0x11 | JIF    | [address] |
@@ -94,6 +95,7 @@
 //                               the stack.
 // 0x1F | RBIN   | [op]      | reverse binary operator, b OP a
 // 0x20 | RBW    | [string]  | REQ-BIND-WRITE, requests 1, binds string
+//   `- if top of stack is END_OF_ARGUMENTs or NAMED_ARGUMENT, we don't write
 // 0x21 | CHTYPE | [toktype] | changes the type of the top of the stack
 // 0x22 | HALT   |           | halt instruction, end program
 // 0x23 | SRC    | [int32]   | store the src line number

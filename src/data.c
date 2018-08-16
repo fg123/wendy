@@ -72,7 +72,7 @@ bool is_numeric(data t) {
 		t.type == D_STRUCT_METADATA || t.type == D_STRUCT_INSTANCE ||
 		t.type == D_STRUCT_INSTANCE_HEAD || t.type == D_STRUCT_FUNCTION ||
 		t.type == D_CLOSURE ||
-		t.type == D_EMPTY || t.type == D_INTERNAL_POINTER;
+		t.type == D_EMPTY || t.type == D_INTERNAL_POINTER || t.type == D_END_OF_ARGUMENTS;
 }
 
 bool is_boolean(data t) {
@@ -155,6 +155,9 @@ unsigned int print_data_inline(const data* t, FILE* buf) {
 	}
 	else if (t->type == D_STRUCT_FUNCTION) {
 		p += fprintf(buf, "<struct function>");
+	}
+	else if (t->type == D_END_OF_ARGUMENTS) {
+		p += fprintf(buf, "<eoargs>");
 	}
 	else if (t->type == D_STRUCT_INSTANCE) {
 		data instance_loc = memory[(int)(t->value.number)];

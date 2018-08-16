@@ -383,6 +383,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_RBW: {
 				// REQUEST BIND AND WRITE
+				if (top_arg(line)->type == D_END_OF_ARGUMENTS ||
+					top_arg(line)->type == D_NAMED_ARGUMENT_NAME)
+					break;
 				memory_register = pls_give_memory(1, line);
 				char* bind_name = get_string(bytecode + i, &i);
 				if (id_exist(bind_name, false)) {
@@ -590,6 +593,10 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_WRITE: {
 				size_t size = bytecode[i++];
+				if (top_arg(line)->type == D_END_OF_ARGUMENTS ||
+					top_arg(line)->type == D_NAMED_ARGUMENT_NAME)
+					break;
+
 				for (address j = memory_register + size - 1;
 						j >= memory_register; j--) {
 					write_memory(j, pop_arg(line), line);

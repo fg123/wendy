@@ -45,7 +45,8 @@ typedef struct expr {
 			struct {    int                 length;
 						struct expr_list*   contents; }     list_expr;
 
-			/* parameters are expected to be all identifiers */
+			/* parameters are expected to be all literal identifiers, or
+				assignment expression for default values */
 			struct {    struct expr_list*   parameters;
 						struct statement*   body;
 						bool                is_native;
