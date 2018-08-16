@@ -271,8 +271,7 @@ void native_call(char* function_name, int expected_args, int line) {
 				error_runtime(line, VM_INVALID_NATIVE_NUMBER_OF_ARGS, function_name);
 			}
 			data* arg_list = safe_malloc(sizeof(data) * argc);
-			// Popped in reverse order
-			for (int j = argc - 1; j >= 0; j--) {
+			for (int j = 0; j < argc; j++) {
 				arg_list[j] = pop_arg(line);
 			}
 			push_arg(native_functions[i].function(arg_list), line);
