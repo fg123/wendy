@@ -266,6 +266,28 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				}
 				break;
 			}
+			case OP_ARGCLN: {
+				// TODO: This instruction can be modified to support
+				//   variable arguments.
+				while (top_arg(line)->type != D_END_OF_ARGUMENTS) {
+					if (top_arg(line)->type == D_NAMED_ARGUMENT_NAME) {
+						data identifier = pop_arg(line);
+						address loc =
+							get_address_of_id(identifier.value.string, line);
+						write_memory(loc, pop_arg(line), line);
+						destroy_data(&identifier);
+					}
+					else {
+						// This should be an error unless var-args are
+						// supported. Ignore and clean for now.
+						data r = pop_arg(line);
+						destroy_data(&r);
+					}
+				}
+				// Pop End of Arguments
+				pop_arg(line);
+				break;
+			}
 			case OP_RET: {
 				pop_frame(true, &i);
 				memory_register = pop_mem_reg();
@@ -383,11 +405,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_RBW: {
 				// REQUEST BIND AND WRITE
-				if (top_arg(line)->type == D_END_OF_ARGUMENTS ||
-					top_arg(line)->type == D_NAMED_ARGUMENT_NAME)
-					break;
-				memory_register = pls_give_memory(1, line);
 				char* bind_name = get_string(bytecode + i, &i);
+				memory_register = pls_give_memory(1, line);
 				if (id_exist(bind_name, false)) {
 					address a = get_stack_pos_of_id(bind_name, line);
 					if (!call_stack[a].is_closure) {
@@ -395,6 +414,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					}
 				}
 				push_stack_entry(bind_name, memory_register, line);
+				if (top_arg(line)->type == D_END_OF_ARGUMENTS ||
+					top_arg(line)->type == D_NAMED_ARGUMENT_NAME)
+					break;
 				data value = pop_arg(line);
 				if (value.type == D_FUNCTION) {
 					// Modify Name to be the base_name
