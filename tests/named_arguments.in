@@ -1,0 +1,6 @@
+let fn => (a, b, c, d) a + b + c + d
+
+fn(a="a", b="b", c="c", d="d");
+fn(c="c", a="a", b="b", d="d");
+fn(d="d", c="c", a="a", b="b");
+fn(b="b", d="d", c="c", a="a");
