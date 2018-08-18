@@ -1,0 +1,11 @@
+struct posn => (x, y) [print];
+
+posn.print => () this.x + ", " + this.y
+
+let <posn> + <posn> => (lhs, rhs) posn(lhs.x + rhs.x, lhs.y + rhs.y);
+
+(posn(10, 20) + posn(30, 40)).print();
+
+let - <posn> => (p) posn(-p.x, -p.y);
+
+(-posn(10, 20)).print();

@@ -10,13 +10,7 @@ for f in tests/*.in ; do
 	else
 		cp file.tmp "${f%.in}.err"
 		echo Test $(basename $f) failed.
-		echo Produced Output:
-		echo ============================
-		cat file.tmp
-		echo ============================
-		echo Expected Output:
-		echo ============================
-		cat "${f%.in}.expect"
+		diff -c "${f%.in}.expect" file.tmp
 		echo ============================
 	fi
 done

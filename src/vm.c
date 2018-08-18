@@ -168,8 +168,10 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				destroy_data(&any_d);
 				char* fn_name = first_that(_id_exist, a_and_b, any_a, any_b);
 				if (fn_name) {
-					push_arg(a, line);
+					push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)),
+						line);
 					push_arg(b, line);
+					push_arg(a, line);
 					push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
 					safe_free(a_and_b);
 					safe_free(any_a);
@@ -197,8 +199,10 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				destroy_data(&any_d);
 				char* fn_name = first_that(_id_exist, a_and_b, any_a, any_b);
 				if (fn_name) {
-					push_arg(b, line);
+					push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)),
+						line);
 					push_arg(a, line);
+					push_arg(b, line);
 					push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
 					safe_free(a_and_b);
 					safe_free(any_a);
@@ -220,6 +224,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				data a = pop_arg(line);
 				char* fn_name = get_unary_overload_name(op, a);
 				if (id_exist(fn_name, true)) {
+					push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)),
+						line);
 					push_arg(a, line);
 					push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
 					safe_free(fn_name);

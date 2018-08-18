@@ -1,6 +1,6 @@
 // Basic Function Call with <none> return
-let f => () { 
-	"In Function"; 
+let f => () {
+	"In Function";
 };
 f();
 
@@ -23,7 +23,7 @@ add1(10);
 
 let nat_range => (start, end, step) {
 	if (start >= end) {
-		ret "";
+		ret "end";
 	}
 	else {
 		ret start + " " + nat_range(start + step, end, step);
@@ -33,3 +33,13 @@ let nat_range => (start, end, step) {
 nat_range(5, 10, 2);
 
 add1(add1(10));
+
+// Functions can return other functions. This has two implicit returns.
+let addCreator => (adder) #:(addend) adder + addend
+
+// WendyScript also has closures:
+let add10 = addCreator(10)
+let add20 = addCreator(20)
+
+"40 + 10 is " + add10(40)
+"20 + 20 is " + add20(20)
