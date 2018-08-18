@@ -62,6 +62,7 @@
 //   `- pulls token from $MR to stack
 // 0x0F | WRITE  | [size]    | (...) (a) -> (...)
 //   `- writes top [size] of stack to $MR
+//   `- if top of stack is END_OF_ARGUMENTs or NAMED_ARGUMENT, we don't write
 // 0x10 | JMP    | [address] |
 //   `- jumps to the given address in bytecode
 // 0x11 | JIF    | [address] |
@@ -94,6 +95,7 @@
 //                               the stack.
 // 0x1F | RBIN   | [op]      | reverse binary operator, b OP a
 // 0x20 | RBW    | [string]  | REQ-BIND-WRITE, requests 1, binds string
+//   `- if top of stack is END_OF_ARGUMENTs or NAMED_ARGUMENT, we don't write
 // 0x21 | CHTYPE | [toktype] | changes the type of the top of the stack
 // 0x22 | HALT   |           | halt instruction, end program
 // 0x23 | SRC    | [int32]   | store the src line number
@@ -101,13 +103,15 @@
 //                 [string]
 // 0x25 | IMPORT | [string]  | denotes that the library was imported
 //               | [address] |   jumps if already imported
+// 0x26 | ARGCLN |           | cleans up all arguments up to END_OF_ARGUMENTS,
+//                           |   assigning all NAMED_ARGUMENTS
 
 typedef enum opcode {
 	OP_PUSH, OP_POP, OP_BIN, OP_UNA, OP_CALL, OP_RET, OP_BIND, OP_REQ, OP_WHERE,
 	OP_OUT, OP_OUTL, OP_IN, OP_MKPTR, OP_RANGE, OP_READ, OP_WRITE, OP_JMP,
 	OP_JIF, OP_FRM, OP_END, OP_LJMP, OP_LBIND, OP_INC, OP_DEC, OP_NTHPTR,
 	OP_MEMPTR, OP_ASSERT, OP_MPTR, OP_CLOSUR, OP_RBIN,
-	OP_RBW, OP_HALT, OP_SRC, OP_NATIVE, OP_IMPORT }
+	OP_RBW, OP_HALT, OP_SRC, OP_NATIVE, OP_IMPORT, OP_ARGCLN }
 	opcode;
 
 #define OPCODE_STRING \
@@ -115,7 +119,7 @@ typedef enum opcode {
 	"where", "out", "outl", "in", "mkptr", "range", "read", "write", "jmp",\
 	"jif", "frm", "end", "ljmp", "lbind", "inc", "dec", "nthptr",\
 	"memptr", "assert", "mptr", "closur", "rbin", "rbw",\
-	"halt", "src", "native", "import"
+	"halt", "src", "native", "import", "argcln"
 
 extern const char* opcode_string[];
 

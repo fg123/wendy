@@ -162,11 +162,34 @@ static void codegen_lvalue_expr(expr* expression) {
 	}
 }
 
-static void codegen_expr_list_reversed(expr_list* list) {
+static void codegen_expr_list_for_call(expr_list* list) {
 	// Let the recursion handle the reversing of the generation.
-	if (!list) return;
-	codegen_expr_list_reversed(list->next);
-	codegen_expr(list->elem);
+	if (!list) {
+		// Write end marker first.
+		write_opcode(OP_PUSH);
+		write_data(make_data(D_END_OF_ARGUMENTS,
+			data_value_num(0)));
+		return;
+	}
+	codegen_expr_list_for_call(list->next);
+	if (list->elem->type != E_ASSIGN) {
+		// Simple Case
+		codegen_expr(list->elem);
+		return;
+	}
+	// Named Argument
+	expr* assign_expr = list->elem;
+	if (assign_expr->op.assign_expr.lvalue->type != E_LITERAL ||
+		assign_expr->op.assign_expr.lvalue->op.lit_expr.t_type != T_IDENTIFIER) {
+		error_lexer(assign_expr->line,
+					assign_expr->col,
+					CODEGEN_NAMED_ARGUMENT_NOT_LITERAL);
+	}
+
+	codegen_expr(assign_expr->op.assign_expr.rvalue);
+	write_opcode(OP_PUSH);
+	write_data(make_data(D_NAMED_ARGUMENT_NAME,
+		data_value_str(assign_expr->op.assign_expr.lvalue->op.lit_expr.t_data.string)));
 }
 
 static opcode tok_to_opcode(token t) {
@@ -645,7 +668,7 @@ static void codegen_expr(void* expre) {
 		write_byte(token_operator_unary(expression->op.una_expr.operator));
 	}
 	else if (expression->type == E_CALL) {
-		codegen_expr_list_reversed(expression->op.call_expr.arguments);
+		codegen_expr_list_for_call(expression->op.call_expr.arguments);
 		codegen_expr(expression->op.call_expr.function);
 		write_opcode(OP_CALL);
 	}
@@ -685,12 +708,44 @@ static void codegen_expr(void* expre) {
 		}
 		else {
 			expr_list* param = expression->op.func_expr.parameters;
+			bool has_encountered_default = false;
 			while (param) {
-				token t = param->elem->op.lit_expr;
-				write_opcode(OP_RBW);
-				write_string(t.t_data.string);
+				if (param->elem->type == E_LITERAL) {
+					if (has_encountered_default) {
+						error_lexer(param->elem->line,
+							param->elem->col,
+							CODEGEN_FUNCTION_DEFAULT_VALUES_AT_END);
+					}
+					if (param->elem->op.lit_expr.t_type != T_IDENTIFIER) {
+						error_lexer(param->elem->line,
+							param->elem->col,
+							CODEGEN_UNEXPECTED_FUNCTION_PARAMETER);
+					}
+					token t = param->elem->op.lit_expr;
+					write_opcode(OP_RBW);
+					write_string(t.t_data.string);
+				}
+				else if (param->elem->type == E_ASSIGN) {
+					has_encountered_default = true;
+					// Bind Default Value First
+					codegen_expr(param->elem->op.assign_expr.rvalue);
+					write_opcode(OP_RBW);
+					// TODO: Check if assign expr is literal identifier.
+					write_string(param->elem->op.assign_expr.lvalue->
+						op.lit_expr.t_data.string);
+					// If the top of the stack is marker, this is no-op.
+					write_opcode(OP_WRITE);
+					write_byte(1);
+				}
+				else {
+					error_lexer(param->elem->line,
+						param->elem->col,
+						CODEGEN_UNEXPECTED_FUNCTION_PARAMETER);
+				}
 				param = param->next;
 			}
+			// Process named arguments.
+			write_opcode(OP_ARGCLN);
 			if (expression->op.func_expr.body->type == S_EXPR) {
 				codegen_expr(expression->op.func_expr.body->op.expr_statement);
 				write_opcode(OP_RET);

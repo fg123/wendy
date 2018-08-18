@@ -34,6 +34,8 @@
 	OP(D_TRUE) \
 	OP(D_FALSE) \
 	OP(D_MEMBER_IDENTIFIER) \
+	OP(D_NAMED_ARGUMENT_NAME) /* For named arguments */ \
+	OP(D_END_OF_ARGUMENTS) \
 	OP(D_ANY) // No way for client to construct this, can only have a type <any>
 
 typedef enum {

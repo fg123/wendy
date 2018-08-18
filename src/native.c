@@ -274,6 +274,10 @@ void native_call(char* function_name, int expected_args, int line) {
 			for (int j = 0; j < argc; j++) {
 				arg_list[j] = pop_arg(line);
 			}
+			data end_marker = pop_arg(line);
+			if (end_marker.type != D_END_OF_ARGUMENTS) {
+				error_runtime(line, VM_INVALID_NATIVE_NUMBER_OF_ARGS, function_name);
+			}
 			push_arg(native_functions[i].function(arg_list), line);
 			for (int i = 0; i < argc; i++) {
 				destroy_data(&arg_list[i]);
