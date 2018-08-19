@@ -388,44 +388,44 @@ void write_state(FILE* fp) {
 	}
 }
 
-void print_call_stack(int maxlines) {
-	printf("\n===============\n");
-	printf("Dump: Stack Trace\n");
+void print_call_stack(FILE* file, int maxlines) {
+	fprintf(file, "\n" DIVIDER "\n");
+	fprintf(file, "Dump: Stack Trace\n");
 	int start = stack_pointer - maxlines;
-	if (start < 0) start = 0;
+	if (start < 0 || maxlines < 0) start = 0;
 	for (size_t i = start; i < stack_pointer; i++) {
 		if (call_stack[i].id[0] != '$' && call_stack[i].id[0] != '~') {
 			if (frame_pointer == i) {
 				if (call_stack[i].id[0] == CHAR(FUNCTION_START)) {
-					printf("%5zd FP-> [" BLU "%s" RESET " -> 0x%04X", i,
+					fprintf(file, "%5zd FP-> [" BLU "%s" RESET " -> 0x%04X", i,
 							call_stack[i].id, call_stack[i].val);
 				}
 				else {
-					printf("%5zd FP-> [%s -> 0x%04X", i, call_stack[i].id,
+					fprintf(file, "%5zd FP-> [%s -> 0x%04X", i, call_stack[i].id,
 							call_stack[i].val);
 				}
-				printf("]\n");
+				fprintf(file, "]\n");
 			}
 			else {
 				if (call_stack[i].id[0] == CHAR(FUNCTION_START)) {
-					printf("%5zd      [" BLU "%s" RESET " -> 0x%04X: ", i,
+					fprintf(file, "%5zd      [" BLU "%s" RESET " -> 0x%04X: ", i,
 							call_stack[i].id, call_stack[i].val);
 				}
 				else if (call_stack[i].is_closure) {
-					printf("%5zd  C-> [%s -> 0x%04X: ",i,
+					fprintf(file, "%5zd  C-> [%s -> 0x%04X: ",i,
 							call_stack[i].id, call_stack[i].val);
 				}
 				else {
-					printf("%5zd      [%s -> 0x%04X: ",i,
+					fprintf(file, "%5zd      [%s -> 0x%04X: ",i,
 							call_stack[i].id, call_stack[i].val);
 				}
 				print_data_inline(&memory[call_stack[i].val], stdout);
-				printf("]\n");
+				fprintf(file, "]\n");
 
 			}
 		}
 	}
-	printf("===============\n");
+	fprintf(file, DIVIDER "\n");
 }
 
 void push_arg(data t, int line) {

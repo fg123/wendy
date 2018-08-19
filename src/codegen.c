@@ -162,21 +162,23 @@ static void codegen_lvalue_expr(expr* expression) {
 	}
 }
 
-static void codegen_expr_list_for_call(expr_list* list) {
-	// Let the recursion handle the reversing of the generation.
+static inline void codegen_end_marker(void) {
+	write_opcode(OP_PUSH);
+	write_data(make_data(D_END_OF_ARGUMENTS,
+		data_value_num(0)));
+}
+
+static void codegen_expr_list_for_call_named(expr_list* list) {
 	if (!list) {
-		// Write end marker first.
-		write_opcode(OP_PUSH);
-		write_data(make_data(D_END_OF_ARGUMENTS,
-			data_value_num(0)));
+		codegen_end_marker();
 		return;
 	}
-	codegen_expr_list_for_call(list->next);
 	if (list->elem->type != E_ASSIGN) {
-		// Simple Case
-		codegen_expr(list->elem);
+		error_lexer(list->elem->line, list->elem->col,
+			CODEGEN_NAMED_ARGUMENT_MUST_COME_AFTER_POSITIONAL);
 		return;
 	}
+	codegen_expr_list_for_call_named(list->next);
 	// Named Argument
 	expr* assign_expr = list->elem;
 	if (assign_expr->op.assign_expr.lvalue->type != E_LITERAL ||
@@ -190,6 +192,22 @@ static void codegen_expr_list_for_call(expr_list* list) {
 	write_opcode(OP_PUSH);
 	write_data(make_data(D_NAMED_ARGUMENT_NAME,
 		data_value_str(assign_expr->op.assign_expr.lvalue->op.lit_expr.t_data.string)));
+}
+
+static void codegen_expr_list_for_call(expr_list* list) {
+	// Let the recursion handle the reversing of the generation.
+	if (!list) {
+		// Write end marker first.
+		codegen_end_marker();
+		return;
+	}
+	if (list->elem->type != E_ASSIGN) {
+		// Simple Case
+		codegen_expr_list_for_call(list->next);
+		codegen_expr(list->elem);
+		return;
+	}
+	codegen_expr_list_for_call_named(list);
 }
 
 static opcode tok_to_opcode(token t) {

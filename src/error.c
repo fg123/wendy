@@ -120,7 +120,7 @@ void error_runtime(int line, char* message, ...) {
 			fprintf(stderr, YEL "Note: " RESET "Source was automatically loaded "
 			"and may not reflect the actual source of the compiled code.\n");
 		}
-		fprintf(stderr, "==========================\n%5s %s (%s)\n", "Line", "Source",
+		fprintf(stderr, DIVIDER "\n%5s %s (%s)\n", "Line", "Source",
 			get_source_name());
 		int start_line = (line - 2 > 0) ? (line - 2) : 1;
 		int end_line = start_line + 5;
@@ -134,12 +134,12 @@ void error_runtime(int line, char* message, ...) {
 				}
 			}
 		}
-		fprintf(stderr, "==========================\n");
+		fprintf(stderr, DIVIDER "\n");
 	}
 	free(msg);
 	// REPL Don't print call stack unless verbose is on!
 	if (!get_settings_flag(SETTINGS_REPL) || get_settings_flag(SETTINGS_VERBOSE)) {
-		print_call_stack(-1);
+		print_call_stack(stderr, -1);
 		print_verbose_info();
 	}
 	fflush(stdout);

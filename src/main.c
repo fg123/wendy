@@ -145,7 +145,9 @@ void run(char* input_string) {
 		if (get_settings_flag(SETTINGS_DISASSEMBLE)) {
 			print_bytecode(bytecode, stdout);
 		}
-		vm_run(bytecode, size);
+		if (!get_error_flag()) {
+			vm_run(bytecode, size);
+		}
 		safe_free(bytecode);
 	}
 	free_ast(ast);

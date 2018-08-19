@@ -123,7 +123,7 @@ data* get_value_of_id(char* id, int line);
 data* get_value_of_address(address a, int line);
 
 // print_call_stack prints out the callstack
-void print_call_stack(int maxlines);
+void print_call_stack(FILE* file, int maxlines);
 
 // get_address_pos_of_id(id, line) gets the stack address of the id
 address get_stack_pos_of_id(char* id, int line);

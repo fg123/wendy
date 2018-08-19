@@ -147,7 +147,7 @@ static data native_exec(data* args) {
 }
 
 static data native_printCallStack(data* args) {
-	print_call_stack((int)native_to_numeric(args));
+	print_call_stack(stdout, (int)native_to_numeric(args));
 	return noneret_data();
 }
 

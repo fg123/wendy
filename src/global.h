@@ -42,6 +42,8 @@
 #define OPERATOR_OVERLOAD_PREFIX "#@"
 #define LOOP_COUNTER_PREFIX ":\")"
 
+#define DIVIDER "===================="
+
 #define ENUM(x) x,
 #define STRING(x) #x,
 

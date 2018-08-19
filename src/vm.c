@@ -275,6 +275,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			case OP_ARGCLN: {
 				// TODO: This instruction can be modified to support
 				//   variable arguments.
+				data* extra_args = safe_malloc(ARGSTACK_SIZE *
+											   sizeof(extra_args));
+				size_t count = 0;
 				while (top_arg(line)->type != D_END_OF_ARGUMENTS) {
 					if (top_arg(line)->type == D_NAMED_ARGUMENT_NAME) {
 						data identifier = pop_arg(line);
@@ -284,12 +287,18 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 						destroy_data(&identifier);
 					}
 					else {
-						// This should be an error unless var-args are
-						// supported. Ignore and clean for now.
 						data r = pop_arg(line);
-						destroy_data(&r);
+						extra_args[count++] = r;
 					}
 				}
+				// Assign "arguments" variable with rest of the arguments.
+				address ladr = push_memory_wendy_list(extra_args, count, line);
+				address adr = push_memory(make_data(D_LIST, data_value_num(ladr)), line);
+				push_stack_entry("arguments", adr, line);
+				for (size_t i = 0; i < count; i++) {
+					destroy_data(&extra_args[i]);
+				}
+				safe_free(extra_args);
 				// Pop End of Arguments
 				pop_arg(line);
 				break;

@@ -61,6 +61,8 @@ void error_compile(int line, int col, char* message, ...);
 	"Invalid binary operator in lvalue expression."
 #define CODEGEN_INVALID_LVALUE \
 	"Invalid lvalue expression!"
+#define CODEGEN_NAMED_ARGUMENT_MUST_COME_AFTER_POSITIONAL \
+	"Named argument must come after positional arguments."
 #define CODEGEN_EXPECTED_IDENTIFIER AST_EXPECTED_IDENTIFIER
 #define CODEGEN_REQ_FILE_READ_ERR SCAN_REQ_FILE_READ_ERR
 
