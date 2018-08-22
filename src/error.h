@@ -94,6 +94,7 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_INVALID_LVALUE_LIST_SUBSCRIPT "List index must be a number!"
 #define VM_LIST_REF_OUT_RANGE "List subscript is out of range!"
 #define VM_NOT_A_STRUCT "You can only access member of a struct or a struct instance!"
+#define VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS "Tried to access member of a <noneret>, did you forget `ret this`?"
 #define VM_MEMBER_NOT_EXIST "Member '%s' does not exist in struct."
 #define VM_COND_EVAL_NOT_BOOL "Condition must evaluate to true or false."
 #define VM_FN_CALL_NOT_FN "Initiated function call but did not find function to call."

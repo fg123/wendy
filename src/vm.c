@@ -478,7 +478,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				data t = memory[memory_register];
 				char* member = get_string(bytecode + i, &i);
 				if (t.type != D_STRUCT && t.type != D_STRUCT_INSTANCE) {
-					error_runtime(line, VM_NOT_A_STRUCT);
+					if (t.type == D_NONERET) {
+						error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
+					} else {
+						error_runtime(line, VM_NOT_A_STRUCT);
+					}
 				}
 				address metadata = (int)(t.value.number);
 				if (t.type == D_STRUCT_INSTANCE) {
