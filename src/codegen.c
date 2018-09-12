@@ -259,7 +259,9 @@ static void codegen_statement(void* expre) {
 			state->op.expr_statement->type != E_ASSIGN) write_opcode(OP_OUT);
 	}
 	else if (state->type == S_BLOCK) {
+		write_opcode(OP_FRM);
 		codegen_statement_list(state->op.block_statement);
+		write_opcode(OP_END);
 	}
 	else if (state->type == S_IMPORT) {
 		if (state->op.import_statement.t_type == T_STRING) {
