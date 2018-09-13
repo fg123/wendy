@@ -271,6 +271,7 @@ static void codegen_statement(void* expre) {
 		char* library_name = state->op.import_statement.t_data.string;
 		// Has to be identifier now.
 		if (!has_already_imported_library(library_name)) {
+			add_imported_library(library_name);
 			write_opcode(OP_IMPORT);
 			write_string(library_name);
 			int jumpLoc = size;
@@ -803,7 +804,9 @@ uint8_t* generate_code(statement_list* _ast, size_t* size_ptr) {
 	if (!get_settings_flag(SETTINGS_REPL)) {
 		write_string(WENDY_VM_HEADER);
 	}
+	free_imported_libraries_ll();
 	codegen_statement_list(_ast);
+	free_imported_libraries_ll();
 	write_opcode(OP_HALT);
 	*size_ptr = size;
 	return bytecode;

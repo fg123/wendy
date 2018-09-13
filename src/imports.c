@@ -23,6 +23,7 @@ void free_imported_libraries_ll() {
 		safe_free(curr);
 		curr = next;
 	}
+	imported_libraries = 0;
 }
 
 bool has_already_imported_library(char* name) {
