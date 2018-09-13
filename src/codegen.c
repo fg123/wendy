@@ -766,7 +766,8 @@ static void codegen_expr(void* expre) {
 			}
 			// Process named arguments.
 			write_opcode(OP_ARGCLN);
-			if (expression->op.func_expr.body->type == S_EXPR) {
+			if (expression->op.func_expr.body &&
+				expression->op.func_expr.body->type == S_EXPR) {
 				codegen_expr(expression->op.func_expr.body->op.expr_statement);
 				write_opcode(OP_RET);
 			}

@@ -383,6 +383,7 @@ static statement* parse_statement(void) {
 			if (peek().t_type == T_RIGHT_BRACE) {
 				// Non-Empty Statement Block
 				consume(T_RIGHT_BRACE);
+				safe_free(sm);
 				return 0;
 			}
 			statement_list* sl = parse_statement_list();
