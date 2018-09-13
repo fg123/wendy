@@ -72,7 +72,6 @@
 	OP(T_REQ) \
 	OP(T_NATIVE) \
 	OP(T_NONE) \
-	OP(T_NONERET) \
 	OP(T_MEMBER) \
 	OP(T_DOLLAR_SIGN)
 
@@ -84,7 +83,7 @@ extern const char* token_string[];
 
 typedef union {
 	double number;
-	char string[MAX_STRING_LEN];
+	char* string;
 } token_data;
 
 typedef struct {
@@ -105,9 +104,6 @@ token_data make_data_str(char* s);
 
 // none_token() returns a none token
 token none_token(void);
-
-// none_ret() returns a noneret token
-token noneret_token(void);
 
 // false_token() returns a false token
 token false_token(void);
@@ -131,4 +127,11 @@ int precedence(token op);
 // set_make_token_param(l, c) sets the line and column of the current state of
 //   the scanner
 void set_make_token_param(int l, int c);
+
+// destroys_token(t) frees all memory associated with the token
+void destroy_token(token t);
+
+// free_token_list(l) frees the token list and associated strings
+void free_token_list(token* l, size_t s);
+
 #endif

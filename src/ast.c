@@ -378,6 +378,7 @@ static expr* assignment(void) {
 		left = make_assign_expr(left, right, op);
 	}
 	else if (match(T_DEFFN)) {
+        token op = previous();
 		consume(T_LEFT_PAREN);
 		expr_list* parameters = expression_list(T_RIGHT_PAREN);
 		consume(T_RIGHT_PAREN);
@@ -391,8 +392,7 @@ static expr* assignment(void) {
 			statement* fnbody = parse_statement();
 			rvalue = make_func_expr(parameters, fnbody);
 		}
-		left = make_assign_expr(left, rvalue,
-				make_token(T_EQUAL, make_data_str("=")));
+		left = make_assign_expr(left, rvalue, op);
 	}
 	return left;
 }
@@ -578,9 +578,12 @@ static statement* parse_statement(void) {
 				expr* left = lit_expr_from_data(make_data(D_IDENTIFIER,
 								data_value_str("this")));
 				expr* right = copy_lit_expr(tmp_ins->elem);
+
 				token op = make_token(T_DOT, make_data_str("."));
-				ass_expr->op.assign_expr.lvalue =
-						make_bin_expr(left, op, right);
+                // This isn't very clean, having to make a fake token to
+                // construct the expression.
+				ass_expr->op.assign_expr.lvalue = make_bin_expr(left, op, right);
+                destroy_token(op);
 
 				if (prev) prev->next = curr;
 				prev = curr;
@@ -659,7 +662,7 @@ static statement* parse_statement(void) {
 				sm->op.operation_statement.operand = expression();
 			}
 			else {
-				sm->op.operation_statement.operand = make_lit_expr(noneret_token());
+				sm->op.operation_statement.operand = lit_expr_from_data(noneret_data());
 			}
 			break;
 		}
@@ -991,6 +994,8 @@ static expr* make_assign_expr(expr* left, expr* right, token op) {
         case T_ASSIGN_INTSLASH:
             new_op = O_IDIV;
             break;
+        case T_EQUAL:
+        case T_DEFFN:
         default: break;
     }
 	node->op.assign_expr.operator = new_op;

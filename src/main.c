@@ -152,7 +152,7 @@ void run(char* input_string) {
 		safe_free(bytecode);
 	}
 	free_ast(ast);
-	safe_free(tokens);
+	free_token_list(tokens, tokens_count);
 }
 
 bool bracket_check(char* source) {
@@ -307,7 +307,7 @@ int main(int argc, char** argv) {
 		if (get_settings_flag(SETTINGS_OUTPUT_DEPENDENCIES)) {
 			// Perform static analysis to output dependencies
 			print_dependencies(ast);
-			safe_free(tokens);
+			free_token_list(tokens, tokens_count);
 			free_ast(ast);
 			goto wendy_exit;
 		}
@@ -315,7 +315,7 @@ int main(int argc, char** argv) {
 			// Generate Bytecode
 			bytecode_stream = generate_code(ast, &size);
 		}
-		safe_free(tokens);
+		free_token_list(tokens, tokens_count);
 		free_ast(ast);
 	}
 	else {

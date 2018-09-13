@@ -1,7 +1,6 @@
 #include "codegen.h"
 #include "ast.h"
 #include "global.h"
-#include "token.h"
 #include "error.h"
 #include "memory.h"
 #include "execpath.h"

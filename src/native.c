@@ -208,8 +208,8 @@ static data native_examineMemory(data* args) {
 static data native_read(data* args) {
 	UNUSED(args);
 	// Scan one line from the input.
-	char buffer[MAX_STRING_LEN];
-	while(!fgets(buffer, MAX_STRING_LEN, stdin)) {};
+	char buffer[INPUT_BUFFER_SIZE];
+	while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
 
 	char* end_ptr = buffer;
 	errno = 0;
@@ -227,8 +227,8 @@ static data native_read(data* args) {
 static data native_readRaw(data* args) {
 	UNUSED(args);
 	// Scan one line from the input.
-	char buffer[MAX_STRING_LEN];
-	while(!fgets(buffer, MAX_STRING_LEN, stdin)) {};
+	char buffer[INPUT_BUFFER_SIZE];
+	while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
 	size_t len = strlen(buffer);
 	buffer[len - 1] = 0;
 	return make_data(D_STRING, data_value_str(buffer));

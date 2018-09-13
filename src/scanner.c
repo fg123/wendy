@@ -409,9 +409,18 @@ static void add_token(token_type type) {
 }
 
 static void add_token_with_value(token_type type, token_data val) {
-	if (type == T_NONE) { tokens[t_curr++] = none_token(); }
-	else if (type == T_TRUE) { tokens[t_curr++] = true_token(); }
-	else if (type == T_FALSE) { tokens[t_curr++] = false_token(); }
+	if (type == T_NONE) {
+        tokens[t_curr++] = none_token();
+        safe_free(val.string);
+    }
+	else if (type == T_TRUE) {
+        tokens[t_curr++] = true_token();
+        safe_free(val.string);
+    }
+	else if (type == T_FALSE) {
+        tokens[t_curr++] = false_token();
+        safe_free(val.string);
+    }
 	else {
 		token new_t = { type, line, col, val };
 		tokens[t_curr++] = new_t;

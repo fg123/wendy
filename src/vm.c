@@ -312,8 +312,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				// L_JMP Address LoopIndexString
 				address end_of_loop = get_address(bytecode + i, &i);
 				char* loop_index_string = get_string(bytecode + i, &i);
-				data* loop_index_token = get_value_of_id(loop_index_string, line);
-				int index = loop_index_token->value.number;
+				data* loop_index_data = get_value_of_id(loop_index_string, line);
+				int index = loop_index_data->value.number;
 				data condition = *top_arg(line);
 				bool jump = false;
 				if (condition.type == D_TRUE) {
@@ -352,8 +352,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			case OP_LBIND: {
 				char* user_index = get_string(bytecode + i, &i);
 				char* loop_index_string = get_string(bytecode + i, &i);
-				data* loop_index_token = get_value_of_id(loop_index_string, line);
-				int index = loop_index_token->value.number;
+				data* loop_index_data = get_value_of_id(loop_index_string, line);
+				int index = loop_index_data->value.number;
 				data condition = pop_arg(line);
 				data res;
 				if (condition.type == D_LIST) {
@@ -377,7 +377,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					res = r;
 				}
 				else {
-					res = copy_data(*loop_index_token);
+					res = copy_data(*loop_index_data);
 				}
 				address mem_to_mod = get_address_of_id(user_index, line);
 				write_memory(mem_to_mod, res, -1);
@@ -669,8 +669,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			// DEPRECATED
 			case OP_IN: {
 				// Scan one line from the input.
-				char buffer[MAX_STRING_LEN];
-				while(!fgets(buffer, MAX_STRING_LEN, stdin)) {};
+				char buffer[INPUT_BUFFER_SIZE];
+				while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
 
 				char* end_ptr = buffer;
 				errno = 0;

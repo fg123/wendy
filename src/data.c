@@ -75,10 +75,6 @@ bool is_numeric(data t) {
 		t.type == D_EMPTY || t.type == D_INTERNAL_POINTER || t.type == D_END_OF_ARGUMENTS;
 }
 
-// bool is_boolean(data t) {
-// 	return t.type == D_TRUE || t.type == D_FALSE;
-// }
-
 data time_data() {
 	data t = make_data(D_NUMBER, data_value_num(time(NULL)));
 	return t;
@@ -225,8 +221,6 @@ static data_type literal_type_to_data_type(token_type t) {
 			return D_FALSE;
 		case T_NONE:
 			return D_NONE;
-		case T_NONERET:
-			return D_NONERET;
 		case T_IDENTIFIER:
 			return D_IDENTIFIER;
 		case T_OBJ_TYPE:
