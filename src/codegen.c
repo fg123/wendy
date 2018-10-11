@@ -396,12 +396,12 @@ static void codegen_statement(void* expre) {
 		sprintf(loopIndexName, LOOP_COUNTER_PREFIX "%d", global_loop_id++);
 		write_string(loopIndexName);
 
-		if (state->op.loop_statement.index_var.t_type != T_EMPTY) {
+		if (state->op.loop_statement.index_var) {
 			// User has a custom variable, also declare that.
 			write_opcode(OP_PUSH);
 			write_data(make_data(D_NUMBER, data_value_num(0)));
 			write_opcode(OP_RBW);
-			write_string(state->op.loop_statement.index_var.t_data.string);
+			write_string(state->op.loop_statement.index_var);
 		}
 
 		// Start of Loop, Push Condition to Stack
@@ -417,9 +417,9 @@ static void codegen_statement(void* expre) {
 		write_opcode(OP_FRM); // Start Local Variable Frame
 
 		// Write Custom Var and Bind
-		if (state->op.loop_statement.index_var.t_type != T_EMPTY) {
+		if (state->op.loop_statement.index_var) {
 			write_opcode(OP_LBIND);
-			write_string(state->op.loop_statement.index_var.t_data.string);
+			write_string(state->op.loop_statement.index_var);
 			write_string(loopIndexName);
 		}
 		else {
@@ -432,10 +432,10 @@ static void codegen_statement(void* expre) {
 		write_opcode(OP_WHERE);
 		write_string(loopIndexName);
 		write_opcode(OP_INC);
-		if (state->op.loop_statement.index_var.t_type != T_EMPTY) {
+		if (state->op.loop_statement.index_var) {
 			write_opcode(OP_READ);
 			write_opcode(OP_WHERE);
-			write_string(state->op.loop_statement.index_var.t_data.string);
+			write_string(state->op.loop_statement.index_var);
 			write_opcode(OP_WRITE);
 			write_byte(1);
 		}

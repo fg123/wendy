@@ -54,6 +54,8 @@ static void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) {
         safe_free(ptr->op.let_statement.lvalue);
     } else if (ptr->type == S_STRUCT && ptr->op.struct_statement.name) {
         safe_free(ptr->op.struct_statement.name);
+    } else if (ptr->type == S_LOOP && ptr->op.loop_statement.index_var) {
+        safe_free(ptr->op.loop_statement.index_var);
     }
     safe_free(ptr);
 }
@@ -504,7 +506,7 @@ static statement* parse_statement(void) {
 		}
 		case T_LOOP: {
 			expr* index_var = expression();
-			token a_index;
+			char* a_index;
 			expr* condition;
 			if (match(T_COLON, T_IN)) {
 				condition = expression();
@@ -513,13 +515,13 @@ static statement* parse_statement(void) {
 					token t = previous();
 					error_lexer(t.t_line, t.t_col, AST_EXPECTED_IDENTIFIER_LOOP);
 				}
-				a_index = index_var->op.lit_expr;
+				a_index = strdup(index_var->op.lit_expr.t_data.string);
 				safe_free(index_var);
 			}
 			else {
 				condition = index_var;
 				index_var = 0;
-				a_index = empty_token();
+				a_index = 0;
 			}
 			statement* run_if_true = parse_statement();
 			sm->type = S_LOOP;

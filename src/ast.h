@@ -86,7 +86,7 @@ typedef struct statement {
 			struct {    expr*       condition;
 						struct statement*   statement_true;
 						struct statement*   statement_false; }  if_statement;
-			struct {    token       index_var;
+			struct {    char*       index_var;
 						expr*       condition;
 						struct statement*   statement_true; } loop_statement;
 			struct statement_list*                      block_statement;
