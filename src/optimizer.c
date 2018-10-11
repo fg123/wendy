@@ -43,8 +43,8 @@ static void scan_statement(statement* state);
 static void scan_expr(expr* expression);
 static void scan_expr_list(expr_list* list);
 
-static inline bool is_boolean(token t) {
-	return t.t_type == T_TRUE || t.t_type == T_FALSE;
+static inline bool is_boolean(data t) {
+	return t.type == D_TRUE || t.type == D_FALSE;
 }
 
 static id_node* find_id_node(char* id, int line, int col) {
@@ -123,15 +123,26 @@ static void add_modified(char* id, int line, int col) {
 void optimize_safe_free_e(expr* expression, traversal_algorithm* algo) {
 	UNUSED(algo);
 	if (expression->type == E_LITERAL
-		&& expression->op.lit_expr.t_type == T_IDENTIFIER) {
-		remove_usage(expression->op.lit_expr.t_data.string,
+		&& expression->op.lit_expr.type == D_IDENTIFIER) {
+		remove_usage(expression->op.lit_expr.value.string,
 				expression->line, expression->col);
 	}
-	safe_free(expression);
+    ast_safe_free_e(expression, algo);
 }
-void optimize_safe_free_el(expr_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
-void optimize_safe_free_s(statement* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
-void optimize_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+void optimize_safe_free_el(expr_list* ptr, traversal_algorithm* algo) {
+    UNUSED(algo);
+    ast_safe_free_el(ptr, algo);
+}
+
+void optimize_safe_free_s(statement* ptr, traversal_algorithm* algo) {
+    UNUSED(algo);
+    ast_safe_free_s(ptr, algo);
+}
+
+void optimize_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) {
+    UNUSED(algo);
+    ast_safe_free_sl(ptr, algo);
+}
 
 traversal_algorithm optimize_safe_free_impl = {
 	optimize_safe_free_e,
@@ -255,14 +266,14 @@ static statement* optimize_statement(statement* state) {
 
 		statement* run_if_false = state->op.if_statement.statement_false;
 		statement* run_if_true = state->op.if_statement.statement_true;
-		if (condition->type == E_LITERAL && condition->op.lit_expr.t_type == T_TRUE) {
+		if (condition->type == E_LITERAL && condition->op.lit_expr.type == D_TRUE) {
 			// Always going to be true!
 			traverse_statement(run_if_false, &optimize_safe_free_impl);
 			traverse_expr(condition, &optimize_safe_free_impl);
 			safe_free(state);
 			return run_if_true;
 		}
-		else if (condition->type == E_LITERAL && condition->op.lit_expr.t_type == T_FALSE) {
+		else if (condition->type == E_LITERAL && condition->op.lit_expr.type == D_FALSE) {
 			traverse_statement(run_if_true, &optimize_safe_free_impl);
 			traverse_expr(condition, &optimize_safe_free_impl);
 			safe_free(state);
@@ -301,14 +312,14 @@ static statement_list* optimize_statement_list(statement_list* list) {
 static expr* optimize_expr(expr* expression) {
 	if (!expression) return 0;
 	if (expression->type == E_LITERAL) {
-		if (expression->op.lit_expr.t_type == T_IDENTIFIER) {
+		if (expression->op.lit_expr.type == D_IDENTIFIER) {
 			// Is a static, then replace with value if literal
-			if (get_modified(expression->op.lit_expr.t_data.string,
+			if (get_modified(expression->op.lit_expr.value.string,
 				expression->line, expression->col) == 0) {
-				expr* value = get_value(expression->op.lit_expr.t_data.string,
+				expr* value = get_value(expression->op.lit_expr.value.string,
 					expression->line, expression->col);
 				if (value && value->type == E_LITERAL) {
-					remove_usage(expression->op.lit_expr.t_data.string,
+					remove_usage(expression->op.lit_expr.value.string,
 						expression->line, expression->col);
 					*expression = *value;
 				}
@@ -324,56 +335,56 @@ static expr* optimize_expr(expr* expression) {
 		expr* left = expression->op.bin_expr.left;
 		expr* right = expression->op.bin_expr.right;
 		enum operator op = expression->op.bin_expr.operator;
-        token possible_optimized;
-		if (left->type == E_LITERAL && left->op.lit_expr.t_type == T_NUMBER &&
-			right->type == E_LITERAL && right->op.lit_expr.t_type == T_NUMBER) {
+        data possible_optimized;
+		if (left->type == E_LITERAL && left->op.lit_expr.type == D_NUMBER &&
+			right->type == E_LITERAL && right->op.lit_expr.type == D_NUMBER) {
 			// Peek Optimization is Available on Numbers
 			// Optimized Reuslt will be on OP
 			bool can_optimize = true;
-			double a = left->op.lit_expr.t_data.number;
-			double b = right->op.lit_expr.t_data.number;
+			double a = left->op.lit_expr.value.number;
+			double b = right->op.lit_expr.value.number;
 			switch (op) {
 				case O_MUL:
-					possible_optimized.t_data.number = a * b;
+					possible_optimized.value.number = a * b;
 					break;
 				case O_IDIV:
 					if (b != 0) {
-						possible_optimized.t_data.number = (int)(a / b);
+						possible_optimized.value.number = (int)(a / b);
 					}
 					break;
 				case O_DIV:
 					if (b != 0) {
-						possible_optimized.t_data.number = a / b;
+						possible_optimized.value.number = a / b;
 					}
 					break;
 				case O_REM:
 					if (b != 0 && a == floor(a) && b == floor(b)) {
-						possible_optimized.t_data.number = (long long)a % (long long)b;
+						possible_optimized.value.number = (long long)a % (long long)b;
 					}
 					break;
 				case O_SUB:
-					possible_optimized.t_data.number = a - b;
+					possible_optimized.value.number = a - b;
 					break;
 				case O_ADD:
-					possible_optimized.t_data.number = a + b;
+					possible_optimized.value.number = a + b;
 					break;
 				case O_LT:
-					possible_optimized = a < b ? true_token() : false_token();
+					possible_optimized = a < b ? true_data() : false_data();
 					break;
 				case O_GT:
-					possible_optimized = a > b ? true_token() : false_token();
+					possible_optimized = a > b ? true_data() : false_data();
 					break;
 				case O_LTE:
-					possible_optimized = a <= b ? true_token() : false_token();
+					possible_optimized = a <= b ? true_data() : false_data();
 					break;
 				case O_GTE:
-					possible_optimized = a >= b ? true_token() : false_token();
+					possible_optimized = a >= b ? true_data() : false_data();
 					break;
 				case O_EQ:
-					possible_optimized = a == b ? true_token() : false_token();
+					possible_optimized = a == b ? true_data() : false_data();
 					break;
 				case O_NEQ:
-					possible_optimized = a != b ? true_token() : false_token();
+					possible_optimized = a != b ? true_data() : false_data();
 					break;
 				default:
 					can_optimize = false;
@@ -382,7 +393,7 @@ static expr* optimize_expr(expr* expression) {
 			if (can_optimize) {
 				if (!is_boolean(possible_optimized)) {
 					// Didn't get optimized to a boolean
-					possible_optimized.t_type = T_NUMBER;
+					possible_optimized.type = D_NUMBER;
 				}
 				expression->type = E_LITERAL;
 				expression->op.lit_expr = possible_optimized;
@@ -395,14 +406,14 @@ static expr* optimize_expr(expr* expression) {
 			right->type == E_LITERAL && is_boolean(right->op.lit_expr)) {
 			// Peek Optimization is Available on Booleans
 			bool can_optimize = true;
-			bool a = left->op.lit_expr.t_type == T_TRUE;
-			bool b = right->op.lit_expr.t_type == T_TRUE;
+			bool a = left->op.lit_expr.type == D_TRUE;
+			bool b = right->op.lit_expr.type == D_TRUE;
 			switch (op) {
 				case O_AND:
-					possible_optimized = a && b ? true_token() : false_token();
+					possible_optimized = a && b ? true_data() : false_data();
 					break;
 				case O_OR:
-					possible_optimized = a || b ? true_token() : false_token();
+					possible_optimized = a || b ? true_data() : false_data();
 					break;
 				default:
 					can_optimize = false;
@@ -423,18 +434,18 @@ static expr* optimize_expr(expr* expression) {
 		enum operator op = expression->op.una_expr.operator;
 		expr* operand = expression->op.una_expr.operand;
 		if (op == O_NEG && operand->type == E_LITERAL &&
-			operand->op.lit_expr.t_type == T_NUMBER) {
+			operand->op.lit_expr.type == D_NUMBER) {
 			// Apply here
-			operand->op.lit_expr.t_data.number *= -1;
+			operand->op.lit_expr.value.number *= -1;
 			safe_free(expression);
 			return operand;
 		}
 		if (op == O_NOT && operand->type == E_LITERAL &&
-			(operand->op.lit_expr.t_type == T_TRUE ||
-			operand->op.lit_expr.t_type == T_FALSE)) {
+			(operand->op.lit_expr.type == D_TRUE ||
+			operand->op.lit_expr.type == D_FALSE)) {
 			// Apply here
 			operand->op.lit_expr =
-				operand->op.lit_expr.t_type == T_TRUE ? false_token() : true_token();
+				operand->op.lit_expr.type == D_TRUE ? false_data() : true_data();
 			safe_free(expression);
 			return operand;
 		}
@@ -465,9 +476,9 @@ static expr* optimize_expr(expr* expression) {
 	}
 	else if (expression->type == E_ASSIGN) {
 		if (expression->op.assign_expr.lvalue->type == E_LITERAL &&
-			expression->op.assign_expr.lvalue->op.lit_expr.t_type == T_IDENTIFIER) {
+			expression->op.assign_expr.lvalue->op.lit_expr.type == D_IDENTIFIER) {
 				// Only optimize if not lists
-			if (get_usage(expression->op.assign_expr.lvalue->op.lit_expr.t_data.string,
+			if (get_usage(expression->op.assign_expr.lvalue->op.lit_expr.value.string,
 					expression->line, expression->col) == 0) {
 				traverse_expr(expression, &optimize_safe_free_impl);
 				return 0;
@@ -512,7 +523,7 @@ static void scan_statement(statement* state) {
 			scan_expr(state->op.operation_statement.operand);
 		}
 		else {
-			add_modified(state->op.operation_statement.operand->op.lit_expr.t_data.string,
+			add_modified(state->op.operation_statement.operand->op.lit_expr.value.string,
 				state->src_line, 0);
 		}
 	}
@@ -554,9 +565,9 @@ static void scan_statement_list(statement_list* list) {
 static void scan_expr(expr* expression) {
 	if (!expression) return;
 	if (expression->type == E_LITERAL) {
-		if (expression->op.lit_expr.t_type == T_IDENTIFIER) {
+		if (expression->op.lit_expr.type == D_IDENTIFIER) {
 			// Used!
-			add_usage(expression->op.lit_expr.t_data.string,
+			add_usage(expression->op.lit_expr.value.string,
 				expression->line, expression->col);
 		}
 	}
@@ -583,7 +594,7 @@ static void scan_expr(expr* expression) {
 		make_new_block();
 		expr_list* curr = expression->op.func_expr.parameters;
 		while (curr) {
-			add_node(curr->elem->op.lit_expr.t_data.string, 0);
+			add_node(curr->elem->op.lit_expr.value.string, 0);
 			curr = curr->next;
 		}
 		scan_statement(expression->op.func_expr.body);
@@ -591,8 +602,8 @@ static void scan_expr(expr* expression) {
 	}
 	else if (expression->type == E_ASSIGN) {
 		if (expression->op.assign_expr.lvalue->type == E_LITERAL &&
-			expression->op.assign_expr.lvalue->op.lit_expr.t_type == T_IDENTIFIER) {
-			add_modified(expression->op.assign_expr.lvalue->op.lit_expr.t_data.string,
+			expression->op.assign_expr.lvalue->op.lit_expr.type == D_IDENTIFIER) {
+			add_modified(expression->op.assign_expr.lvalue->op.lit_expr.value.string,
 				expression->line, expression->col);
 		}
 		scan_expr(expression->op.assign_expr.lvalue);

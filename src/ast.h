@@ -33,7 +33,7 @@
 typedef struct expr {
 	enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_ASSIGN, E_IF }
 		type;
-	union { token                                           lit_expr;
+	union { data                                            lit_expr;
 			struct {    enum operator       operator;
 						struct expr*        left;
 						struct expr*        right; }        bin_expr;
@@ -137,4 +137,8 @@ void traverse_expr_list(expr_list*, traversal_algorithm*);
 void traverse_statement_list(statement_list*, traversal_algorithm*);
 void traverse_statement(statement*, traversal_algorithm*);
 
+void ast_safe_free_e(expr* ptr, traversal_algorithm* algo);
+void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo);
+void ast_safe_free_s(statement* ptr, traversal_algorithm* algo);
+void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo);
 #endif

@@ -15,6 +15,8 @@ static bool error_thrown = false;
 
 // Forward Declarations
 static expr* make_lit_expr(token t);
+static expr* lit_expr_from_data(data d);
+static expr* copy_lit_expr(expr* from);
 static expr* make_bin_expr(expr* left, token op, expr* right);
 static expr* make_una_expr(token op, expr* operand);
 static expr* make_call_expr(expr* left, expr_list* arg_list);
@@ -33,20 +35,25 @@ static token previous(void);
 
 // Public Methods
 // Wrapping safe_free macro for use as a function pointer.
-static void ast_safe_free_e(expr* ptr, traversal_algorithm* algo) {
+
+// In most cases we want traversal algorithm internals to be private, but these
+// are exposed so optimizer can use them to properly free.
+void ast_safe_free_e(expr* ptr, traversal_algorithm* algo) {
     UNUSED(algo);
     if (ptr->type == E_FUNCTION && ptr->op.func_expr.is_native) {
         safe_free(ptr->op.func_expr.native_name);
+    } else if (ptr->type == E_LITERAL) {
+        destroy_data(&ptr->op.lit_expr);
     }
     safe_free(ptr);
 }
 
-static void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo) {
+void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo) {
     UNUSED(algo);
     safe_free(ptr);
 }
 
-static void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) {
+void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) {
     UNUSED(algo);
     if (ptr->type == S_IMPORT && ptr->op.import_statement) {
         safe_free(ptr->op.import_statement);
@@ -60,7 +67,7 @@ static void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) {
     safe_free(ptr);
 }
 
-static void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) {
+void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) {
     UNUSED(algo);
     safe_free(ptr);
 }
@@ -434,7 +441,7 @@ static statement* parse_statement(void) {
 			char* lvalue = 0;
 			if (match(T_IDENTIFIER)) {
                 token prev = previous();
-				lvalue = strdup(prev.t_data.string);
+				lvalue = safe_strdup(prev.t_data.string);
 			}
 			else {
                 size_t alloc_size = strlen(OPERATOR_OVERLOAD_PREFIX);
@@ -511,12 +518,12 @@ static statement* parse_statement(void) {
 			if (match(T_COLON, T_IN)) {
 				condition = expression();
 				if (index_var->type != E_LITERAL ||
-						index_var->op.lit_expr.t_type != T_IDENTIFIER) {
+						index_var->op.lit_expr.type != D_IDENTIFIER) {
 					token t = previous();
 					error_lexer(t.t_line, t.t_col, AST_EXPECTED_IDENTIFIER_LOOP);
 				}
-				a_index = strdup(index_var->op.lit_expr.t_data.string);
-				safe_free(index_var);
+				a_index = safe_strdup(index_var->op.lit_expr.value.string);
+		        traverse_expr(index_var, &ast_safe_free_impl);
 			}
 			else {
 				condition = index_var;
@@ -566,12 +573,11 @@ static statement* parse_statement(void) {
 				curr->elem->op.expr_statement->type = E_ASSIGN;
 				expr* ass_expr = curr->elem->op.expr_statement;
 				ass_expr->op.assign_expr.operator = O_ASSIGN;
-				ass_expr->op.assign_expr.rvalue =
-						make_lit_expr(tmp_ins->elem->op.lit_expr);
+				ass_expr->op.assign_expr.rvalue = copy_lit_expr(tmp_ins->elem);
 				// Binary Dot Expr
-				expr* left = make_lit_expr(make_token(T_IDENTIFIER,
-								make_data_str("this")));
-				expr* right = make_lit_expr(tmp_ins->elem->op.lit_expr);
+				expr* left = lit_expr_from_data(make_data(D_IDENTIFIER,
+								data_value_str("this")));
+				expr* right = copy_lit_expr(tmp_ins->elem);
 				token op = make_token(T_DOT, make_data_str("."));
 				ass_expr->op.assign_expr.lvalue =
 						make_bin_expr(left, op, right);
@@ -588,8 +594,9 @@ static statement* parse_statement(void) {
 			curr->next = 0;
 			curr->elem->type = S_OPERATION;
 			curr->elem->op.operation_statement.operator = OP_RET;
-			curr->elem->op.operation_statement.operand = make_lit_expr(
-				make_token(T_IDENTIFIER, make_data_str("this")));
+			curr->elem->op.operation_statement.operand =
+                lit_expr_from_data(make_data(D_IDENTIFIER,
+								data_value_str("this")));
 
 			expr_list* parameters = 0;
 			if (instance_members) {
@@ -605,7 +612,7 @@ static statement* parse_statement(void) {
 			expr* function_const = make_func_expr(parameters, function_body);
 
 			sm->type = S_STRUCT;
-			sm->op.struct_statement.name = strdup(name.t_data.string);
+			sm->op.struct_statement.name = safe_strdup(name.t_data.string);
 			sm->op.struct_statement.init_fn = function_const;
 			sm->op.struct_statement.instance_members = instance_members;
 			sm->op.struct_statement.static_members = static_members;
@@ -635,7 +642,7 @@ static statement* parse_statement(void) {
 				//   delegate that task to codegen to decide.
                 token p = previous();
                 if (p.t_type == T_IDENTIFIER) {
-				    sm->op.import_statement = strdup(p.t_data.string);
+				    sm->op.import_statement = safe_strdup(p.t_data.string);
                 } else {
                     sm->op.import_statement = 0;
                 }
@@ -806,7 +813,7 @@ static void print_e(expr* expression, traversal_algorithm* algo) {
 	printf(YEL);
 	if (expression->type == E_LITERAL) {
 		printf("Literal Expression " GRN);
-		print_token(&expression->op.lit_expr);
+		print_data(&expression->op.lit_expr);
 		printf(RESET);
 	}
 	else if (expression->type == E_BINARY) {
@@ -886,10 +893,22 @@ void traverse_ast(statement_list* list, traversal_algorithm* algo) {
 	traverse_statement_list(list, algo);
 }
 
+/* Consumes d */
+static expr* lit_expr_from_data(data d) {
+    expr* node = safe_malloc(sizeof(expr));
+    node->type = E_LITERAL;
+    node->op.lit_expr = d;
+    return node;
+}
+
+static expr* copy_lit_expr(expr* from) {
+    expr* node = lit_expr_from_data(copy_data(from->op.lit_expr));
+	node->line = from->line;
+	node->col = from->col;
+	return node;
+}
 static expr* make_lit_expr(token t) {
-	expr* node = safe_malloc(sizeof(expr));
-	node->type = E_LITERAL;
-	node->op.lit_expr = t;
+	expr* node = lit_expr_from_data(literal_to_data(t));
 	node->line = t.t_line;
 	node->col = t.t_col;
 	return node;
@@ -993,6 +1012,6 @@ static expr* make_func_expr(expr_list* parameters, statement* body) {
 static expr* make_native_func_expr(expr_list* parameters, token name) {
 	expr* node = make_func_expr(parameters, 0);
 	node->op.func_expr.is_native = true;
-	node->op.func_expr.native_name = strdup(name.t_data.string);
+	node->op.func_expr.native_name = safe_strdup(name.t_data.string);
 	return node;
 }

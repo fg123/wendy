@@ -2,6 +2,7 @@
 #define DATA_H
 
 #include "global.h"
+#include "token.h"
 #include <stdio.h>
 
 // data.h - Felix Guo
@@ -75,6 +76,8 @@ int range_end(data r);
 data list_header_data(int size);
 void print_data(const data *t);
 bool data_equal(data *a, data *b);
+
+data literal_to_data(token literal);
 unsigned int print_data_inline(const data *t, FILE *buf);
 
 #endif

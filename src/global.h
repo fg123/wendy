@@ -71,8 +71,10 @@ bool streq(const char* a, const char* b);
 extern bool is_big_endian;
 extern bool last_printed_newline;
 
-char* w_strdup(const char* s);
-#define strdup(x) w_strdup(x)
+char* safe_strdup_impl(const char* s, char* allocated);
+
+/* We safe_malloc in the call so we get the right allocation location */
+#define safe_strdup(x) safe_strdup_impl(x, safe_malloc(strlen(x) + 1))
 #define UNUSED(var) (void)(var)
 #define forever for(;;)
 

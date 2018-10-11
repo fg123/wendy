@@ -50,7 +50,7 @@ void destroy_data(data* d) {
 
 data_value data_value_str(char *str) {
 	data_value r;
-	r.string = strdup(str);
+	r.string = safe_strdup(str);
 	return r;
 }
 
@@ -211,4 +211,37 @@ unsigned int print_data_inline(const data* t, FILE* buf) {
 	last_printed_newline = false;
 	fflush(buf);
 	return p;
+}
+
+static data_type literal_type_to_data_type(token_type t) {
+	switch(t) {
+		case T_NUMBER:
+			return D_NUMBER;
+		case T_STRING:
+			return D_STRING;
+		case T_TRUE:
+			return D_TRUE;
+		case T_FALSE:
+			return D_FALSE;
+		case T_NONE:
+			return D_NONE;
+		case T_NONERET:
+			return D_NONERET;
+		case T_IDENTIFIER:
+			return D_IDENTIFIER;
+		case T_OBJ_TYPE:
+			return D_OBJ_TYPE;
+		case T_MEMBER:
+			return D_MEMBER_IDENTIFIER;
+		default:;
+	}
+	return D_EMPTY;
+}
+
+data literal_to_data(token literal) {
+	if (literal.t_type == T_NUMBER) {
+		return make_data(D_NUMBER, data_value_num(literal.t_data.number));
+	}
+	return make_data(literal_type_to_data_type(literal.t_type),
+		data_value_str(literal.t_data.string));
 }
