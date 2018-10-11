@@ -77,7 +77,7 @@ typedef struct statement {
 	union { expr*                                       expr_statement;
 			struct {    opcode      operator;
 						expr*       operand; }          operation_statement;
-			struct {    token       lvalue;
+			struct {    char*       lvalue;
 						expr*       rvalue; }           let_statement;
 			struct {    token       name;
 						expr_list*  instance_members;

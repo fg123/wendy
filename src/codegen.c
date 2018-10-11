@@ -222,7 +222,7 @@ static void codegen_statement(void* expre) {
 		codegen_expr(state->op.let_statement.rvalue);
 		// Request Memory
 		write_opcode(OP_RBW);
-		write_string(state->op.let_statement.lvalue.t_data.string);
+		write_string(state->op.let_statement.lvalue);
 	}
 	else if (state->type == S_OPERATION) {
 		if (state->op.operation_statement.operator == OP_RET) {

@@ -50,6 +50,8 @@ static void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) {
     UNUSED(algo);
     if (ptr->type == S_IMPORT && ptr->op.import_statement) {
         safe_free(ptr->op.import_statement);
+    } else if (ptr->type == S_LET && ptr->op.let_statement.lvalue) {
+        safe_free(ptr->op.let_statement.lvalue);
     }
     safe_free(ptr);
 }
@@ -425,30 +427,39 @@ static statement* parse_statement(void) {
 		}
 		case T_LET: {
 			// Read an expression for a LVALUE
-			token lvalue;
-			lvalue.t_type = T_IDENTIFIER;
-			lvalue.t_data.string[0] = 0;
+			char* lvalue = 0;
 			if (match(T_IDENTIFIER)) {
-				lvalue = previous();
+                token prev = previous();
+				lvalue = strdup(prev.t_data.string);
 			}
 			else {
-				strcat(lvalue.t_data.string, OPERATOR_OVERLOAD_PREFIX);
+                size_t alloc_size = strlen(OPERATOR_OVERLOAD_PREFIX);
+                bool is_binary = false;
+                token lhs;
 				if (match(T_OBJ_TYPE)) {
-					// Binary Operator
-					token t = previous();
-					strcat(lvalue.t_data.string, t.t_data.string);
-				}
-				token op = advance();
-				if (precedence(op)) {
-					strcat(lvalue.t_data.string, op.t_data.string);
-					consume(T_OBJ_TYPE);
-					token operand = previous();
-					strcat(lvalue.t_data.string, operand.t_data.string);
-				}
-				else {
+                    lhs = previous();
+                    is_binary = true;
+                    alloc_size += strlen(lhs.t_data.string);
+                }
+                token op = advance();
+                token operand;
+                if (precedence(op)) {
+                    alloc_size += strlen(op.t_data.string);
+                    consume(T_OBJ_TYPE);
+                    operand = previous();
+                    alloc_size += strlen(operand.t_data.string);
+                }
+                else {
 					error_lexer(op.t_line, op.t_col,
 						AST_OPERATOR_OVERLOAD_NO_OPERATOR);
 				}
+                lvalue = safe_calloc(alloc_size + 1, sizeof(char));
+                strcat(lvalue, OPERATOR_OVERLOAD_PREFIX);
+                if (is_binary) {
+                    strcat(lvalue, lhs.t_data.string);
+                }
+                strcat(lvalue, op.t_data.string);
+                strcat(lvalue, operand.t_data.string);
 			}
 			expr* rvalue = 0;
 			if (match(T_EQUAL)) {
@@ -828,7 +839,7 @@ static void print_s(statement* state, traversal_algorithm* algo) {
 	printf(BLU);
 	if (state->type == S_LET) {
 		printf("Let Statement " GRN "(%s)\n" RESET,
-			state->op.let_statement.lvalue.t_data.string);
+			state->op.let_statement.lvalue);
 	}
 	else if (state->type == S_OPERATION) {
 		printf("Operation Statement " GRN "%s\n" RESET,

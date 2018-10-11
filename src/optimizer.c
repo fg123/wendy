@@ -212,13 +212,13 @@ static statement* optimize_statement(statement* state) {
 	if (state->type == S_LET) {
 		state->op.let_statement.rvalue =
 				optimize_expr(state->op.let_statement.rvalue);
-		if (get_usage(state->op.let_statement.lvalue.t_data.string,
-				state->op.let_statement.lvalue.t_line,
-				state->op.let_statement.lvalue.t_col) == 0 &&
+		if (get_usage(state->op.let_statement.lvalue,
+				state->src_line,
+				0) == 0 &&
 			state->op.let_statement.rvalue->type == E_LITERAL) {
-			remove_entry(state->op.let_statement.lvalue.t_data.string,
-				state->op.let_statement.lvalue.t_line,
-				state->op.let_statement.lvalue.t_col);
+			remove_entry(state->op.let_statement.lvalue,
+				state->src_line,
+				0);
 			traverse_statement(state, &optimize_safe_free_impl);
 
 			return 0;
@@ -499,7 +499,7 @@ static void scan_statement(statement* state) {
 	if (!state) return;
 	if (state->type == S_LET) {
 		// Add Usage
-		add_node(state->op.let_statement.lvalue.t_data.string,
+		add_node(state->op.let_statement.lvalue,
 			state->op.let_statement.rvalue);
 		scan_expr(state->op.let_statement.rvalue);
 	}
