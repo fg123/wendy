@@ -8,12 +8,12 @@ static void handle_statement(statement* s, traversal_algorithm* algo) {
 	UNUSED(algo);
 	if (s->type == S_IMPORT) {
 		// Log Dependency
-		printf("%s\n", s->op.import_statement.t_data.string);
+		printf("%s\n", s->op.import_statement);
 	}
 }
 
 traversal_algorithm dependency_print_impl = {
-	do_nothing_e, 
+	do_nothing_e,
 	do_nothing_el,
 	handle_statement,
 	do_nothing_sl,

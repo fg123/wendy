@@ -48,6 +48,9 @@ static void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo) {
 
 static void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) {
     UNUSED(algo);
+    if (ptr->type == S_IMPORT && ptr->op.import_statement) {
+        safe_free(ptr->op.import_statement);
+    }
     safe_free(ptr);
 }
 
@@ -569,8 +572,7 @@ static statement* parse_statement(void) {
 			if(prev) prev->next = curr;
 			curr->next = 0;
 			curr->elem->type = S_OPERATION;
-			curr->elem->op.operation_statement.operator = make_token(T_RET,
-					make_data_str("ret"));
+			curr->elem->op.operation_statement.operator = OP_RET;
 			curr->elem->op.operation_statement.operand = make_lit_expr(
 				make_token(T_IDENTIFIER, make_data_str("this")));
 
@@ -599,7 +601,15 @@ static statement* parse_statement(void) {
 		case T_INPUT:
 		case T_AT:  {
 			sm->type = S_OPERATION;
-			sm->op.operation_statement.operator = first;
+            opcode code;
+            switch(first.t_type) {
+                case T_INC: code = OP_INC; break;
+                case T_DEC: code = OP_DEC; break;
+                case T_INPUT: code = OP_IN; break;
+                case T_AT: code = OP_OUTL; break;
+                default: break;
+            }
+			sm->op.operation_statement.operator = code;
 			sm->op.operation_statement.operand = expression();
 			break;
 		}
@@ -608,7 +618,12 @@ static statement* parse_statement(void) {
 			if (match(T_IDENTIFIER, T_STRING)) {
 				// Don't actually need to do anything if it's a string, but we
 				//   delegate that task to codegen to decide.
-				sm->op.import_statement = previous();
+                token p = previous();
+                if (p.t_type == T_IDENTIFIER) {
+				    sm->op.import_statement = strdup(p.t_data.string);
+                } else {
+                    sm->op.import_statement = 0;
+                }
 			}
 			else {
 				error_lexer(first.t_line, first.t_col, AST_UNRECOGNIZED_IMPORT);
@@ -617,7 +632,7 @@ static statement* parse_statement(void) {
 		}
 		case T_RET: {
 			sm->type = S_OPERATION;
-			sm->op.operation_statement.operator = first;
+			sm->op.operation_statement.operator = OP_RET;
 			if (peek().t_type != T_SEMICOLON && peek().t_type != T_RIGHT_BRACE) {
 				sm->op.operation_statement.operand = expression();
 			}
@@ -816,9 +831,8 @@ static void print_s(statement* state, traversal_algorithm* algo) {
 			state->op.let_statement.lvalue.t_data.string);
 	}
 	else if (state->type == S_OPERATION) {
-		printf("Operation Statement " GRN);
-		print_token_inline(&state->op.operation_statement.operator, stdout);
-		printf(" \n" RESET);
+		printf("Operation Statement " GRN "%s\n" RESET,
+            operator_string[state->op.operation_statement.operator]);
 	}
 	else if (state->type == S_EXPR) {
 		printf("Expression Statement \n");

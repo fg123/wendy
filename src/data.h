@@ -62,7 +62,6 @@ data_value data_value_str(char *str);
 data_value data_value_num(double num);
 data_value data_value_size(int size);
 bool is_numeric(data t);
-bool is_boolean(data t);
 
 data time_data(void);
 data noneret_data(void);

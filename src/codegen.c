@@ -210,20 +210,6 @@ static void codegen_expr_list_for_call(expr_list* list) {
 	codegen_expr_list_for_call_named(list);
 }
 
-static opcode tok_to_opcode(token t) {
-	switch(t.t_type) {
-		case T_INC:
-			return OP_INC;
-		case T_DEC:
-			return OP_DEC;
-		case T_INPUT:
-			return OP_IN;
-		default:
-			error_general(GENERAL_NOT_IMPLEMENTED, token_string[t.t_type]);
-	}
-	return 0;
-}
-
 static void codegen_statement(void* expre) {
 	if (!expre) return;
 	statement* state = (statement*) expre;
@@ -239,18 +225,16 @@ static void codegen_statement(void* expre) {
 		write_string(state->op.let_statement.lvalue.t_data.string);
 	}
 	else if (state->type == S_OPERATION) {
-		if (state->op.operation_statement.operator.t_type == T_RET) {
+		if (state->op.operation_statement.operator == OP_RET) {
 			codegen_expr(state->op.operation_statement.operand);
-			write_opcode(OP_RET);
 		}
-		else if (state->op.operation_statement.operator.t_type == T_AT) {
+		else if (state->op.operation_statement.operator == OP_OUTL) {
 			codegen_expr(state->op.operation_statement.operand);
-			write_opcode(OP_OUTL);
 		}
 		else {
 			codegen_lvalue_expr(state->op.operation_statement.operand);
-			write_opcode(tok_to_opcode(state->op.operation_statement.operator));
 		}
+		write_opcode(state->op.operation_statement.operator);
 	}
 	else if (state->type == S_EXPR) {
 		codegen_expr(state->op.expr_statement);
@@ -264,11 +248,11 @@ static void codegen_statement(void* expre) {
 		write_opcode(OP_END);
 	}
 	else if (state->type == S_IMPORT) {
-		if (state->op.import_statement.t_type == T_STRING) {
+		if (!state->op.import_statement) {
 			// Already handled by the scanner class.
 			return;
 		}
-		char* library_name = state->op.import_statement.t_data.string;
+		char* library_name = state->op.import_statement;
 		// Has to be identifier now.
 		if (!has_already_imported_library(library_name)) {
 			add_imported_library(library_name);
@@ -317,8 +301,7 @@ static void codegen_statement(void* expre) {
 				fclose (f);
 			}
 			else {
-				error_lexer(state->op.import_statement.t_line,
-							state->op.import_statement.t_col,
+				error_lexer(state->src_line, 0,
 							CODEGEN_REQ_FILE_READ_ERR);
 			}
 			write_address_at(size, jumpLoc);

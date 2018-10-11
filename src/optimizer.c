@@ -504,16 +504,16 @@ static void scan_statement(statement* state) {
 		scan_expr(state->op.let_statement.rvalue);
 	}
 	else if (state->type == S_OPERATION) {
-		token op = state->op.operation_statement.operator;
-		if (op.t_type == T_RET) {
+		opcode op = state->op.operation_statement.operator;
+		if (op == OP_RET) {
 			scan_expr(state->op.operation_statement.operand);
 		}
-		else if (op.t_type == T_AT) {
+		else if (op == OP_OUTL) {
 			scan_expr(state->op.operation_statement.operand);
 		}
 		else {
 			add_modified(state->op.operation_statement.operand->op.lit_expr.t_data.string,
-				op.t_line, op.t_col);
+				state->src_line, 0);
 		}
 	}
 	else if (state->type == S_EXPR) {

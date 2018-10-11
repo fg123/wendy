@@ -75,9 +75,9 @@ bool is_numeric(data t) {
 		t.type == D_EMPTY || t.type == D_INTERNAL_POINTER || t.type == D_END_OF_ARGUMENTS;
 }
 
-bool is_boolean(data t) {
-	return t.type == D_TRUE || t.type == D_FALSE;
-}
+// bool is_boolean(data t) {
+// 	return t.type == D_TRUE || t.type == D_FALSE;
+// }
 
 data time_data() {
 	data t = make_data(D_NUMBER, data_value_num(time(NULL)));

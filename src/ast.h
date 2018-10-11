@@ -3,6 +3,7 @@
 
 #include "token.h"
 #include "operators.h"
+#include "codegen.h"
 #include <stdbool.h>
 
 // ast.h - Felix Guo
@@ -74,7 +75,7 @@ typedef struct statement {
 		S_IMPORT, S_EMPTY, S_BYTECODE }
 		type;
 	union { expr*                                       expr_statement;
-			struct {    token       operator;
+			struct {    opcode      operator;
 						expr*       operand; }          operation_statement;
 			struct {    token       lvalue;
 						expr*       rvalue; }           let_statement;
@@ -89,7 +90,7 @@ typedef struct statement {
 						expr*       condition;
 						struct statement*   statement_true; } loop_statement;
 			struct statement_list*                      block_statement;
-			token                                       import_statement;
+			char*                                       import_statement;
 			struct expr_list*							bytecode_statement;
 	} op;
 	int src_line;
