@@ -17,12 +17,9 @@ static bool settings_data[SETTINGS_COUNT] = { false };
 bool is_big_endian = true;
 bool last_printed_newline = false;
 
-char* w_strdup(const char *s) {
-	char* p = safe_malloc(strlen(s) + 1);
-	if (p) {
-		strcpy(p, s);
-	}
-	return p;
+char* safe_strdup_impl(const char* s, char* allocated) {
+	strcpy(allocated, s);
+	return allocated;
 }
 
 inline bool streq(const char* a, const char* b) {
@@ -126,6 +123,8 @@ void check_leak() {
 	while (curr) {
 		fprintf(stderr, "Memory Leak: %zd bytes (%p), allocated from %s at line %d.\n",
 			curr->size, curr->ptr, curr->filename, curr->line_num);
+        // Attempt to print the contents of the buffer
+        fprintf(stderr, "%.*s\n", (int)curr->size, (char*)curr->ptr);
 		curr = curr->next;
 	}
 }

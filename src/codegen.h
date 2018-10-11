@@ -1,7 +1,6 @@
 #ifndef CODEGEN_H
 #define CODEGEN_H
 
-#include "ast.h"
 #include "memory.h"
 #include <stdint.h>
 
@@ -105,6 +104,9 @@
 //               | [address] |   jumps if already imported
 // 0x26 | ARGCLN |           | cleans up all arguments up to END_OF_ARGUMENTS,
 //                           |   assigning all NAMED_ARGUMENTS
+
+// Forward Declaration
+typedef struct statement_list statement_list;
 
 typedef enum opcode {
 	OP_PUSH, OP_POP, OP_BIN, OP_UNA, OP_CALL, OP_RET, OP_BIND, OP_REQ, OP_WHERE,

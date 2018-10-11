@@ -20,11 +20,10 @@
 #define WENDY_VM_HEADER "WendyVM Bytecode"
 
 // Data/Token Information
-#define MAX_STRING_LEN 1024
 #define MAX_LIST_INIT_LEN 100
 #define MAX_STRUCT_META_LEN 100
 
-#define CODEGEN_PAD_SIZE 512
+#define CODEGEN_PAD_SIZE 256
 #define CODEGEN_START_SIZE 1024
 
 // Stack Entry Sizes
@@ -71,8 +70,10 @@ bool streq(const char* a, const char* b);
 extern bool is_big_endian;
 extern bool last_printed_newline;
 
-char* w_strdup(const char* s);
-#define strdup(x) w_strdup(x)
+char* safe_strdup_impl(const char* s, char* allocated);
+
+/* We safe_malloc in the call so we get the right allocation location */
+#define safe_strdup(x) safe_strdup_impl(x, safe_malloc(strlen(x) + 1))
 #define UNUSED(var) (void)(var)
 #define forever for(;;)
 

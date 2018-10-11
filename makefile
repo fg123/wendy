@@ -18,7 +18,7 @@ OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 all: setup main libraries test
 
 release: release += -DRELEASE
-release: all
+release: clean all
 
 $(ODIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)

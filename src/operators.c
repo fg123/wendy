@@ -5,7 +5,7 @@ const char* operator_string[] = {
 	OPERATOR_STRING
 };
 
-operator token_operator_unary(token op) {
+enum operator token_operator_unary(token op) {
 	switch (op.t_type) {
 		case T_MINUS:
 			return O_NEG;
@@ -19,7 +19,7 @@ operator token_operator_unary(token op) {
 	return 0;
 }
 
-operator token_operator_binary(token op) {
+enum operator token_operator_binary(token op) {
 	switch (op.t_type) {
 		case T_PLUS: return O_ADD;
 		case T_MINUS: return O_SUB;
@@ -39,6 +39,7 @@ operator token_operator_binary(token op) {
 		case T_DOT: return O_MEMBER;
 		case T_LEFT_BRACK: return O_SUBSCRIPT;
 		case T_TILDE: return O_IN;
+        case T_EQUAL: return O_ASSIGN;
 		default:;
 	}
 	error_compile(op.t_line, op.t_col, OPERATORS_INVALID_BINARY);

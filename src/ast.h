@@ -2,6 +2,8 @@
 #define AST_H
 
 #include "token.h"
+#include "operators.h"
+#include "codegen.h"
 #include <stdbool.h>
 
 // ast.h - Felix Guo
@@ -31,11 +33,11 @@
 typedef struct expr {
 	enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_ASSIGN, E_IF }
 		type;
-	union { token                                           lit_expr;
-			struct {    token               operator;
+	union { data                                            lit_expr;
+			struct {    enum operator       operator;
 						struct expr*        left;
 						struct expr*        right; }        bin_expr;
-			struct {    token               operator;
+			struct {    enum operator       operator;
 						struct expr*        operand; }      una_expr;
 
 			/* call arguments are either resolvable to an expression or
@@ -50,11 +52,11 @@ typedef struct expr {
 			struct {    struct expr_list*   parameters;
 						struct statement*   body;
 						bool                is_native;
-						token               native_name; }  func_expr;
+						char*               native_name; }  func_expr;
 			struct {    struct expr*        condition;
 						struct expr*        expr_true;
 						struct expr*        expr_false; }   if_expr;
-			struct {    token               operator;
+			struct {    enum operator       operator;
 						struct expr*        lvalue;
 						struct expr*        rvalue; }       assign_expr;
 
@@ -73,22 +75,22 @@ typedef struct statement {
 		S_IMPORT, S_EMPTY, S_BYTECODE }
 		type;
 	union { expr*                                       expr_statement;
-			struct {    token       operator;
+			struct {    opcode      operator;
 						expr*       operand; }          operation_statement;
-			struct {    token       lvalue;
+			struct {    char*       lvalue;
 						expr*       rvalue; }           let_statement;
-			struct {    token       name;
+			struct {    char*       name;
 						expr_list*  instance_members;
 						expr_list*  static_members;
 						expr* init_fn; }                struct_statement;
 			struct {    expr*       condition;
 						struct statement*   statement_true;
 						struct statement*   statement_false; }  if_statement;
-			struct {    token       index_var;
+			struct {    char*       index_var;
 						expr*       condition;
 						struct statement*   statement_true; } loop_statement;
 			struct statement_list*                      block_statement;
-			token                                       import_statement;
+			char*                                       import_statement;
 			struct expr_list*							bytecode_statement;
 	} op;
 	int src_line;
@@ -135,4 +137,8 @@ void traverse_expr_list(expr_list*, traversal_algorithm*);
 void traverse_statement_list(statement_list*, traversal_algorithm*);
 void traverse_statement(statement*, traversal_algorithm*);
 
+void ast_safe_free_e(expr* ptr, traversal_algorithm* algo);
+void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo);
+void ast_safe_free_s(statement* ptr, traversal_algorithm* algo);
+void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo);
 #endif

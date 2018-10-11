@@ -25,13 +25,6 @@ token none_token() {
 	return t;
 }
 
-token noneret_token() {
-	token t = make_token(T_NONERET, make_data_str("<noneret>"));
-	t.t_line = line;
-	t.t_col = col;
-	return t;
-}
-
 token true_token() {
 	token t = make_token(T_TRUE, make_data_str("<true>"));
 	t.t_line = line;
@@ -65,8 +58,10 @@ token_data make_data_num(double i) {
 }
 
 token_data make_data_str(char* s) {
+	size_t len = strlen(s);
 	token_data d;
-	memcpy(d.string, s, MAX_STRING_LEN * sizeof(char));
+	d.string = safe_malloc(len + 1);
+	strcpy(d.string, s);
 	return d;
 }
 
@@ -136,4 +131,17 @@ int precedence(token op) {
 		default:
 			return 0;
 	}
+}
+
+inline void destroy_token(token l) {
+	if (l.t_type != T_NUMBER) {
+        safe_free(l.t_data.string);
+    }
+}
+
+void free_token_list(token* l, size_t s) {
+	for (size_t i = 0; i < s; i++) {
+        destroy_token(l[i]);
+	}
+	safe_free(l);
 }

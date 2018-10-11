@@ -15,6 +15,8 @@ static bool error_thrown = false;
 
 // Forward Declarations
 static expr* make_lit_expr(token t);
+static expr* lit_expr_from_data(data d);
+static expr* copy_lit_expr(expr* from);
 static expr* make_bin_expr(expr* left, token op, expr* right);
 static expr* make_una_expr(token op, expr* operand);
 static expr* make_call_expr(expr* left, expr_list* arg_list);
@@ -33,10 +35,42 @@ static token previous(void);
 
 // Public Methods
 // Wrapping safe_free macro for use as a function pointer.
-static void ast_safe_free_e(expr* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
-static void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
-static void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
-static void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+
+// In most cases we want traversal algorithm internals to be private, but these
+// are exposed so optimizer can use them to properly free.
+void ast_safe_free_e(expr* ptr, traversal_algorithm* algo) {
+    UNUSED(algo);
+    if (ptr->type == E_FUNCTION && ptr->op.func_expr.is_native) {
+        safe_free(ptr->op.func_expr.native_name);
+    } else if (ptr->type == E_LITERAL) {
+        destroy_data(&ptr->op.lit_expr);
+    }
+    safe_free(ptr);
+}
+
+void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo) {
+    UNUSED(algo);
+    safe_free(ptr);
+}
+
+void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) {
+    UNUSED(algo);
+    if (ptr->type == S_IMPORT && ptr->op.import_statement) {
+        safe_free(ptr->op.import_statement);
+    } else if (ptr->type == S_LET && ptr->op.let_statement.lvalue) {
+        safe_free(ptr->op.let_statement.lvalue);
+    } else if (ptr->type == S_STRUCT && ptr->op.struct_statement.name) {
+        safe_free(ptr->op.struct_statement.name);
+    } else if (ptr->type == S_LOOP && ptr->op.loop_statement.index_var) {
+        safe_free(ptr->op.loop_statement.index_var);
+    }
+    safe_free(ptr);
+}
+
+void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) {
+    UNUSED(algo);
+    safe_free(ptr);
+}
 
 traversal_algorithm ast_safe_free_impl =
 {
@@ -344,6 +378,7 @@ static expr* assignment(void) {
 		left = make_assign_expr(left, right, op);
 	}
 	else if (match(T_DEFFN)) {
+        token op = previous();
 		consume(T_LEFT_PAREN);
 		expr_list* parameters = expression_list(T_RIGHT_PAREN);
 		consume(T_RIGHT_PAREN);
@@ -357,8 +392,7 @@ static expr* assignment(void) {
 			statement* fnbody = parse_statement();
 			rvalue = make_func_expr(parameters, fnbody);
 		}
-		left = make_assign_expr(left, rvalue,
-				make_token(T_EQUAL, make_data_str("=")));
+		left = make_assign_expr(left, rvalue, op);
 	}
 	return left;
 }
@@ -404,30 +438,39 @@ static statement* parse_statement(void) {
 		}
 		case T_LET: {
 			// Read an expression for a LVALUE
-			token lvalue;
-			lvalue.t_type = T_IDENTIFIER;
-			lvalue.t_data.string[0] = 0;
+			char* lvalue = 0;
 			if (match(T_IDENTIFIER)) {
-				lvalue = previous();
+                token prev = previous();
+				lvalue = safe_strdup(prev.t_data.string);
 			}
 			else {
-				strcat(lvalue.t_data.string, OPERATOR_OVERLOAD_PREFIX);
+                size_t alloc_size = strlen(OPERATOR_OVERLOAD_PREFIX);
+                bool is_binary = false;
+                token lhs;
 				if (match(T_OBJ_TYPE)) {
-					// Binary Operator
-					token t = previous();
-					strcat(lvalue.t_data.string, t.t_data.string);
-				}
-				token op = advance();
-				if (precedence(op)) {
-					strcat(lvalue.t_data.string, op.t_data.string);
-					consume(T_OBJ_TYPE);
-					token operand = previous();
-					strcat(lvalue.t_data.string, operand.t_data.string);
-				}
-				else {
+                    lhs = previous();
+                    is_binary = true;
+                    alloc_size += strlen(lhs.t_data.string);
+                }
+                token op = advance();
+                token operand;
+                if (precedence(op)) {
+                    alloc_size += strlen(op.t_data.string);
+                    consume(T_OBJ_TYPE);
+                    operand = previous();
+                    alloc_size += strlen(operand.t_data.string);
+                }
+                else {
 					error_lexer(op.t_line, op.t_col,
 						AST_OPERATOR_OVERLOAD_NO_OPERATOR);
 				}
+                lvalue = safe_calloc(alloc_size + 1, sizeof(char));
+                strcat(lvalue, OPERATOR_OVERLOAD_PREFIX);
+                if (is_binary) {
+                    strcat(lvalue, lhs.t_data.string);
+                }
+                strcat(lvalue, op.t_data.string);
+                strcat(lvalue, operand.t_data.string);
 			}
 			expr* rvalue = 0;
 			if (match(T_EQUAL)) {
@@ -470,22 +513,22 @@ static statement* parse_statement(void) {
 		}
 		case T_LOOP: {
 			expr* index_var = expression();
-			token a_index;
+			char* a_index;
 			expr* condition;
 			if (match(T_COLON, T_IN)) {
 				condition = expression();
 				if (index_var->type != E_LITERAL ||
-						index_var->op.lit_expr.t_type != T_IDENTIFIER) {
+						index_var->op.lit_expr.type != D_IDENTIFIER) {
 					token t = previous();
 					error_lexer(t.t_line, t.t_col, AST_EXPECTED_IDENTIFIER_LOOP);
 				}
-				a_index = index_var->op.lit_expr;
-				safe_free(index_var);
+				a_index = safe_strdup(index_var->op.lit_expr.value.string);
+		        traverse_expr(index_var, &ast_safe_free_impl);
 			}
 			else {
 				condition = index_var;
 				index_var = 0;
-				a_index = empty_token();
+				a_index = 0;
 			}
 			statement* run_if_true = parse_statement();
 			sm->type = S_LOOP;
@@ -529,17 +572,18 @@ static statement* parse_statement(void) {
 				curr->elem->op.expr_statement = safe_malloc(sizeof(expr));
 				curr->elem->op.expr_statement->type = E_ASSIGN;
 				expr* ass_expr = curr->elem->op.expr_statement;
-				ass_expr->op.assign_expr.operator =
-						make_token(T_EQUAL, make_data_str("="));
-				ass_expr->op.assign_expr.rvalue =
-						make_lit_expr(tmp_ins->elem->op.lit_expr);
+				ass_expr->op.assign_expr.operator = O_ASSIGN;
+				ass_expr->op.assign_expr.rvalue = copy_lit_expr(tmp_ins->elem);
 				// Binary Dot Expr
-				expr* left = make_lit_expr(make_token(T_IDENTIFIER,
-								make_data_str("this")));
-				expr* right = make_lit_expr(tmp_ins->elem->op.lit_expr);
+				expr* left = lit_expr_from_data(make_data(D_IDENTIFIER,
+								data_value_str("this")));
+				expr* right = copy_lit_expr(tmp_ins->elem);
+
 				token op = make_token(T_DOT, make_data_str("."));
-				ass_expr->op.assign_expr.lvalue =
-						make_bin_expr(left, op, right);
+                // This isn't very clean, having to make a fake token to
+                // construct the expression.
+				ass_expr->op.assign_expr.lvalue = make_bin_expr(left, op, right);
+                destroy_token(op);
 
 				if (prev) prev->next = curr;
 				prev = curr;
@@ -552,10 +596,10 @@ static statement* parse_statement(void) {
 			if(prev) prev->next = curr;
 			curr->next = 0;
 			curr->elem->type = S_OPERATION;
-			curr->elem->op.operation_statement.operator = make_token(T_RET,
-					make_data_str("ret"));
-			curr->elem->op.operation_statement.operand = make_lit_expr(
-				make_token(T_IDENTIFIER, make_data_str("this")));
+			curr->elem->op.operation_statement.operator = OP_RET;
+			curr->elem->op.operation_statement.operand =
+                lit_expr_from_data(make_data(D_IDENTIFIER,
+								data_value_str("this")));
 
 			expr_list* parameters = 0;
 			if (instance_members) {
@@ -571,7 +615,7 @@ static statement* parse_statement(void) {
 			expr* function_const = make_func_expr(parameters, function_body);
 
 			sm->type = S_STRUCT;
-			sm->op.struct_statement.name = name;
+			sm->op.struct_statement.name = safe_strdup(name.t_data.string);
 			sm->op.struct_statement.init_fn = function_const;
 			sm->op.struct_statement.instance_members = instance_members;
 			sm->op.struct_statement.static_members = static_members;
@@ -582,7 +626,15 @@ static statement* parse_statement(void) {
 		case T_INPUT:
 		case T_AT:  {
 			sm->type = S_OPERATION;
-			sm->op.operation_statement.operator = first;
+            opcode code;
+            switch(first.t_type) {
+                case T_INC: code = OP_INC; break;
+                case T_DEC: code = OP_DEC; break;
+                case T_INPUT: code = OP_IN; break;
+                case T_AT: code = OP_OUTL; break;
+                default: break;
+            }
+			sm->op.operation_statement.operator = code;
 			sm->op.operation_statement.operand = expression();
 			break;
 		}
@@ -591,7 +643,12 @@ static statement* parse_statement(void) {
 			if (match(T_IDENTIFIER, T_STRING)) {
 				// Don't actually need to do anything if it's a string, but we
 				//   delegate that task to codegen to decide.
-				sm->op.import_statement = previous();
+                token p = previous();
+                if (p.t_type == T_IDENTIFIER) {
+				    sm->op.import_statement = safe_strdup(p.t_data.string);
+                } else {
+                    sm->op.import_statement = 0;
+                }
 			}
 			else {
 				error_lexer(first.t_line, first.t_col, AST_UNRECOGNIZED_IMPORT);
@@ -600,12 +657,12 @@ static statement* parse_statement(void) {
 		}
 		case T_RET: {
 			sm->type = S_OPERATION;
-			sm->op.operation_statement.operator = first;
+			sm->op.operation_statement.operator = OP_RET;
 			if (peek().t_type != T_SEMICOLON && peek().t_type != T_RIGHT_BRACE) {
 				sm->op.operation_statement.operand = expression();
 			}
 			else {
-				sm->op.operation_statement.operand = make_lit_expr(noneret_token());
+				sm->op.operation_statement.operand = lit_expr_from_data(noneret_data());
 			}
 			break;
 		}
@@ -759,13 +816,12 @@ static void print_e(expr* expression, traversal_algorithm* algo) {
 	printf(YEL);
 	if (expression->type == E_LITERAL) {
 		printf("Literal Expression " GRN);
-		print_token(&expression->op.lit_expr);
+		print_data(&expression->op.lit_expr);
 		printf(RESET);
 	}
 	else if (expression->type == E_BINARY) {
-		printf("Binary Expression " GRN);
-		print_token(&expression->op.bin_expr.operator);
-		printf(RESET);
+		printf("Binary Expression " GRN "%s\n" RESET,
+            operator_string[expression->op.bin_expr.operator]);
 	}
 	else if (expression->type == E_IF) {
 		printf("Conditional Expression\n");
@@ -797,12 +853,11 @@ static void print_s(statement* state, traversal_algorithm* algo) {
 	printf(BLU);
 	if (state->type == S_LET) {
 		printf("Let Statement " GRN "(%s)\n" RESET,
-			state->op.let_statement.lvalue.t_data.string);
+			state->op.let_statement.lvalue);
 	}
 	else if (state->type == S_OPERATION) {
-		printf("Operation Statement " GRN);
-		print_token_inline(&state->op.operation_statement.operator, stdout);
-		printf(" \n" RESET);
+		printf("Operation Statement " GRN "%s\n" RESET,
+            operator_string[state->op.operation_statement.operator]);
 	}
 	else if (state->type == S_EXPR) {
 		printf("Expression Statement \n");
@@ -811,9 +866,8 @@ static void print_s(statement* state, traversal_algorithm* algo) {
 		printf("Block Statement \n");
 	}
 	else if (state->type == S_STRUCT) {
-		printf("Struct Statement " GRN);
-		print_token_inline(&state->op.struct_statement.name, stdout);
-		printf("\n" RESET);
+		printf("Struct Statement " GRN "%s\n" RESET,
+            state->op.struct_statement.name);
 	}
 	else if (state->type == S_IF) {
 		printf("If Statement\n");
@@ -842,10 +896,22 @@ void traverse_ast(statement_list* list, traversal_algorithm* algo) {
 	traverse_statement_list(list, algo);
 }
 
+/* Consumes d */
+static expr* lit_expr_from_data(data d) {
+    expr* node = safe_malloc(sizeof(expr));
+    node->type = E_LITERAL;
+    node->op.lit_expr = d;
+    return node;
+}
+
+static expr* copy_lit_expr(expr* from) {
+    expr* node = lit_expr_from_data(copy_data(from->op.lit_expr));
+	node->line = from->line;
+	node->col = from->col;
+	return node;
+}
 static expr* make_lit_expr(token t) {
-	expr* node = safe_malloc(sizeof(expr));
-	node->type = E_LITERAL;
-	node->op.lit_expr = t;
+	expr* node = lit_expr_from_data(literal_to_data(t));
 	node->line = t.t_line;
 	node->col = t.t_col;
 	return node;
@@ -855,7 +921,7 @@ static expr* make_bin_expr(expr* left, token op, expr* right) {
 	node->line = op.t_line;
 	node->col = op.t_col;
 	node->type = E_BINARY;
-	node->op.bin_expr.operator = op;
+	node->op.bin_expr.operator = token_operator_binary(op);
 	node->op.bin_expr.left = left;
 	node->op.bin_expr.right = right;
 	return node;
@@ -874,7 +940,7 @@ static expr* make_if_expr(expr* condition, expr* if_true, expr* if_false) {
 static expr* make_una_expr(token op, expr* operand) {
 	expr* node = safe_malloc(sizeof(expr));
 	node->type = E_UNARY;
-	node->op.una_expr.operator = op;
+	node->op.una_expr.operator = token_operator_unary(op);
 	node->op.una_expr.operand = operand;
 	node->line = op.t_line;
 	node->col = op.t_col;
@@ -911,7 +977,28 @@ static expr* make_assign_expr(expr* left, expr* right, token op) {
 	node->type = E_ASSIGN;
 	node->op.assign_expr.lvalue = left;
 	node->op.assign_expr.rvalue = right;
-	node->op.assign_expr.operator = op;
+    enum operator new_op = O_ASSIGN;
+    switch(op.t_type) {
+        case T_ASSIGN_PLUS:
+            new_op = O_ADD;
+            break;
+        case T_ASSIGN_MINUS:
+            new_op = O_SUB;
+            break;
+        case T_ASSIGN_STAR:
+            new_op = O_MUL;
+            break;
+        case T_ASSIGN_SLASH:
+            new_op = O_DIV;
+            break;
+        case T_ASSIGN_INTSLASH:
+            new_op = O_IDIV;
+            break;
+        case T_EQUAL:
+        case T_DEFFN:
+        default: break;
+    }
+	node->op.assign_expr.operator = new_op;
 	node->line = op.t_line;
 	node->col = op.t_col;
 	return node;
@@ -930,6 +1017,6 @@ static expr* make_func_expr(expr_list* parameters, statement* body) {
 static expr* make_native_func_expr(expr_list* parameters, token name) {
 	expr* node = make_func_expr(parameters, 0);
 	node->op.func_expr.is_native = true;
-	node->op.func_expr.native_name = name;
+	node->op.func_expr.native_name = safe_strdup(name.t_data.string);
 	return node;
 }

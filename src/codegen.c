@@ -1,7 +1,6 @@
 #include "codegen.h"
 #include "ast.h"
 #include "global.h"
-#include "token.h"
 #include "error.h"
 #include "memory.h"
 #include "execpath.h"
@@ -13,7 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define write_byte(op) bytecode[size++] = op;
+#define write_byte(op) do { bytecode[size++] = op; } while(0)
 
 // Implementation of Wendy ByteCode Generator
 const char* opcode_string[] = {
@@ -26,9 +25,6 @@ static size_t capacity = 0;
 static size_t size = 0;
 static int global_loop_id = 0;
 
-// Forward
-static data literal_to_data(token literal);
-
 int verify_header(uint8_t* bytecode) {
 	char* start = (char*)bytecode;
 	if (streq(WENDY_VM_HEADER, start)) {
@@ -40,23 +36,24 @@ int verify_header(uint8_t* bytecode) {
 	return 0;
 }
 
-static void guarantee_size(void) {
-	if (size + CODEGEN_PAD_SIZE > capacity) {
-		capacity *= 2;
+static void guarantee_size(size_t desired_additional) {
+	if (size + desired_additional + CODEGEN_PAD_SIZE > capacity) {
+		capacity += desired_additional + CODEGEN_PAD_SIZE;
 		uint8_t* re = safe_realloc(bytecode, capacity * sizeof(uint8_t));
 		bytecode = re;
 	}
 }
 
 static void write_string(char* string) {
+	guarantee_size(strlen(string) + 1);
 	for (size_t i = 0; string[i]; i++) {
 		write_byte(string[i]);
 	}
 	write_byte(0);
-	guarantee_size();
 }
 
 static void write_address(address a) {
+	guarantee_size(sizeof(address));
 	size_t pos = size;
 	if (!is_big_endian) pos += sizeof(a);
 	size += sizeof(a);
@@ -64,7 +61,6 @@ static void write_address(address a) {
 	for (size_t i = 0; i < sizeof(address); i++) {
 		bytecode[is_big_endian ? pos++ : --pos] = first[i];
 	}
-	guarantee_size();
 }
 
 static void write_address_at(address a, int pos) {
@@ -84,6 +80,7 @@ static void write_double_at(double a, int pos) {
 }
 
 static void write_double(double a) {
+	guarantee_size(sizeof(double));
 	size_t pos = size;
 	if (!is_big_endian) pos += sizeof(a);
 	size += sizeof(double);
@@ -91,7 +88,6 @@ static void write_double(double a) {
 	for (size_t i = 0; i < sizeof(double); i++) {
 		bytecode[is_big_endian ? pos++ : --pos] = p[i];
 	}
-	guarantee_size();
 }
 
 static void write_integer(int a) {
@@ -108,13 +104,12 @@ static void write_data(data t) {
 	else {
 		write_string(t.value.string);
 	}
-	guarantee_size();
 	destroy_data(&t);
 }
 
 static inline void write_opcode(opcode op) {
+	guarantee_size(1);
 	write_byte(op);
-	guarantee_size();
 }
 
 static void codegen_expr(void* expre);
@@ -124,28 +119,27 @@ static void codegen_statement_list(void* expre);
 static void codegen_lvalue_expr(expr* expression) {
 	if (expression->type == E_LITERAL) {
 		// Better be a identifier eh
-		if (expression->op.lit_expr.t_type != T_IDENTIFIER) {
-			error_lexer(expression->op.lit_expr.t_line,
-				expression->op.lit_expr.t_col,
+		if (expression->op.lit_expr.type != D_IDENTIFIER) {
+			error_lexer(expression->line, expression->col,
 				CODEGEN_LVALUE_EXPECTED_IDENTIFIER);
 		}
 		write_opcode(OP_WHERE);
-		write_string(expression->op.lit_expr.t_data.string);
+		write_string(expression->op.lit_expr.value.string);
 	}
 	else if (expression->type == E_BINARY) {
 		// Left side in memory reg
 		codegen_lvalue_expr(expression->op.bin_expr.left);
 
-		if (expression->op.bin_expr.operator.t_type == T_DOT) {
+		if (expression->op.bin_expr.operator == O_MEMBER) {
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
 				error_lexer(expression->line, expression->col,
 					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
 			}
 			//expression->op.bin_expr.right->op.lit_expr.t_type = T_MEMBER;
 			write_opcode(OP_MEMPTR);
-			write_string(expression->op.bin_expr.right->op.lit_expr.t_data.string);
+			write_string(expression->op.bin_expr.right->op.lit_expr.value.string);
 		}
-		else if (expression->op.bin_expr.operator.t_type == T_LEFT_BRACK) {
+		else if (expression->op.bin_expr.operator == O_SUBSCRIPT) {
 			codegen_expr(expression->op.bin_expr.right);
 			write_opcode(OP_NTHPTR);
 		}
@@ -182,7 +176,7 @@ static void codegen_expr_list_for_call_named(expr_list* list) {
 	// Named Argument
 	expr* assign_expr = list->elem;
 	if (assign_expr->op.assign_expr.lvalue->type != E_LITERAL ||
-		assign_expr->op.assign_expr.lvalue->op.lit_expr.t_type != T_IDENTIFIER) {
+		assign_expr->op.assign_expr.lvalue->op.lit_expr.type != D_IDENTIFIER) {
 		error_lexer(assign_expr->line,
 					assign_expr->col,
 					CODEGEN_NAMED_ARGUMENT_NOT_LITERAL);
@@ -191,7 +185,7 @@ static void codegen_expr_list_for_call_named(expr_list* list) {
 	codegen_expr(assign_expr->op.assign_expr.rvalue);
 	write_opcode(OP_PUSH);
 	write_data(make_data(D_NAMED_ARGUMENT_NAME,
-		data_value_str(assign_expr->op.assign_expr.lvalue->op.lit_expr.t_data.string)));
+		data_value_str(assign_expr->op.assign_expr.lvalue->op.lit_expr.value.string)));
 }
 
 static void codegen_expr_list_for_call(expr_list* list) {
@@ -210,20 +204,6 @@ static void codegen_expr_list_for_call(expr_list* list) {
 	codegen_expr_list_for_call_named(list);
 }
 
-static opcode tok_to_opcode(token t) {
-	switch(t.t_type) {
-		case T_INC:
-			return OP_INC;
-		case T_DEC:
-			return OP_DEC;
-		case T_INPUT:
-			return OP_IN;
-		default:
-			error_general(GENERAL_NOT_IMPLEMENTED, token_string[t.t_type]);
-	}
-	return 0;
-}
-
 static void codegen_statement(void* expre) {
 	if (!expre) return;
 	statement* state = (statement*) expre;
@@ -236,21 +216,19 @@ static void codegen_statement(void* expre) {
 		codegen_expr(state->op.let_statement.rvalue);
 		// Request Memory
 		write_opcode(OP_RBW);
-		write_string(state->op.let_statement.lvalue.t_data.string);
+		write_string(state->op.let_statement.lvalue);
 	}
 	else if (state->type == S_OPERATION) {
-		if (state->op.operation_statement.operator.t_type == T_RET) {
+		if (state->op.operation_statement.operator == OP_RET) {
 			codegen_expr(state->op.operation_statement.operand);
-			write_opcode(OP_RET);
 		}
-		else if (state->op.operation_statement.operator.t_type == T_AT) {
+		else if (state->op.operation_statement.operator == OP_OUTL) {
 			codegen_expr(state->op.operation_statement.operand);
-			write_opcode(OP_OUTL);
 		}
 		else {
 			codegen_lvalue_expr(state->op.operation_statement.operand);
-			write_opcode(tok_to_opcode(state->op.operation_statement.operator));
 		}
+		write_opcode(state->op.operation_statement.operator);
 	}
 	else if (state->type == S_EXPR) {
 		codegen_expr(state->op.expr_statement);
@@ -264,11 +242,11 @@ static void codegen_statement(void* expre) {
 		write_opcode(OP_END);
 	}
 	else if (state->type == S_IMPORT) {
-		if (state->op.import_statement.t_type == T_STRING) {
+		if (!state->op.import_statement) {
 			// Already handled by the scanner class.
 			return;
 		}
-		char* library_name = state->op.import_statement.t_data.string;
+		char* library_name = state->op.import_statement;
 		// Has to be identifier now.
 		if (!has_already_imported_library(library_name)) {
 			add_imported_library(library_name);
@@ -308,17 +286,16 @@ static void codegen_statement(void* expre) {
 				fread (buffer, sizeof(uint8_t), length, f);
 				int offset = size - strlen(WENDY_VM_HEADER) - 1;
 				offset_addresses(buffer, length, offset);
+				guarantee_size(length);
 				for (long i = verify_header(buffer); i < length; i++) {
 					if (i == length - 1 && buffer[i] == OP_HALT) break;
 					write_byte(buffer[i]);
-					guarantee_size();
 				}
 				safe_free(buffer);
 				fclose (f);
 			}
 			else {
-				error_lexer(state->op.import_statement.t_line,
-							state->op.import_statement.t_col,
+				error_lexer(state->src_line, 0,
 							CODEGEN_REQ_FILE_READ_ERR);
 			}
 			write_address_at(size, jumpLoc);
@@ -326,7 +303,7 @@ static void codegen_statement(void* expre) {
 	}
 	else if (state->type == S_STRUCT) {
 		int push_size = 2; // For Header and Name
-		char* struct_name = state->op.struct_statement.name.t_data.string;
+		char* struct_name = state->op.struct_statement.name;
 
 		// Push Header and Name
 		write_opcode(OP_PUSH);
@@ -345,12 +322,12 @@ static void codegen_statement(void* expre) {
 		while (curr) {
 			expr* elem = curr->elem;
 			if (elem->type != E_LITERAL
-				|| elem->op.lit_expr.t_type != T_IDENTIFIER) {
+				|| elem->op.lit_expr.type != D_IDENTIFIER) {
 				error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
 			}
 			write_opcode(OP_PUSH);
 			write_data(make_data(D_STRUCT_PARAM,
-				data_value_str(elem->op.lit_expr.t_data.string)));
+				data_value_str(elem->op.lit_expr.value.string)));
 			push_size++;
 			curr = curr->next;
 		}
@@ -358,12 +335,12 @@ static void codegen_statement(void* expre) {
 		while (curr) {
 			expr* elem = curr->elem;
 			if (elem->type != E_LITERAL
-				|| elem->op.lit_expr.t_type != T_IDENTIFIER) {
+				|| elem->op.lit_expr.type != D_IDENTIFIER) {
 				error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
 			}
 			write_opcode(OP_PUSH);
 			write_data(make_data(D_STRUCT_SHARED,
-				data_value_str(elem->op.lit_expr.t_data.string)));
+				data_value_str(elem->op.lit_expr.value.string)));
 			write_opcode(OP_PUSH);
 			write_data(none_data());
 			push_size += 2;
@@ -413,12 +390,12 @@ static void codegen_statement(void* expre) {
 		sprintf(loopIndexName, LOOP_COUNTER_PREFIX "%d", global_loop_id++);
 		write_string(loopIndexName);
 
-		if (state->op.loop_statement.index_var.t_type != T_EMPTY) {
+		if (state->op.loop_statement.index_var) {
 			// User has a custom variable, also declare that.
 			write_opcode(OP_PUSH);
 			write_data(make_data(D_NUMBER, data_value_num(0)));
 			write_opcode(OP_RBW);
-			write_string(state->op.loop_statement.index_var.t_data.string);
+			write_string(state->op.loop_statement.index_var);
 		}
 
 		// Start of Loop, Push Condition to Stack
@@ -434,9 +411,9 @@ static void codegen_statement(void* expre) {
 		write_opcode(OP_FRM); // Start Local Variable Frame
 
 		// Write Custom Var and Bind
-		if (state->op.loop_statement.index_var.t_type != T_EMPTY) {
+		if (state->op.loop_statement.index_var) {
 			write_opcode(OP_LBIND);
-			write_string(state->op.loop_statement.index_var.t_data.string);
+			write_string(state->op.loop_statement.index_var);
 			write_string(loopIndexName);
 		}
 		else {
@@ -449,10 +426,10 @@ static void codegen_statement(void* expre) {
 		write_opcode(OP_WHERE);
 		write_string(loopIndexName);
 		write_opcode(OP_INC);
-		if (state->op.loop_statement.index_var.t_type != T_EMPTY) {
+		if (state->op.loop_statement.index_var) {
 			write_opcode(OP_READ);
 			write_opcode(OP_WHERE);
-			write_string(state->op.loop_statement.index_var.t_data.string);
+			write_string(state->op.loop_statement.index_var);
 			write_opcode(OP_WRITE);
 			write_byte(1);
 		}
@@ -474,88 +451,88 @@ static void codegen_statement(void* expre) {
 		// DOLLAR SIGN + STRING => STRING
 		// DOLLAR SIGN + NUMBER => Byte
 		// Traverse Bytecode Chain
-		expr_list* curr = state->op.bytecode_statement;
-		while (curr) {
-			expr* ep = curr->elem;
-			token byte = ep->op.lit_expr;
-			// We want to match identifiers and strings last because there are
-			//   keywords that are read from the scanner as the wrong tokens.
-			// eg. "ret" will come here as a T_RET and not a T_IDENTIFIER
-			if (precedence(byte)) {
-				// Check last byte for Binary or Unary
-				if (bytecode[size - 1] == OP_BIN) {
-					write_byte(token_operator_binary(byte));
-				}
-				else if (bytecode[size - 1] == OP_UNA) {
-					write_byte(token_operator_unary(byte));
-				}
-				else {
-					error_lexer(ep->line, ep->col,
-						CODEGEN_BYTECODE_UNEXPECTED_OPERATOR, byte.t_data.string);
-				}
-			}
-			else if (byte.t_type == T_DOLLAR_SIGN) {
-				// Check next byte
-				curr = curr->next;
-				if (!curr) {
-					error_lexer(ep->line, ep->col,
-						CODEGEN_BYTECODE_UNEXPECTED_RAW_BYTE);
-					break;
-				}
-				// Curr contains the content we want.
-				token b = curr->elem->op.lit_expr;
-				if (b.t_type == T_NUMBER) {
-					write_byte((uint8_t) b.t_data.number);
-				}
-				else {
-					write_string(b.t_data.string);
-				}
-			}
-			else {
-				bool identifier_matched = false;
-				if (byte.t_type != T_STRING && byte.t_type != T_NUMBER) {
-					// OPCODE or DATA_TYPE, otherwise fall to else and becomes
-					//   regular IDENTIFIER
-					bool found = false;
-					for (size_t i = 0; opcode_string[i]; i++) {
-						if (streq(opcode_string[i], byte.t_data.string)) {
-							write_opcode((opcode) i);
-							found = true;
-							break;
-						}
-					}
-					if (!found) {
-						for (size_t i = 0; data_string[i]; i++) {
-							if (streq(data_string[i], byte.t_data.string)) {
-								curr = curr->next;
-								if (!curr) {
-									error_lexer(ep->line, ep->col,
-										CODEGEN_BYTECODE_UNEXPECTED_DATA_NO_CONTENT);
-									break;
-								}
-								// Curr contains the content we want.
-								token b = curr->elem->op.lit_expr;
-								if (b.t_type == T_NUMBER) {
-									write_data(make_data((data_type) i,
-										data_value_num(b.t_data.number)));
-								}
-								else {
-									write_data(make_data((data_type) i,
-										data_value_str(b.t_data.string)));
-								}
-								found = true;
-								break;
-							}
-						}
-					}
-					if (found) identifier_matched = true;
-				}
-				if (!identifier_matched) {
-					write_data(literal_to_data(byte));
-				}
-			}
-			curr = curr->next;
-		}
+		// expr_list* curr = state->op.bytecode_statement;
+		// while (curr) {
+		// 	expr* ep = curr->elem;
+		// 	token byte = ep->op.lit_expr;
+		// 	// We want to match identifiers and strings last because there are
+		// 	//   keywords that are read from the scanner as the wrong tokens.
+		// 	// eg. "ret" will come here as a T_RET and not a T_IDENTIFIER
+		// 	if (precedence(byte)) {
+		// 		// Check last byte for Binary or Unary
+		// 		if (bytecode[size - 1] == OP_BIN) {
+		// 			write_byte(token_operator_binary(byte));
+		// 		}
+		// 		else if (bytecode[size - 1] == OP_UNA) {
+		// 			write_byte(token_operator_unary(byte));
+		// 		}
+		// 		else {
+		// 			error_lexer(ep->line, ep->col,
+		// 				CODEGEN_BYTECODE_UNEXPECTED_OPERATOR, byte.t_data.string);
+		// 		}
+		// 	}
+		// 	else if (byte.t_type == T_DOLLAR_SIGN) {
+		// 		// Check next byte
+		// 		curr = curr->next;
+		// 		if (!curr) {
+		// 			error_lexer(ep->line, ep->col,
+		// 				CODEGEN_BYTECODE_UNEXPECTED_RAW_BYTE);
+		// 			break;
+		// 		}
+		// 		// Curr contains the content we want.
+		// 		token b = curr->elem->op.lit_expr;
+		// 		if (b.t_type == T_NUMBER) {
+		// 			write_byte((uint8_t) b.t_data.number);
+		// 		}
+		// 		else {
+		// 			write_string(b.t_data.string);
+		// 		}
+		// 	}
+		// 	else {
+		// 		bool identifier_matched = false;
+		// 		if (byte.t_type != T_STRING && byte.t_type != T_NUMBER) {
+		// 			// OPCODE or DATA_TYPE, otherwise fall to else and becomes
+		// 			//   regular IDENTIFIER
+		// 			bool found = false;
+		// 			for (size_t i = 0; opcode_string[i]; i++) {
+		// 				if (streq(opcode_string[i], byte.t_data.string)) {
+		// 					write_opcode((opcode) i);
+		// 					found = true;
+		// 					break;
+		// 				}
+		// 			}
+		// 			if (!found) {
+		// 				for (size_t i = 0; data_string[i]; i++) {
+		// 					if (streq(data_string[i], byte.t_data.string)) {
+		// 						curr = curr->next;
+		// 						if (!curr) {
+		// 							error_lexer(ep->line, ep->col,
+		// 								CODEGEN_BYTECODE_UNEXPECTED_DATA_NO_CONTENT);
+		// 							break;
+		// 						}
+		// 						// Curr contains the content we want.
+		// 						token b = curr->elem->op.lit_expr;
+		// 						if (b.t_type == T_NUMBER) {
+		// 							write_data(make_data((data_type) i,
+		// 								data_value_num(b.t_data.number)));
+		// 						}
+		// 						else {
+		// 							write_data(make_data((data_type) i,
+		// 								data_value_str(b.t_data.string)));
+		// 						}
+		// 						found = true;
+		// 						break;
+		// 					}
+		// 				}
+		// 			}
+		// 			if (found) identifier_matched = true;
+		// 		}
+		// 		if (!identifier_matched) {
+		// 			write_data(literal_to_data(byte));
+		// 		}
+		// 	}
+		// 	curr = curr->next;
+		// }
 	}
 }
 
@@ -567,65 +544,32 @@ static void codegen_statement_list(void* expre) {
 	}
 }
 
-static data_type literal_type_to_data_type(token_type t) {
-	switch(t) {
-		case T_NUMBER:
-			return D_NUMBER;
-		case T_STRING:
-			return D_STRING;
-		case T_TRUE:
-			return D_TRUE;
-		case T_FALSE:
-			return D_FALSE;
-		case T_NONE:
-			return D_NONE;
-		case T_NONERET:
-			return D_NONERET;
-		case T_IDENTIFIER:
-			return D_IDENTIFIER;
-		case T_OBJ_TYPE:
-			return D_OBJ_TYPE;
-		case T_MEMBER:
-			return D_MEMBER_IDENTIFIER;
-		default:;
-	}
-	return D_EMPTY;
-}
-
-static data literal_to_data(token literal) {
-	if (literal.t_type == T_NUMBER) {
-		return make_data(D_NUMBER, data_value_num(literal.t_data.number));
-	}
-	return make_data(literal_type_to_data_type(literal.t_type),
-		data_value_str(literal.t_data.string));
-}
-
 static void codegen_expr(void* expre) {
 	if (!expre) return;
 	expr* expression = (expr*)expre;
 	if (expression->type == E_LITERAL) {
 		// Literal Expression, we push to the stack.
 		write_opcode(OP_PUSH);
-		write_data(literal_to_data(expression->op.lit_expr));
+		write_data(copy_data(expression->op.lit_expr));
 	}
 	else if (expression->type == E_BINARY) {
-		if (expression->op.bin_expr.operator.t_type == T_DOT) {
+		if (expression->op.bin_expr.operator == O_MEMBER) {
 			codegen_expr(expression->op.bin_expr.left);
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
 				error_lexer(expression->line, expression->col,
 					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
 			}
-			expression->op.bin_expr.right->op.lit_expr.t_type = T_MEMBER;
+			expression->op.bin_expr.right->op.lit_expr.type = D_MEMBER_IDENTIFIER;
 			write_opcode(OP_PUSH);
-			write_data(literal_to_data(
-				expression->op.bin_expr.right->op.lit_expr));
+			write_data(copy_data(
+                expression->op.bin_expr.right->op.lit_expr));
 		}
 		else {
 			codegen_expr(expression->op.bin_expr.left);
 			codegen_expr(expression->op.bin_expr.right);
 		}
 		write_opcode(OP_BIN);
-		write_byte(token_operator_binary(expression->op.bin_expr.operator));
+		write_byte(expression->op.bin_expr.operator);
 	}
 	else if (expression->type == E_IF) {
 		codegen_expr(expression->op.if_expr.condition);
@@ -647,37 +591,15 @@ static void codegen_expr(void* expre) {
 		write_address_at(size, doneJumpLoc);
 	}
 	else if (expression->type == E_ASSIGN) {
-		token operator = expression->op.assign_expr.operator;
-		switch(operator.t_type) {
-			case T_ASSIGN_PLUS:
-				operator.t_type = T_PLUS;
-				strcpy(operator.t_data.string, "+");
-				break;
-			case T_ASSIGN_MINUS:
-				operator.t_type = T_MINUS;
-				strcpy(operator.t_data.string, "-");
-				break;
-			case T_ASSIGN_STAR:
-				operator.t_type = T_STAR;
-				strcpy(operator.t_data.string, "*");
-				break;
-			case T_ASSIGN_SLASH:
-				operator.t_type = T_SLASH;
-				strcpy(operator.t_data.string, "/");
-				break;
-			case T_ASSIGN_INTSLASH:
-				operator.t_type = T_INTSLASH;
-				strcpy(operator.t_data.string, "\\");
-				break;
-			default: break;
-		}
+        enum operator op = expression->op.assign_expr.operator;
 		codegen_expr(expression->op.assign_expr.rvalue);
 
 		codegen_lvalue_expr(expression->op.assign_expr.lvalue);
-		if (operator.t_type != T_EQUAL) {
+        // O_ASSIGN is the default =
+		if (op != O_ASSIGN) {
 			write_opcode(OP_READ);
 			write_opcode(OP_RBIN);
-			write_byte(token_operator_binary(operator));
+			write_byte(op);
 		}
 		// Memory Register should still be where lvalue is
 		write_opcode(OP_WRITE);
@@ -686,7 +608,7 @@ static void codegen_expr(void* expre) {
 	else if (expression->type == E_UNARY) {
 		codegen_expr(expression->op.una_expr.operand);
 		write_opcode(OP_UNA);
-		write_byte(token_operator_unary(expression->op.una_expr.operator));
+		write_byte(expression->op.una_expr.operator);
 	}
 	else if (expression->type == E_CALL) {
 		codegen_expr_list_for_call(expression->op.call_expr.arguments);
@@ -724,7 +646,7 @@ static void codegen_expr(void* expre) {
 				count++;
 			}
 			write_integer(count);
-			write_string(expression->op.func_expr.native_name.t_data.string);
+			write_string(expression->op.func_expr.native_name);
 			write_opcode(OP_RET);
 		}
 		else {
@@ -737,14 +659,14 @@ static void codegen_expr(void* expre) {
 							param->elem->col,
 							CODEGEN_FUNCTION_DEFAULT_VALUES_AT_END);
 					}
-					if (param->elem->op.lit_expr.t_type != T_IDENTIFIER) {
+					if (param->elem->op.lit_expr.type != D_IDENTIFIER) {
 						error_lexer(param->elem->line,
 							param->elem->col,
 							CODEGEN_UNEXPECTED_FUNCTION_PARAMETER);
 					}
-					token t = param->elem->op.lit_expr;
+					data t = param->elem->op.lit_expr;
 					write_opcode(OP_RBW);
-					write_string(t.t_data.string);
+					write_string(t.value.string);
 				}
 				else if (param->elem->type == E_ASSIGN) {
 					has_encountered_default = true;
@@ -753,7 +675,7 @@ static void codegen_expr(void* expre) {
 					write_opcode(OP_RBW);
 					// TODO: Check if assign expr is literal identifier.
 					write_string(param->elem->op.assign_expr.lvalue->
-						op.lit_expr.t_data.string);
+						op.lit_expr.value.string);
 					// If the top of the stack is marker, this is no-op.
 					write_opcode(OP_WRITE);
 					write_byte(1);

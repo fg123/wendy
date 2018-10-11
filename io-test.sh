@@ -14,5 +14,17 @@ for f in tests/*.in ; do
 		echo ============================
 	fi
 done
+echo Running Tests with Optimize Flag...
+for f in tests/*.in ; do
+	bin/wendy "$f" --optimize > file.tmp
+	if diff "${f%.in}.expect" file.tmp > /dev/null ; then
+		echo Test $(basename $f):optimize passed.
+	else
+		cp file.tmp "${f%.in}.err"
+		echo Test $(basename $f):optimize failed.
+		diff -c "${f%.in}.expect" file.tmp
+		echo ============================
+	fi
+done
 rm file.tmp
 echo Tests Done
