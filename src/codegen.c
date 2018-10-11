@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define write_byte(op) bytecode[size++] = op;
+#define write_byte(op) do { bytecode[size++] = op; } while(0)
 
 // Implementation of Wendy ByteCode Generator
 const char* opcode_string[] = {
@@ -36,23 +36,24 @@ int verify_header(uint8_t* bytecode) {
 	return 0;
 }
 
-static void guarantee_size(void) {
-	if (size + CODEGEN_PAD_SIZE > capacity) {
-		capacity *= 2;
+static void guarantee_size(size_t desired_additional) {
+	if (size + desired_additional + CODEGEN_PAD_SIZE > capacity) {
+		capacity += desired_additional + CODEGEN_PAD_SIZE;
 		uint8_t* re = safe_realloc(bytecode, capacity * sizeof(uint8_t));
 		bytecode = re;
 	}
 }
 
 static void write_string(char* string) {
+	guarantee_size(strlen(string) + 1);
 	for (size_t i = 0; string[i]; i++) {
 		write_byte(string[i]);
 	}
 	write_byte(0);
-	guarantee_size();
 }
 
 static void write_address(address a) {
+	guarantee_size(sizeof(address));
 	size_t pos = size;
 	if (!is_big_endian) pos += sizeof(a);
 	size += sizeof(a);
@@ -60,7 +61,6 @@ static void write_address(address a) {
 	for (size_t i = 0; i < sizeof(address); i++) {
 		bytecode[is_big_endian ? pos++ : --pos] = first[i];
 	}
-	guarantee_size();
 }
 
 static void write_address_at(address a, int pos) {
@@ -80,6 +80,7 @@ static void write_double_at(double a, int pos) {
 }
 
 static void write_double(double a) {
+	guarantee_size(sizeof(double));
 	size_t pos = size;
 	if (!is_big_endian) pos += sizeof(a);
 	size += sizeof(double);
@@ -87,7 +88,6 @@ static void write_double(double a) {
 	for (size_t i = 0; i < sizeof(double); i++) {
 		bytecode[is_big_endian ? pos++ : --pos] = p[i];
 	}
-	guarantee_size();
 }
 
 static void write_integer(int a) {
@@ -104,13 +104,12 @@ static void write_data(data t) {
 	else {
 		write_string(t.value.string);
 	}
-	guarantee_size();
 	destroy_data(&t);
 }
 
 static inline void write_opcode(opcode op) {
+	guarantee_size(1);
 	write_byte(op);
-	guarantee_size();
 }
 
 static void codegen_expr(void* expre);
@@ -287,10 +286,10 @@ static void codegen_statement(void* expre) {
 				fread (buffer, sizeof(uint8_t), length, f);
 				int offset = size - strlen(WENDY_VM_HEADER) - 1;
 				offset_addresses(buffer, length, offset);
+				guarantee_size(length);
 				for (long i = verify_header(buffer); i < length; i++) {
 					if (i == length - 1 && buffer[i] == OP_HALT) break;
 					write_byte(buffer[i]);
-					guarantee_size();
 				}
 				safe_free(buffer);
 				fclose (f);

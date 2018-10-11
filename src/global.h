@@ -23,7 +23,7 @@
 #define MAX_LIST_INIT_LEN 100
 #define MAX_STRUCT_META_LEN 100
 
-#define CODEGEN_PAD_SIZE 512
+#define CODEGEN_PAD_SIZE 256
 #define CODEGEN_START_SIZE 1024
 
 // Stack Entry Sizes
