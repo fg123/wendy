@@ -702,7 +702,7 @@ static void codegen_expr(void* expre) {
 				count++;
 			}
 			write_integer(count);
-			write_string(expression->op.func_expr.native_name.t_data.string);
+			write_string(expression->op.func_expr.native_name);
 			write_opcode(OP_RET);
 		}
 		else {

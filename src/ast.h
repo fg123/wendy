@@ -51,7 +51,7 @@ typedef struct expr {
 			struct {    struct expr_list*   parameters;
 						struct statement*   body;
 						bool                is_native;
-						token               native_name; }  func_expr;
+						char*               native_name; }  func_expr;
 			struct {    struct expr*        condition;
 						struct expr*        expr_true;
 						struct expr*        expr_false; }   if_expr;

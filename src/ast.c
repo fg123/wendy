@@ -33,10 +33,28 @@ static token previous(void);
 
 // Public Methods
 // Wrapping safe_free macro for use as a function pointer.
-static void ast_safe_free_e(expr* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
-static void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
-static void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
-static void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) { UNUSED(algo); safe_free(ptr); }
+static void ast_safe_free_e(expr* ptr, traversal_algorithm* algo) {
+    UNUSED(algo);
+    if (ptr->type == E_FUNCTION && ptr->op.func_expr.is_native) {
+        safe_free(ptr->op.func_expr.native_name);
+    }
+    safe_free(ptr);
+}
+
+static void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo) {
+    UNUSED(algo);
+    safe_free(ptr);
+}
+
+static void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) {
+    UNUSED(algo);
+    safe_free(ptr);
+}
+
+static void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) {
+    UNUSED(algo);
+    safe_free(ptr);
+}
 
 traversal_algorithm ast_safe_free_impl =
 {
@@ -947,6 +965,6 @@ static expr* make_func_expr(expr_list* parameters, statement* body) {
 static expr* make_native_func_expr(expr_list* parameters, token name) {
 	expr* node = make_func_expr(parameters, 0);
 	node->op.func_expr.is_native = true;
-	node->op.func_expr.native_name = name;
+	node->op.func_expr.native_name = strdup(name.t_data.string);
 	return node;
 }
