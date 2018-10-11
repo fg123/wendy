@@ -33,10 +33,10 @@ typedef struct expr {
 	enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_ASSIGN, E_IF }
 		type;
 	union { token                                           lit_expr;
-			struct {    enum operator     operator;
+			struct {    enum operator       operator;
 						struct expr*        left;
 						struct expr*        right; }        bin_expr;
-			struct {    enum operator     operator;
+			struct {    enum operator       operator;
 						struct expr*        operand; }      una_expr;
 
 			/* call arguments are either resolvable to an expression or
@@ -55,7 +55,7 @@ typedef struct expr {
 			struct {    struct expr*        condition;
 						struct expr*        expr_true;
 						struct expr*        expr_false; }   if_expr;
-			struct {    token               operator;
+			struct {    enum operator       operator;
 						struct expr*        lvalue;
 						struct expr*        rvalue; }       assign_expr;
 

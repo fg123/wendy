@@ -529,8 +529,7 @@ static statement* parse_statement(void) {
 				curr->elem->op.expr_statement = safe_malloc(sizeof(expr));
 				curr->elem->op.expr_statement->type = E_ASSIGN;
 				expr* ass_expr = curr->elem->op.expr_statement;
-				ass_expr->op.assign_expr.operator =
-						make_token(T_EQUAL, make_data_str("="));
+				ass_expr->op.assign_expr.operator = O_ASSIGN;
 				ass_expr->op.assign_expr.rvalue =
 						make_lit_expr(tmp_ins->elem->op.lit_expr);
 				// Binary Dot Expr
@@ -910,7 +909,26 @@ static expr* make_assign_expr(expr* left, expr* right, token op) {
 	node->type = E_ASSIGN;
 	node->op.assign_expr.lvalue = left;
 	node->op.assign_expr.rvalue = right;
-	node->op.assign_expr.operator = op;
+    enum operator new_op = O_ASSIGN;
+    switch(op.t_type) {
+        case T_ASSIGN_PLUS:
+            new_op = O_ADD;
+            break;
+        case T_ASSIGN_MINUS:
+            new_op = O_SUB;
+            break;
+        case T_ASSIGN_STAR:
+            new_op = O_MUL;
+            break;
+        case T_ASSIGN_SLASH:
+            new_op = O_DIV;
+            break;
+        case T_ASSIGN_INTSLASH:
+            new_op = O_IDIV;
+            break;
+        default: break;
+    }
+	node->op.assign_expr.operator = new_op;
 	node->line = op.t_line;
 	node->col = op.t_col;
 	return node;

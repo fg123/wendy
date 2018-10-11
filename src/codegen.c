@@ -647,37 +647,15 @@ static void codegen_expr(void* expre) {
 		write_address_at(size, doneJumpLoc);
 	}
 	else if (expression->type == E_ASSIGN) {
-		token operator = expression->op.assign_expr.operator;
-		switch(operator.t_type) {
-			case T_ASSIGN_PLUS:
-				operator.t_type = T_PLUS;
-				strcpy(operator.t_data.string, "+");
-				break;
-			case T_ASSIGN_MINUS:
-				operator.t_type = T_MINUS;
-				strcpy(operator.t_data.string, "-");
-				break;
-			case T_ASSIGN_STAR:
-				operator.t_type = T_STAR;
-				strcpy(operator.t_data.string, "*");
-				break;
-			case T_ASSIGN_SLASH:
-				operator.t_type = T_SLASH;
-				strcpy(operator.t_data.string, "/");
-				break;
-			case T_ASSIGN_INTSLASH:
-				operator.t_type = T_INTSLASH;
-				strcpy(operator.t_data.string, "\\");
-				break;
-			default: break;
-		}
+        enum operator op = expression->op.assign_expr.operator;
 		codegen_expr(expression->op.assign_expr.rvalue);
 
 		codegen_lvalue_expr(expression->op.assign_expr.lvalue);
-		if (operator.t_type != T_EQUAL) {
+        // O_ASSIGN is the default =
+		if (op != O_ASSIGN) {
 			write_opcode(OP_READ);
 			write_opcode(OP_RBIN);
-			write_byte(token_operator_binary(operator));
+			write_byte(op);
 		}
 		// Memory Register should still be where lvalue is
 		write_opcode(OP_WRITE);
