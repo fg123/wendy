@@ -79,7 +79,7 @@ typedef struct statement {
 						expr*       operand; }          operation_statement;
 			struct {    char*       lvalue;
 						expr*       rvalue; }           let_statement;
-			struct {    token       name;
+			struct {    char*       name;
 						expr_list*  instance_members;
 						expr_list*  static_members;
 						expr* init_fn; }                struct_statement;

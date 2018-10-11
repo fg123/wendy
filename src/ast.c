@@ -52,6 +52,8 @@ static void ast_safe_free_s(statement* ptr, traversal_algorithm* algo) {
         safe_free(ptr->op.import_statement);
     } else if (ptr->type == S_LET && ptr->op.let_statement.lvalue) {
         safe_free(ptr->op.let_statement.lvalue);
+    } else if (ptr->type == S_STRUCT && ptr->op.struct_statement.name) {
+        safe_free(ptr->op.struct_statement.name);
     }
     safe_free(ptr);
 }
@@ -601,7 +603,7 @@ static statement* parse_statement(void) {
 			expr* function_const = make_func_expr(parameters, function_body);
 
 			sm->type = S_STRUCT;
-			sm->op.struct_statement.name = name;
+			sm->op.struct_statement.name = strdup(name.t_data.string);
 			sm->op.struct_statement.init_fn = function_const;
 			sm->op.struct_statement.instance_members = instance_members;
 			sm->op.struct_statement.static_members = static_members;
@@ -852,9 +854,8 @@ static void print_s(statement* state, traversal_algorithm* algo) {
 		printf("Block Statement \n");
 	}
 	else if (state->type == S_STRUCT) {
-		printf("Struct Statement " GRN);
-		print_token_inline(&state->op.struct_statement.name, stdout);
-		printf("\n" RESET);
+		printf("Struct Statement " GRN "%s\n" RESET,
+            state->op.struct_statement.name);
 	}
 	else if (state->type == S_IF) {
 		printf("If Statement\n");

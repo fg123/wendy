@@ -309,7 +309,7 @@ static void codegen_statement(void* expre) {
 	}
 	else if (state->type == S_STRUCT) {
 		int push_size = 2; // For Header and Name
-		char* struct_name = state->op.struct_statement.name.t_data.string;
+		char* struct_name = state->op.struct_statement.name;
 
 		// Push Header and Name
 		write_opcode(OP_PUSH);
