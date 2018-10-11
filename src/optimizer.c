@@ -321,6 +321,7 @@ static expr* optimize_expr(expr* expression) {
 				if (value && value->type == E_LITERAL) {
 					remove_usage(expression->op.lit_expr.value.string,
 						expression->line, expression->col);
+                    destroy_data(&expression->op.lit_expr);
 					*expression = *value;
 				}
 			}
@@ -469,8 +470,6 @@ static expr* optimize_expr(expr* expression) {
 			optimize_expr_list(expression->op.list_expr.contents);
 	}
 	else if (expression->type == E_FUNCTION) {
-		expression->op.func_expr.parameters =
-			optimize_expr_list(expression->op.func_expr.parameters);
 		expression->op.func_expr.body =
 			optimize_statement(expression->op.func_expr.body);
 	}
