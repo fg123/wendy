@@ -323,7 +323,8 @@ static expr* optimize_expr(expr* expression) {
 
 		expr* left = expression->op.bin_expr.left;
 		expr* right = expression->op.bin_expr.right;
-		token op = expression->op.bin_expr.operator;
+		enum operator op = expression->op.bin_expr.operator;
+        token possible_optimized;
 		if (left->type == E_LITERAL && left->op.lit_expr.t_type == T_NUMBER &&
 			right->type == E_LITERAL && right->op.lit_expr.t_type == T_NUMBER) {
 			// Peek Optimization is Available on Numbers
@@ -331,60 +332,60 @@ static expr* optimize_expr(expr* expression) {
 			bool can_optimize = true;
 			double a = left->op.lit_expr.t_data.number;
 			double b = right->op.lit_expr.t_data.number;
-			switch (op.t_type) {
-				case T_STAR:
-					op.t_data.number = a * b;
+			switch (op) {
+				case O_MUL:
+					possible_optimized.t_data.number = a * b;
 					break;
-				case T_INTSLASH:
+				case O_IDIV:
 					if (b != 0) {
-						op.t_data.number = (int)(a / b);
+						possible_optimized.t_data.number = (int)(a / b);
 					}
 					break;
-				case T_SLASH:
+				case O_DIV:
 					if (b != 0) {
-						op.t_data.number = a / b;
+						possible_optimized.t_data.number = a / b;
 					}
 					break;
-				case T_PERCENT:
+				case O_REM:
 					if (b != 0 && a == floor(a) && b == floor(b)) {
-						op.t_data.number = (long long)a % (long long)b;
+						possible_optimized.t_data.number = (long long)a % (long long)b;
 					}
 					break;
-				case T_MINUS:
-					op.t_data.number = a - b;
+				case O_SUB:
+					possible_optimized.t_data.number = a - b;
 					break;
-				case T_PLUS:
-					op.t_data.number = a + b;
+				case O_ADD:
+					possible_optimized.t_data.number = a + b;
 					break;
-				case T_LESS:
-					op = a < b ? true_token() : false_token();
+				case O_LT:
+					possible_optimized = a < b ? true_token() : false_token();
 					break;
-				case T_GREATER:
-					op = a > b ? true_token() : false_token();
+				case O_GT:
+					possible_optimized = a > b ? true_token() : false_token();
 					break;
-				case T_LESS_EQUAL:
-					op = a <= b ? true_token() : false_token();
+				case O_LTE:
+					possible_optimized = a <= b ? true_token() : false_token();
 					break;
-				case T_GREATER_EQUAL:
-					op = a >= b ? true_token() : false_token();
+				case O_GTE:
+					possible_optimized = a >= b ? true_token() : false_token();
 					break;
-				case T_EQUAL:
-					op = a == b ? true_token() : false_token();
+				case O_EQ:
+					possible_optimized = a == b ? true_token() : false_token();
 					break;
-				case T_NOT_EQUAL:
-					op = a != b ? true_token() : false_token();
+				case O_NEQ:
+					possible_optimized = a != b ? true_token() : false_token();
 					break;
 				default:
 					can_optimize = false;
 					break;
 			}
 			if (can_optimize) {
-				if (!is_boolean(op)) {
+				if (!is_boolean(possible_optimized)) {
 					// Didn't get optimized to a boolean
-					op.t_type = T_NUMBER;
+					possible_optimized.t_type = T_NUMBER;
 				}
 				expression->type = E_LITERAL;
-				expression->op.lit_expr = op;
+				expression->op.lit_expr = possible_optimized;
 				safe_free(left);
 				safe_free(right);
 				return expression;
@@ -396,12 +397,12 @@ static expr* optimize_expr(expr* expression) {
 			bool can_optimize = true;
 			bool a = left->op.lit_expr.t_type == T_TRUE;
 			bool b = right->op.lit_expr.t_type == T_TRUE;
-			switch (op.t_type) {
-				case T_AND:
-					op = a && b ? true_token() : false_token();
+			switch (op) {
+				case O_AND:
+					possible_optimized = a && b ? true_token() : false_token();
 					break;
-				case T_OR:
-					op = a || b ? true_token() : false_token();
+				case O_OR:
+					possible_optimized = a || b ? true_token() : false_token();
 					break;
 				default:
 					can_optimize = false;
@@ -409,7 +410,7 @@ static expr* optimize_expr(expr* expression) {
 			}
 			if (can_optimize) {
 				expression->type = E_LITERAL;
-				expression->op.lit_expr = op;
+				expression->op.lit_expr = possible_optimized;
 				safe_free(left);
 				safe_free(right);
 				return expression;
@@ -419,16 +420,16 @@ static expr* optimize_expr(expr* expression) {
 	else if (expression->type == E_UNARY) {
 		expression->op.una_expr.operand =
 			optimize_expr(expression->op.una_expr.operand);
-		token op = expression->op.una_expr.operator;
+		enum operator op = expression->op.una_expr.operator;
 		expr* operand = expression->op.una_expr.operand;
-		if (op.t_type == T_MINUS && operand->type == E_LITERAL &&
+		if (op == O_NEG && operand->type == E_LITERAL &&
 			operand->op.lit_expr.t_type == T_NUMBER) {
 			// Apply here
 			operand->op.lit_expr.t_data.number *= -1;
 			safe_free(expression);
 			return operand;
 		}
-		if (op.t_type == T_NOT && operand->type == E_LITERAL &&
+		if (op == O_NOT && operand->type == E_LITERAL &&
 			(operand->op.lit_expr.t_type == T_TRUE ||
 			operand->op.lit_expr.t_type == T_FALSE)) {
 			// Apply here

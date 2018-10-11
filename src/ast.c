@@ -763,9 +763,8 @@ static void print_e(expr* expression, traversal_algorithm* algo) {
 		printf(RESET);
 	}
 	else if (expression->type == E_BINARY) {
-		printf("Binary Expression " GRN);
-		print_token(&expression->op.bin_expr.operator);
-		printf(RESET);
+		printf("Binary Expression " GRN "%s\n" RESET,
+            operator_string[expression->op.bin_expr.operator]);
 	}
 	else if (expression->type == E_IF) {
 		printf("Conditional Expression\n");
@@ -855,7 +854,7 @@ static expr* make_bin_expr(expr* left, token op, expr* right) {
 	node->line = op.t_line;
 	node->col = op.t_col;
 	node->type = E_BINARY;
-	node->op.bin_expr.operator = op;
+	node->op.bin_expr.operator = token_operator_binary(op);
 	node->op.bin_expr.left = left;
 	node->op.bin_expr.right = right;
 	return node;
@@ -874,7 +873,7 @@ static expr* make_if_expr(expr* condition, expr* if_true, expr* if_false) {
 static expr* make_una_expr(token op, expr* operand) {
 	expr* node = safe_malloc(sizeof(expr));
 	node->type = E_UNARY;
-	node->op.una_expr.operator = op;
+	node->op.una_expr.operator = token_operator_unary(op);
 	node->op.una_expr.operand = operand;
 	node->line = op.t_line;
 	node->col = op.t_col;

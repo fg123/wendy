@@ -136,7 +136,7 @@ static void codegen_lvalue_expr(expr* expression) {
 		// Left side in memory reg
 		codegen_lvalue_expr(expression->op.bin_expr.left);
 
-		if (expression->op.bin_expr.operator.t_type == T_DOT) {
+		if (expression->op.bin_expr.operator == O_MEMBER) {
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
 				error_lexer(expression->line, expression->col,
 					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
@@ -145,7 +145,7 @@ static void codegen_lvalue_expr(expr* expression) {
 			write_opcode(OP_MEMPTR);
 			write_string(expression->op.bin_expr.right->op.lit_expr.t_data.string);
 		}
-		else if (expression->op.bin_expr.operator.t_type == T_LEFT_BRACK) {
+		else if (expression->op.bin_expr.operator == O_SUBSCRIPT) {
 			codegen_expr(expression->op.bin_expr.right);
 			write_opcode(OP_NTHPTR);
 		}
@@ -609,7 +609,7 @@ static void codegen_expr(void* expre) {
 		write_data(literal_to_data(expression->op.lit_expr));
 	}
 	else if (expression->type == E_BINARY) {
-		if (expression->op.bin_expr.operator.t_type == T_DOT) {
+		if (expression->op.bin_expr.operator == O_MEMBER) {
 			codegen_expr(expression->op.bin_expr.left);
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
 				error_lexer(expression->line, expression->col,
@@ -625,7 +625,7 @@ static void codegen_expr(void* expre) {
 			codegen_expr(expression->op.bin_expr.right);
 		}
 		write_opcode(OP_BIN);
-		write_byte(token_operator_binary(expression->op.bin_expr.operator));
+		write_byte(expression->op.bin_expr.operator);
 	}
 	else if (expression->type == E_IF) {
 		codegen_expr(expression->op.if_expr.condition);
@@ -686,7 +686,7 @@ static void codegen_expr(void* expre) {
 	else if (expression->type == E_UNARY) {
 		codegen_expr(expression->op.una_expr.operand);
 		write_opcode(OP_UNA);
-		write_byte(token_operator_unary(expression->op.una_expr.operator));
+		write_byte(expression->op.una_expr.operator);
 	}
 	else if (expression->type == E_CALL) {
 		codegen_expr_list_for_call(expression->op.call_expr.arguments);
