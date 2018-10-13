@@ -41,6 +41,9 @@ bool get_settings_flag(settings_flags flag) {
 
 void* safe_malloc_impl(size_t size, char* filename, int line_num) {
 	malloc_node* new_node = malloc(sizeof(malloc_node));
+    if (!new_node) {
+        goto no_memory;
+    }
 	new_node->filename = filename;
 	new_node->line_num = line_num;
 	new_node->size = size;
@@ -48,14 +51,20 @@ void* safe_malloc_impl(size_t size, char* filename, int line_num) {
 	new_node->next = malloc_node_list;
 	malloc_node_list = new_node;
 	if (!(new_node->ptr)) {
+    no_memory:
 		fprintf(stderr, "SafeMalloc: Couldn't allocate memory! %s at line %d.\n",
 			filename, line_num);
+        safe_exit(2);
+        return NULL;
 	}
 	return new_node->ptr;
 }
 
 void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num) {
 	malloc_node* new_node = malloc(sizeof(malloc_node));
+        if (!new_node) {
+        goto no_memory;
+    }
 	new_node->filename = filename;
 	new_node->line_num = line_num;
 	new_node->size = size;
@@ -63,9 +72,11 @@ void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num) {
 	new_node->next = malloc_node_list;
 	malloc_node_list = new_node;
 	if (!(new_node->ptr)) {
+    no_memory:
 		fprintf(stderr, "SafeCalloc: Couldn't allocate memory! %s at line %d.\n",
 			filename, line_num);
 		safe_exit(2);
+        return NULL;
 	}
 	return new_node->ptr;
 }
@@ -144,4 +155,34 @@ void free_alloc() {
 void safe_exit(int code) {
 	free_alloc();
 	exit(code);
+}
+
+void* safe_release_malloc(size_t size) {
+    void* ptr = malloc(size);
+    if (!ptr) {
+        fprintf(stderr, "Could not allocate memory! Out of memory?");
+        safe_exit(2);
+        return NULL;
+    }
+    return ptr;
+}
+
+void* safe_release_calloc(size_t num, size_t size) {
+    void* ptr = calloc(num, size);
+    if (!ptr) {
+        fprintf(stderr, "Could not zero allocate memory! Out of memory?");
+        safe_exit(2);
+        return NULL;
+    }
+    return ptr;
+}
+
+void* safe_release_realloc(void* ptr, size_t size) {
+    void* new_ptr = realloc(ptr, size);
+    if (!new_ptr) {
+        fprintf(stderr, "Could not realloc memory! Out of memory?");
+        safe_exit(2);
+        return NULL;
+    }
+    return new_ptr;
 }

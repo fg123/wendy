@@ -87,10 +87,10 @@ char* safe_strdup_impl(const char* s, char* allocated);
 #else
 
 // Regular Malloc Implementations
-#define safe_malloc(size) malloc(size)
+#define safe_malloc(size) safe_release_malloc(size)
 #define safe_free(ptr) free(ptr)
-#define safe_calloc(num, size) calloc(num, size)
-#define safe_realloc(ptr, size) realloc(ptr, size)
+#define safe_calloc(num, size) safe_release_calloc(num, size)
+#define safe_realloc(ptr, size) safe_release_realloc(ptr, size)
 
 #endif
 
@@ -98,6 +98,10 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num);
 void* safe_malloc_impl(size_t size, char* filename, int line_num);
 void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num);
 void safe_free_impl(void* ptr, char* filename, int line_num);
+
+void* safe_release_malloc(size_t size);
+void* safe_release_calloc(size_t num, size_t size);
+void* safe_release_realloc(void* ptr, size_t size);
 
 void free_alloc(void);
 void check_leak(void);
