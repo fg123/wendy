@@ -483,6 +483,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					} else {
 						error_runtime(line, VM_NOT_A_STRUCT);
 					}
+                    break;
 				}
 				address metadata = (int)(t.value.number);
 				if (t.type == D_STRUCT_INSTANCE) {
@@ -848,6 +849,14 @@ static data eval_binop(operator op, data a, data b) {
 				}
 			}
 		}
+        else if (a.type == D_NONERET) {
+            error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
+            return none_data();
+        }
+        else {
+            error_runtime(line, VM_NOT_A_STRUCT);
+            return none_data();
+        }
 		if (streq("size", b.value.string)) {
 			return size_of(a);
 		}
@@ -1220,6 +1229,8 @@ static data type_of(data a) {
 			return make_data(D_OBJ_TYPE, data_value_str("bool"));
 		case D_NONE:
 			return make_data(D_OBJ_TYPE, data_value_str("none"));
+        case D_NONERET:
+			return make_data(D_OBJ_TYPE, data_value_str("noneret"));
 		case D_RANGE:
 			return make_data(D_OBJ_TYPE, data_value_str("range"));
 		case D_LIST:
@@ -1236,7 +1247,7 @@ static data type_of(data a) {
 				memory[(int)instance_loc.value.number + 1].value.string));
 		}
 		default:
-			return make_data(D_OBJ_TYPE, data_value_str("none"));
+			return make_data(D_OBJ_TYPE, data_value_str("unknown"));
 	}
 }
 
