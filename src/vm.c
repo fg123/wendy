@@ -849,14 +849,6 @@ static data eval_binop(operator op, data a, data b) {
 				}
 			}
 		}
-        else if (a.type == D_NONERET) {
-            error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
-            return none_data();
-        }
-        else {
-            error_runtime(line, VM_NOT_A_STRUCT);
-            return none_data();
-        }
 		if (streq("size", b.value.string)) {
 			return size_of(a);
 		}
@@ -869,6 +861,14 @@ static data eval_binop(operator op, data a, data b) {
 		else if (streq("char", b.value.string)) {
 			return char_of(a);
 		}
+        else if (a.type == D_NONERET) {
+            error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
+            return none_data();
+        }
+        else if (!(a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE)) {
+            error_runtime(line, VM_NOT_A_STRUCT);
+            return none_data();
+        }
 		else {
 			error_runtime(line, VM_MEMBER_NOT_EXIST, b.value.string);
 			return false_data();
