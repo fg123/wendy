@@ -556,7 +556,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				data boundName = memory[loc + 2];
 				char* function_disp = safe_malloc(128 * sizeof(char));
 				function_disp[0] = 0;
-				if (streq(boundName.value.string, "self")) {
+				if (boundName.value.string && streq(boundName.value.string, "self")) {
 					sprintf(function_disp, "annonymous:0x%X", i);
 				}
 				else {
