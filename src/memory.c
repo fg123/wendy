@@ -359,6 +359,7 @@ bool pop_frame(bool is_ret, address* ret) {
 	if (is_ret) {
 		while (call_stack[trace].id[0] != CHAR(FUNCTION_START)) {
 			trace = call_stack[trace].val;
+            pop_mem_reg();
 		}
 		*ret = call_stack[trace + 1].val;
 	}
