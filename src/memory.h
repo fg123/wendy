@@ -39,6 +39,8 @@ extern size_t* closure_list_sizes;
 extern address frame_pointer;
 extern address stack_pointer;
 extern address closure_list_pointer;
+extern size_t closure_list_size;
+extern address mem_reg_pointer;
 extern address arg_pointer;
 
 // init_memory() initializes the memory module

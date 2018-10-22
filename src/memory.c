@@ -23,8 +23,8 @@ address stack_pointer = 0;
 address arg_pointer = 0;
 address closure_list_pointer = 0;
 
-static size_t closure_list_size = 0;
-static address mem_reg_pointer = 0;
+size_t closure_list_size = 0;
+address mem_reg_pointer = 0;
 
 // Pointer to the end of the main() stack frame
 static address main_end_pointer = 0;
@@ -259,9 +259,9 @@ void init_memory(void) {
 	call_stack = safe_calloc(STACK_SIZE, sizeof(stack_entry));
 	arg_pointer = MEMORY_SIZE - 1;
 
-	closure_list = safe_calloc(CLOSURES_SIZE, sizeof(stack_entry*));
-	closure_list_sizes = safe_malloc(sizeof(size_t) * CLOSURES_SIZE);
-	closure_list_size = CLOSURES_SIZE;
+	closure_list = safe_calloc(INITIAL_CLOSURES_SIZE, sizeof(stack_entry*));
+	closure_list_sizes = safe_malloc(sizeof(size_t) * INITIAL_CLOSURES_SIZE);
+	closure_list_size = INITIAL_CLOSURES_SIZE;
 
 	// ADDRESS 0 REFERS TO NONE_data
 	write_memory(0, none_data(), -1);

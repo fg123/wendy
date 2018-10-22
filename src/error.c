@@ -28,13 +28,14 @@ void print_verbose_info(void) {
 		fprintf(stderr, "STACK_SIZE %d\n", STACK_SIZE);
 		fprintf(stderr, "ARGSTACK_SIZE %d\n", ARGSTACK_SIZE);
 		fprintf(stderr, "RESERVED_MEMORY %d\n", RESERVED_MEMORY);
-		fprintf(stderr, "CLOSURES_SIZE %d\n", CLOSURES_SIZE);
 		fprintf(stderr, "MEMREGSTACK_SIZE %d\n", MEMREGSTACK_SIZE);
 		fprintf(stderr, GRN "Memory\n" RESET);
 		fprintf(stderr, "FP: %d 0x%X\n", frame_pointer, frame_pointer);
 		fprintf(stderr, "SP: %d 0x%X\n", stack_pointer, stack_pointer);
 		fprintf(stderr, "AP: %d 0x%X\n", arg_pointer, arg_pointer);
 		fprintf(stderr, "CP: %d 0x%X\n", closure_list_pointer, closure_list_pointer);
+		fprintf(stderr, "CP: %d 0x%X\n", closure_list_pointer, closure_list_pointer);
+        fprintf(stderr, "MRSP: %d 0x%X\n", mem_reg_pointer, mem_reg_pointer);
 		print_free_memory();
 	}
 }
