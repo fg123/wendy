@@ -53,7 +53,8 @@ void invalid_usage(void) {
 	printf("    -h, --help        : shows this message.\n");
 	printf("    --nogc            : disables garbage-collection.\n");
 	printf("    --optimize        : enables optimization algorithm (this will destroy overloaded primitive operators).\n");
-	printf("	--trace-vm        : traces each VM instruction.\n");
+	printf("    --trace-vm        : traces each VM instruction.\n");
+    printf("    --dry-run         : compiles but does not write to a file or invoke the VM.\n");
 	printf("    -c, --compile     : compiles the given file but does not run.\n");
 	printf("    -v, --verbose     : displays information about memory state on error.\n");
 	printf("    --ast             : prints out the constructed AST.\n");
@@ -90,6 +91,9 @@ bool process_options(char** options, int len, char** source) {
 		else if (streq("--trace-vm", options[i])) {
 			set_settings_flag(SETTINGS_TRACE_VM);
 		}
+        else if (streq("--dry-run", options[i])) {
+            set_settings_flag(SETTINGS_DRY_RUN);
+        }
 		else if (streq("--ast", options[i])) {
 			set_settings_flag(SETTINGS_ASTPRINT);
 		}

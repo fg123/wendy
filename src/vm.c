@@ -89,6 +89,9 @@ static char* get_unary_overload_name(operator op, data a) {
 }
 
 void vm_run(uint8_t* new_bytecode, size_t size) {
+    if (get_settings_flag(SETTINGS_DRY_RUN)) {
+        return;
+    }
 	// Verify Header
 	address start_at;
 	size_t saved_size = bytecode_size;

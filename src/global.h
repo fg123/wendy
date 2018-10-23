@@ -59,6 +59,7 @@ typedef enum {
 	SETTINGS_OUTPUT_DEPENDENCIES,
 	SETTINGS_SANDBOXED,
 	SETTINGS_TRACE_VM,
+    SETTINGS_DRY_RUN,
 	SETTINGS_COUNT } settings_flags;
 
 void set_settings_flag(settings_flags flag);
