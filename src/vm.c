@@ -1194,7 +1194,7 @@ static data value_of(data a) {
 		return make_data(D_NUMBER, data_value_num(a.value.string[0]));
 	}
 	else {
-		return a;
+		return copy_data(a);
 	}
 }
 
