@@ -298,9 +298,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				address ladr = push_memory_wendy_list(extra_args, count, line);
 				address adr = push_memory(make_data(D_LIST, data_value_num(ladr)), line);
 				push_stack_entry("arguments", adr, line);
-				for (size_t i = 0; i < count; i++) {
-					destroy_data(&extra_args[i]);
-				}
 				safe_free(extra_args);
 				// Pop End of Arguments
 				pop_arg(line);
