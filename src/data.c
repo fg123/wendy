@@ -108,6 +108,8 @@ data noneret_data() {
 
 data range_data(int start, int end) {
 	data res = make_data(D_RANGE, data_value_str(""));
+	size_t s = snprintf(NULL, 0, "%d|%d", start, end);
+	res.value.string = safe_realloc(res.value.string, s + 1);
 	sprintf(res.value.string, "%d|%d", start, end);
 	return res;
 }

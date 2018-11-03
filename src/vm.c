@@ -89,9 +89,9 @@ static char* get_unary_overload_name(operator op, data a) {
 }
 
 void vm_run(uint8_t* new_bytecode, size_t size) {
-    if (get_settings_flag(SETTINGS_DRY_RUN)) {
-        return;
-    }
+	if (get_settings_flag(SETTINGS_DRY_RUN)) {
+		return;
+	}
 	// Verify Header
 	address start_at;
 	size_t saved_size = bytecode_size;
@@ -436,6 +436,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				if (value.type == D_FUNCTION) {
 					// Modify Name to be the base_name
 					address fn_adr = value.value.number;
+					memory[fn_adr + 2].value.string =
+						safe_realloc(memory[fn_adr + 2].value.string,
+							strlen(bind_name) + 1);
 					strcpy(memory[fn_adr + 2].value.string, bind_name);
 				}
 				write_memory(memory_register, value, line);
@@ -483,7 +486,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					} else {
 						error_runtime(line, VM_NOT_A_STRUCT);
 					}
-                    break;
+					break;
 				}
 				address metadata = (int)(t.value.number);
 				if (t.type == D_STRUCT_INSTANCE) {
@@ -861,14 +864,14 @@ static data eval_binop(operator op, data a, data b) {
 		else if (streq("char", b.value.string)) {
 			return char_of(a);
 		}
-        else if (a.type == D_NONERET) {
-            error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
-            return none_data();
-        }
-        else if (!(a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE)) {
-            error_runtime(line, VM_NOT_A_STRUCT);
-            return none_data();
-        }
+		else if (a.type == D_NONERET) {
+			error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
+			return none_data();
+		}
+		else if (!(a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE)) {
+			error_runtime(line, VM_NOT_A_STRUCT);
+			return none_data();
+		}
 		else {
 			error_runtime(line, VM_MEMBER_NOT_EXIST, b.value.string);
 			return false_data();
@@ -1229,7 +1232,7 @@ static data type_of(data a) {
 			return make_data(D_OBJ_TYPE, data_value_str("bool"));
 		case D_NONE:
 			return make_data(D_OBJ_TYPE, data_value_str("none"));
-        case D_NONERET:
+		case D_NONERET:
 			return make_data(D_OBJ_TYPE, data_value_str("noneret"));
 		case D_RANGE:
 			return make_data(D_OBJ_TYPE, data_value_str("range"));
