@@ -146,22 +146,24 @@ void safe_free_impl(void* ptr, char* filename, int line_num) {
 
 void check_leak() {
 	malloc_node* curr = malloc_node_start;
-	while (curr) {
+	if (!curr) return;
+	do {
 		fprintf(stderr, "Memory Leak: %zd bytes (%p), allocated from %s at line %d.\n",
 			curr->size, curr->ptr, curr->filename, curr->line_num);
 		// Attempt to print the contents of the buffer
 		fprintf(stderr, "%.*s\n", (int)curr->size, (char*)curr->ptr);
 		curr = curr->next;
-	}
+	} while (curr != malloc_node_start);
 }
 
 void free_alloc() {
 	// Should have an empty list!
 	malloc_node* curr = malloc_node_start;
-	while (curr) {
+	if (!curr) return;
+	do {
 		free((void*)curr);
 		curr = curr->next;
-	}
+	} while (curr != malloc_node_start);
 	return;
 }
 
