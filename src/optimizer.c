@@ -548,6 +548,10 @@ static void scan_statement(statement* state) {
 		delete_block();
 	}
 	else if (state->type == S_LOOP) {
+		if (state->op.loop_statement.index_var) {
+			add_modified(state->op.loop_statement.index_var,
+				state->src_line, 0);
+		}
 		scan_expr(state->op.loop_statement.condition);
 		make_new_block();
 		scan_statement(state->op.loop_statement.statement_true);

@@ -512,7 +512,11 @@ address get_fn_frame_ptr(void) {
 }
 
 bool id_exist(char* id, bool search_main) {
-	for (size_t i = get_fn_frame_ptr() + 1; i < stack_pointer; i++) {
+	size_t start = frame_pointer;
+	if (search_main) {
+		start = get_fn_frame_ptr();
+	}
+	for (size_t i = start + 1; i < stack_pointer; i++) {
 		if (streq(id, call_stack[i].id)) {
 			return true;
 		}
