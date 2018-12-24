@@ -649,7 +649,10 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 						// Write Name to Function
 						char* bind_name = last_pushed_identifier;
 						address fn_adr = memory[j].value.number;
-						strcpy(memory[fn_adr + 2].value.string, bind_name);
+						data_value* fn_name_data = &memory[fn_adr + 2].value;
+						fn_name_data->string = safe_realloc(
+							fn_name_data->string, strlen(bind_name) + 1);
+						strcpy(fn_name_data->string, bind_name);
 					}
 				}
 				break;
