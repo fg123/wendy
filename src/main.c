@@ -140,9 +140,16 @@ void run(char* input_string) {
 	size_t tokens_count;
 	reset_error_flag();
 	tokens_count = scan_tokens(input_string, &tokens, &alloc_size);
+	if (get_settings_flag(SETTINGS_TOKEN_LIST_PRINT)) {
+		print_token_list(tokens, tokens_count);
+	}
+
 	statement_list* ast = generate_ast(tokens, tokens_count);
 	if (get_settings_flag(SETTINGS_OPTIMIZE)) {
 		ast = optimize_ast(ast);
+	}
+	if (get_settings_flag(SETTINGS_ASTPRINT)) {
+		print_ast(ast);
 	}
 	if(!ast_error_flag()) {
 		size_t size;
