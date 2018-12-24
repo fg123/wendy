@@ -161,8 +161,9 @@ void free_alloc() {
 	malloc_node* curr = malloc_node_start;
 	if (!curr) return;
 	do {
+		malloc_node* next = curr->next;
 		free((void*)curr);
-		curr = curr->next;
+		curr = next;
 	} while (curr != malloc_node_start);
 	return;
 }
