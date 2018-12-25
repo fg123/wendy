@@ -1226,6 +1226,8 @@ static data size_of(data a) {
 
 static data type_of(data a) {
 	switch (a.type) {
+		case D_FUNCTION:
+			return make_data(D_OBJ_TYPE, data_value_str("function"));
 		case D_STRING:
 			return make_data(D_OBJ_TYPE, data_value_str("string"));
 		case D_NUMBER:
