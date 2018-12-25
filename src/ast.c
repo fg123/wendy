@@ -459,18 +459,18 @@ static statement* parse_statement(void) {
                     consume(T_OBJ_TYPE);
                     operand = previous();
                     alloc_size += strlen(operand.t_data.string);
+					lvalue = safe_calloc(alloc_size + 1, sizeof(char));
+					strcat(lvalue, OPERATOR_OVERLOAD_PREFIX);
+					if (is_binary) {
+						strcat(lvalue, lhs.t_data.string);
+					}
+					strcat(lvalue, op.t_data.string);
+					strcat(lvalue, operand.t_data.string);
                 }
                 else {
 					error_lexer(op.t_line, op.t_col,
 						AST_OPERATOR_OVERLOAD_NO_OPERATOR);
 				}
-                lvalue = safe_calloc(alloc_size + 1, sizeof(char));
-                strcat(lvalue, OPERATOR_OVERLOAD_PREFIX);
-                if (is_binary) {
-                    strcat(lvalue, lhs.t_data.string);
-                }
-                strcat(lvalue, op.t_data.string);
-                strcat(lvalue, operand.t_data.string);
 			}
 			expr* rvalue = 0;
 			if (match(T_EQUAL)) {

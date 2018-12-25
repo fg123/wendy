@@ -45,6 +45,9 @@ static void guarantee_size(size_t desired_additional) {
 }
 
 static void write_string(char* string) {
+	if (!string) {
+		return;
+	}
 	guarantee_size(strlen(string) + 1);
 	for (size_t i = 0; string[i]; i++) {
 		write_byte(string[i]);
