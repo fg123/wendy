@@ -454,7 +454,7 @@ static statement* parse_statement(void) {
                 }
                 token op = advance();
                 token operand;
-                if (precedence(op)) {
+                if (precedence(op) || op.t_type == T_AT) {
                     alloc_size += strlen(op.t_data.string);
                     consume(T_OBJ_TYPE);
                     operand = previous();

@@ -9,3 +9,7 @@ let <posn> + <posn> => (lhs, rhs) posn(lhs.x + rhs.x, lhs.y + rhs.y);
 let - <posn> => (p) posn(-p.x, -p.y);
 
 (-posn(10, 20)).print();
+
+let @ <posn> => (p) { p.print() }
+
+posn(10, 20);

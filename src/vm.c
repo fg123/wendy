@@ -88,6 +88,20 @@ static char* get_unary_overload_name(operator op, data a) {
 	return fn_name;
 }
 
+static char* get_print_overload_name(data a) {
+	data type_a = type_of(a);
+	int len = strlen(OPERATOR_OVERLOAD_PREFIX);
+	len += 1; // for @
+	len += strlen(type_a.value.string);
+	char* fn_name = safe_malloc((len + 1) * sizeof(char));
+	fn_name[0] = 0;
+	strcat(fn_name, OPERATOR_OVERLOAD_PREFIX);
+	strcat(fn_name, "@");
+	strcat(fn_name, type_a.value.string);
+	destroy_data(&type_a);
+	return fn_name;
+}
+
 void vm_run(uint8_t* new_bytecode, size_t size) {
 	if (get_settings_flag(SETTINGS_DRY_RUN)) {
 		return;
@@ -660,6 +674,17 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			case OP_OUT: {
 				data t = pop_arg(line);
 				if (t.type != D_NONERET) {
+					char* fn_name = get_print_overload_name(t);
+					if (id_exist(fn_name, true)) {
+						push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)),
+							line);
+						push_arg(t, line);
+						push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
+						safe_free(fn_name);
+						destroy_data(&t);
+						goto wendy_vm_call;
+					}
+					safe_free(fn_name);
 					print_data(&t);
 				}
 				destroy_data(&t);
@@ -668,6 +693,17 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			case OP_OUTL: {
 				data t = pop_arg(line);
 				if (t.type != D_NONERET) {
+					char* fn_name = get_print_overload_name(t);
+					if (id_exist(fn_name, true)) {
+						push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)),
+							line);
+						push_arg(t, line);
+						push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
+						safe_free(fn_name);
+						destroy_data(&t);
+						goto wendy_vm_call;
+					}
+					safe_free(fn_name);
 					print_data_inline(&t, stdout);
 				}
 				destroy_data(&t);
