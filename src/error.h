@@ -110,7 +110,8 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_INVALID_NEGATE "Negation operand must be a number."
 #define VM_INVALID_NATIVE_CALL "Natively linked function '%s' not found!"
 #define VM_INVALID_NATIVE_NUMBER_OF_ARGS "Natively linked function call '%s' does not match expected number of arguments!"
-
+#define VM_INVALID_NATIVE_NUMERICAL_TYPE_ERROR "Type error in native function call. Expected numerical value."
+#define VM_INVALID_NATIVE_STRING_TYPE_ERROR "Type error in native function call. Expected string value."
 // Colors
 #ifdef _WIN32
 

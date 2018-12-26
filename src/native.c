@@ -16,29 +16,29 @@ int program_arguments_count = 0;
 typedef struct native_function {
 	char* name;
 	int argc;
-	data (*function)(data*);
+	data (*function)(data*, int);
 } native_function;
 
-static data native_printCallStack(data* args);
-static data native_reverseString(data* args);
-static data native_stringToInteger(data* args);
-static data native_examineMemory(data* args);
-static data native_exec(data* args);
-static data native_getc(data* args);
-static data native_printBytecode(data* args);
-static data native_getImportedLibraries(data* args);
-static data native_garbageCollect(data* args);
-static data native_printFreeMemory(data* args);
-static data native_getProgramArgs(data* args);
-static data native_read(data* args);
-static data native_readRaw(data* args);
-static data native_readFile(data* args);
-static data native_writeFile(data* args);
+static data native_printCallStack(data* args, int line);
+static data native_reverseString(data* args, int line);
+static data native_stringToInteger(data* args, int line);
+static data native_examineMemory(data* args, int line);
+static data native_exec(data* args, int line);
+static data native_getc(data* args, int line);
+static data native_printBytecode(data* args, int line);
+static data native_getImportedLibraries(data* args, int line);
+static data native_garbageCollect(data* args, int line);
+static data native_printFreeMemory(data* args, int line);
+static data native_getProgramArgs(data* args, int line);
+static data native_read(data* args, int line);
+static data native_readRaw(data* args, int line);
+static data native_readFile(data* args, int line);
+static data native_writeFile(data* args, int line);
 
 // Math Functions
-static data native_pow(data* args);
-static data native_ln(data* args);
-static data native_log(data* args);
+static data native_pow(data* args, int line);
+static data native_ln(data* args, int line);
+static data native_log(data* args, int line);
 
 static native_function native_functions[] = {
 	{ "printCallStack", 1, native_printCallStack },
@@ -61,16 +61,27 @@ static native_function native_functions[] = {
 	{ "io_writeFile", 2, native_writeFile }
 };
 
-static double native_to_numeric(data* t) {
+static double native_to_numeric(data* t, int line) {
+	UNUSED(line);
+	if (t->type != D_NUMBER) {
+		error_runtime(line, VM_INVALID_NATIVE_NUMERICAL_TYPE_ERROR);
+		return 0;
+	}
 	return t->value.number;
 }
 
-static char* native_to_string(data* t) {
+static char* native_to_string(data* t, int line) {
+	UNUSED(line);
+	if (t->type != D_STRING) {
+		error_runtime(line, VM_INVALID_NATIVE_STRING_TYPE_ERROR);
+		return "";
+	}
 	return t->value.string;
 }
 
-static data native_getProgramArgs(data* args) {
+static data native_getProgramArgs(data* args, int line) {
 	UNUSED(args);
+	UNUSED(line);
 	data* array = safe_malloc(sizeof(data) * program_arguments_count);
 	int size = 0;
 	for (int i = 0; i < program_arguments_count; i++) {
@@ -82,20 +93,23 @@ static data native_getProgramArgs(data* args) {
 	return final;
 }
 
-static data native_garbageCollect(data* args) {
+static data native_garbageCollect(data* args, int line) {
 	UNUSED(args);
+	UNUSED(line);
 	garbage_collect(0);
 	return noneret_data();
 }
 
-static data native_printFreeMemory(data* args) {
+static data native_printFreeMemory(data* args, int line) {
 	UNUSED(args);
+	UNUSED(line);
 	print_free_memory();
 	return noneret_data();
 }
 
-static data native_getImportedLibraries(data* args) {
+static data native_getImportedLibraries(data* args, int line) {
 	UNUSED(args);
+	UNUSED(line);
 	import_node *node = imported_libraries;
 	// Traverse once to find length
 	size_t length = 0;
@@ -116,49 +130,51 @@ static data native_getImportedLibraries(data* args) {
 	return make_data(D_LIST, data_value_num(list_adr));
 }
 
-static data native_getc(data* args) {
+static data native_getc(data* args, int line) {
 	UNUSED(args);
+	UNUSED(line);
 	char result[2];
 	result[0] = getc(stdin);
 	result[1] = 0;
 	return make_data(D_STRING, data_value_str(result));
 }
 
-static data native_pow(data* args) {
-	double a = native_to_numeric(args);
-	double b = native_to_numeric(args + 1);
+static data native_pow(data* args, int line) {
+	double a = native_to_numeric(args, line);
+	double b = native_to_numeric(args + 1, line);
 	return make_data(D_NUMBER, data_value_num(pow(a, b)));
 }
 
-static data native_ln(data* args) {
-	return make_data(D_NUMBER, data_value_num(log(native_to_numeric(args))));
+static data native_ln(data* args, int line) {
+	return make_data(D_NUMBER, data_value_num(log(native_to_numeric(args, line))));
 }
 
-static data native_log(data* args) {
-	return make_data(D_NUMBER, data_value_num(log10(native_to_numeric(args))));
+static data native_log(data* args, int line) {
+	return make_data(D_NUMBER, data_value_num(log10(native_to_numeric(args, line))));
 }
 
-static data native_exec(data* args) {
-	char* command = native_to_string(args);
+static data native_exec(data* args, int line) {
+	char* command = native_to_string(args, line);
 	if (!get_settings_flag(SETTINGS_SANDBOXED)) {
 		return make_data(D_NUMBER, data_value_num(system(command)));
 	}
 	return noneret_data();
 }
 
-static data native_printCallStack(data* args) {
-	print_call_stack(stdout, (int)native_to_numeric(args));
+static data native_printCallStack(data* args, int line) {
+	print_call_stack(stdout, (int)native_to_numeric(args, line));
 	return noneret_data();
 }
 
-static data native_printBytecode(data* args) {
+static data native_printBytecode(data* args, int line) {
 	UNUSED(args);
+	UNUSED(line);
 	print_current_bytecode();
 	return noneret_data();
 }
 
-static data native_reverseString(data* args) {
-	char* string = native_to_string(args);
+static data native_reverseString(data* args, int line) {
+	char* string = native_to_string(args, line);
 	int len = strlen(string);
 	data t = make_data(D_STRING, data_value_str(string));
 	for (int i = 0; i < len / 2; i++) {
@@ -169,8 +185,8 @@ static data native_reverseString(data* args) {
 	return t;
 }
 
-static data native_stringToInteger(data* args) {
-	char* s = native_to_string(args);
+static data native_stringToInteger(data* args, int line) {
+	char* s = native_to_string(args, line);
 	int integer = 0;
 	bool neg = false;
 	for (int i = 0; s[i]; i++) {
@@ -186,9 +202,9 @@ static data native_stringToInteger(data* args) {
 	return make_data(D_NUMBER, data_value_num(integer));
 }
 
-static data native_examineMemory(data* args) {
-	double arg1_from = native_to_numeric(args);
-	double arg2_to = native_to_numeric(args + 1);
+static data native_examineMemory(data* args, int line) {
+	double arg1_from = native_to_numeric(args, line);
+	double arg2_to = native_to_numeric(args + 1, line);
 	printf("Memory Contents: \n");
 	for (int i = arg1_from; i < arg2_to; i++) {
 		data t = memory[i];
@@ -205,8 +221,9 @@ static data native_examineMemory(data* args) {
 	return noneret_data();
 }
 
-static data native_read(data* args) {
+static data native_read(data* args, int line) {
 	UNUSED(args);
+	UNUSED(line);
 	// Scan one line from the input.
 	char buffer[INPUT_BUFFER_SIZE];
 	while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
@@ -224,8 +241,9 @@ static data native_read(data* args) {
 	return make_data(D_NUMBER, data_value_num(d));
 }
 
-static data native_readRaw(data* args) {
+static data native_readRaw(data* args, int line) {
 	UNUSED(args);
+	UNUSED(line);
 	// Scan one line from the input.
 	char buffer[INPUT_BUFFER_SIZE];
 	while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
@@ -234,9 +252,9 @@ static data native_readRaw(data* args) {
 	return make_data(D_STRING, data_value_str(buffer));
 }
 
-static data native_readFile(data* args) {
+static data native_readFile(data* args, int line) {
 	if (!get_settings_flag(SETTINGS_SANDBOXED)) {
-		char* file = native_to_string(args);
+		char* file = native_to_string(args, line);
 		FILE *f = fopen(file, "rb");
 		fseek(f, 0, SEEK_END);
 		long fsize = ftell(f);
@@ -251,10 +269,10 @@ static data native_readFile(data* args) {
 	return noneret_data();
 }
 
-static data native_writeFile(data* args) {
+static data native_writeFile(data* args, int line) {
 	if (!get_settings_flag(SETTINGS_SANDBOXED)) {
-		char* file = native_to_string(args);
-		char* content = native_to_string(args + 1);
+		char* file = native_to_string(args, line);
+		char* content = native_to_string(args + 1, line);
 		FILE *f = fopen(file, "wb");
 		fwrite(content, 1, strlen(content), f);
 	}
@@ -278,7 +296,7 @@ void native_call(char* function_name, int expected_args, int line) {
 			if (end_marker.type != D_END_OF_ARGUMENTS) {
 				error_runtime(line, VM_INVALID_NATIVE_NUMBER_OF_ARGS, function_name);
 			}
-			push_arg(native_functions[i].function(arg_list), line);
+			push_arg(native_functions[i].function(arg_list, line), line);
 			for (int i = 0; i < argc; i++) {
 				destroy_data(&arg_list[i]);
 			}
