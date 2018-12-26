@@ -491,7 +491,9 @@ static statement* parse_statement(void) {
 				}
 			}
 			else {
-				rvalue = make_lit_expr(none_token());
+				token none_tk = none_token();
+				rvalue = make_lit_expr(none_tk);
+				destroy_token(none_tk);
 			}
 			sm->type = S_LET;
 			sm->op.let_statement.lvalue = lvalue;
