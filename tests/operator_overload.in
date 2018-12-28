@@ -10,6 +10,6 @@ let - <posn> => (p) posn(-p.x, -p.y);
 
 (-posn(10, 20)).print();
 
-let @ <posn> => (p) { p.print() }
+let @ <posn> => (p) p.print()
 
 posn(10, 20);

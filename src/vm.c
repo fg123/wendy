@@ -682,6 +682,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 						push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
 						safe_free(fn_name);
 						destroy_data(&t);
+						/* This i-- allows the overloaded function to return
+						 * a string / object and have that be the printed
+						 * output, i.e. it will call function and execute
+						 * the OP_OUT again */
+						i--;
 						goto wendy_vm_call;
 					}
 					safe_free(fn_name);
@@ -701,6 +706,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 						push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
 						safe_free(fn_name);
 						destroy_data(&t);
+						/* This i-- allows the overloaded function to return
+						 * a string / object and have that be the printed
+						 * output, i.e. it will call function and execute
+						 * the OP_OUT again */
+						i--;
 						goto wendy_vm_call;
 					}
 					safe_free(fn_name);
