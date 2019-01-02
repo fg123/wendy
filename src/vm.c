@@ -399,10 +399,18 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_INC: {
+				if (memory[memory_register].type != D_NUMBER) {
+					error_runtime(line, VM_TYPE_ERROR, "INC");
+					continue;
+				}
 				memory[memory_register].value.number++;
 				break;
 			}
 			case OP_DEC: {
+				if (memory[memory_register].type != D_NUMBER) {
+					error_runtime(line, VM_TYPE_ERROR, "DEC");
+					continue;
+				}
 				memory[memory_register].value.number--;
 				break;
 			}
