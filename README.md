@@ -22,13 +22,13 @@ In fact, you can even use the short form keywords and it becomes:
 ```
 #i:1->100?i%2==1i
 ```
-The syntax for WendyScript can be found at [felixguo.me/wendy](http://felixguo.me/wendy).
+The syntax for WendyScript can be found at [wendy.felixguo.me](http://wendy.felixguo.me).
 
-WendyScript can be compiled and run online at [felixguo.me/#wendyScript](http://felixguo.me/#wendyScript) courtesy of the University of Waterloo.
+WendyScript can be compiled and run online at [wendy.felixguo.me/code](http://wendy.felixguo.me/code).
 
 Technical implementation details can be found at the [wiki](https://github.com/fg123/wendy/wiki).
 
-The source can be built by simply running.
+The source can be built by simply running:
 ```
 make
 ```
