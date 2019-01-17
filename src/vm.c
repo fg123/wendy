@@ -922,6 +922,9 @@ static data eval_binop(operator op, data a, data b) {
 		else if (streq("char", b.value.string)) {
 			return char_of(a);
 		}
+		else if (a.type == D_FUNCTION && streq("params", b.value.string)) {
+			return memory[(int)a.value.number + 3];
+		}
 		else if (a.type == D_NONERET) {
 			error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
 			return none_data();
