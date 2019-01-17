@@ -4,7 +4,7 @@ BINDIR = bin
 SRCDIR = src
 INCDIR = src
 WARNING_FLAGS = -Wall -Wextra -Werror -Wstrict-prototypes
-CFLAGS = -g -std=c99 $(WARNING_FLAGS) $(release)
+CFLAGS = -g -std=c99 $(WARNING_FLAGS) $(release) $(FLAGS)
 EXTERNAL_LIBRARIES = -lreadline -lm
 
 _DEPS = *.h

@@ -114,7 +114,7 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_INVALID_NATIVE_STRING_TYPE_ERROR "Type error in native function call. Expected string value."
 
 // Colors
-#ifdef _WIN32
+#if defined(_WIN32) || defined(NO_COLOR)
 
 #define RED   ""
 #define GRN   ""

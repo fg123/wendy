@@ -815,11 +815,11 @@ static void print_indent(traversal_algorithm* algo) {
 }
 static void print_e(expr* expression, traversal_algorithm* algo) {
 	print_indent(algo);
-	printf(YEL);
+	printf("%s", YEL);
 	if (expression->type == E_LITERAL) {
 		printf("Literal Expression " GRN);
 		print_data(&expression->op.lit_expr);
-		printf(RESET);
+		printf("%s", RESET);
 	}
 	else if (expression->type == E_BINARY) {
 		printf("Binary Expression " GRN "%s\n" RESET,
@@ -843,7 +843,7 @@ static void print_e(expr* expression, traversal_algorithm* algo) {
 	else if (expression->type == E_ASSIGN) {
 		printf("Assignment Expression \n");
 	}
-	printf(RESET);
+	printf("%s", RESET);
 }
 static void print_el(expr_list* el, traversal_algorithm* algo) {
 	UNUSED(el);
@@ -852,7 +852,7 @@ static void print_el(expr_list* el, traversal_algorithm* algo) {
 }
 static void print_s(statement* state, traversal_algorithm* algo) {
 	print_indent(algo);
-	printf(BLU);
+	printf("%s", BLU);
 	if (state->type == S_LET) {
 		printf("Let Statement " GRN "(%s)\n" RESET,
 			state->op.let_statement.lvalue);
@@ -886,7 +886,7 @@ static void print_s(statement* state, traversal_algorithm* algo) {
 	else if (state->type == S_BYTECODE) {
 		printf("Bytecode Statement\n");
 	}
-	printf(RESET);
+	printf("%s", RESET);
 }
 static void print_sl(statement_list* sl, traversal_algorithm* algo) {
 	UNUSED(sl);
