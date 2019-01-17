@@ -274,6 +274,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_WHERE: {
 				char* id = get_string(bytecode + i, &i);
+				last_pushed_identifier = id;
 				memory_register = get_address_of_id(id, line);
 				memory_register_A = memory_register;
 				break;

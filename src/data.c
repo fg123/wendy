@@ -140,6 +140,23 @@ void print_data(const data* t) {
 	fflush(stdout);
 }
 
+unsigned int print_params_if_available(FILE* buf, const data* function_data) {
+	data list_ref = memory[(int)function_data->value.number + 3];
+	if (list_ref.type != D_LIST) return 0;
+	unsigned int p = 0;
+	address list_start = list_ref.value.number;
+	unsigned int size = memory[list_start].value.number;
+	p += fprintf(buf, "(");
+	for (unsigned int i = 0; i < size; i++) {
+		if (i != 0) {
+			p += fprintf(buf, ", ");
+		}
+		p += fprintf(buf, "%s", memory[list_start + i + 1].value.string);
+	}
+	p += fprintf(buf, ")");
+	return p;
+}
+
 unsigned int print_data_inline(const data* t, FILE* buf) {
 	unsigned int p = 0;
 	if (t->type == D_OBJ_TYPE) {
@@ -149,10 +166,14 @@ unsigned int print_data_inline(const data* t, FILE* buf) {
 		p += fprintf(buf, "<struct>");
 	}
 	else if (t->type == D_FUNCTION) {
-		p += fprintf(buf, "<function>");
+		p += fprintf(buf, "<function");
+		p += print_params_if_available(buf, t);
+		p += fprintf(buf, ">");
 	}
 	else if (t->type == D_STRUCT_FUNCTION) {
-		p += fprintf(buf, "<struct function>");
+		p += fprintf(buf, "<struct function");
+		p += print_params_if_available(buf, t);
+		p += fprintf(buf, ">");
 	}
 	else if (t->type == D_END_OF_ARGUMENTS) {
 		p += fprintf(buf, "<eoargs>");

@@ -640,21 +640,40 @@ static void codegen_expr(void* expre) {
 		int writeSizeLoc = size;
 		size += sizeof(address);
 		int startAddr = size;
+
+		/* Count parameters */
+		int count = 0;
+		expr_list* param = expression->op.func_expr.parameters;
+		while (param) {
+			param = param->next;
+			count++;
+		}
+		char** param_names = safe_malloc(sizeof(*param_names) * count);
+
 		if (expression->op.func_expr.is_native) {
 			write_opcode(OP_NATIVE);
-			int count = 0;
-			expr_list* param = expression->op.func_expr.parameters;
-			while (param) {
-				param = param->next;
-				count++;
-			}
 			write_integer(count);
 			write_string(expression->op.func_expr.native_name);
 			write_opcode(OP_RET);
+
+			expr_list* param = expression->op.func_expr.parameters;
+			int i = 0;
+			while (param) {
+				if (param->elem->type == E_LITERAL) {
+					param_names[i++] = param->elem->op.lit_expr.value.string;
+				}
+				else {
+					error_lexer(param->elem->line,
+						param->elem->col,
+						CODEGEN_UNEXPECTED_FUNCTION_PARAMETER);
+				}
+				param = param->next;
+			}
 		}
 		else {
 			expr_list* param = expression->op.func_expr.parameters;
 			bool has_encountered_default = false;
+			int i = 0;
 			while (param) {
 				if (param->elem->type == E_LITERAL) {
 					if (has_encountered_default) {
@@ -670,6 +689,7 @@ static void codegen_expr(void* expre) {
 					data t = param->elem->op.lit_expr;
 					write_opcode(OP_RBW);
 					write_string(t.value.string);
+					param_names[i++] = t.value.string;
 				}
 				else if (param->elem->type == E_ASSIGN) {
 					has_encountered_default = true;
@@ -682,6 +702,8 @@ static void codegen_expr(void* expre) {
 					// If the top of the stack is marker, this is no-op.
 					write_opcode(OP_WRITE);
 					write_byte(1);
+					param_names[i++] = param->elem->op.assign_expr.lvalue->
+						op.lit_expr.value.string;
 				}
 				else {
 					error_lexer(param->elem->line,
@@ -713,10 +735,33 @@ static void codegen_expr(void* expre) {
 		write_opcode(OP_CLOSUR);
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_STRING, data_value_str("self")));
+
+		/* Make a list of parameters names */
+		if (!get_settings_flag(SETTINGS_OPTIMIZE)) {
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_LIST_HEADER, data_value_num(count)));
+			for (int i = 0; i < count; i++) {
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_STRING, data_value_str(param_names[i])));
+			}
+			write_opcode(OP_REQ);
+			// For the Header
+			write_byte(count + 1);
+			write_opcode(OP_WRITE);
+			write_byte(count + 1);
+			write_opcode(OP_MKPTR);
+			write_byte(D_LIST);
+		}
+		else {
+			write_opcode(OP_PUSH);
+			write_data(none_data());
+		}
+
+		safe_free(param_names);
 		write_opcode(OP_REQ);
-		write_byte(3);
+		write_byte(4);
 		write_opcode(OP_WRITE);
-		write_byte(3);
+		write_byte(4);
 		write_opcode(OP_MKPTR);
 		write_byte(D_FUNCTION);
 	}
