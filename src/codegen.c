@@ -242,7 +242,11 @@ static void codegen_statement(void* expre) {
 	else if (state->type == S_BLOCK) {
 		write_opcode(OP_FRM);
 		codegen_statement_list(state->op.block_statement);
-		write_opcode(OP_END);
+
+		if (bytecode[size - 1] != OP_RET) {
+			/* Don't need to end the block if we immediately RET */
+			write_opcode(OP_END);
+		}
 	}
 	else if (state->type == S_IMPORT) {
 		if (!state->op.import_statement) {
@@ -543,6 +547,10 @@ static void codegen_statement_list(void* expre) {
 	statement_list* list = (statement_list*) expre;
 	while (list) {
 		codegen_statement(list->elem);
+		if (bytecode[size - 1] == OP_RET) {
+			/* Stop generating if last statement was a return */
+			break;
+		}
 		list = list->next;
 	}
 }
