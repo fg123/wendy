@@ -240,12 +240,13 @@ static void codegen_statement(void* expre) {
 			state->op.expr_statement->type != E_ASSIGN) write_opcode(OP_OUT);
 	}
 	else if (state->type == S_BLOCK) {
-		write_opcode(OP_FRM);
-		codegen_statement_list(state->op.block_statement);
-
-		if (bytecode[size - 1] != OP_RET) {
-			/* Don't need to end the block if we immediately RET */
-			write_opcode(OP_END);
+		if (state->op.block_statement) {
+			write_opcode(OP_FRM);
+			codegen_statement_list(state->op.block_statement);
+			if (bytecode[size - 1] != OP_RET) {
+				/* Don't need to end the block if we immediately RET */
+				write_opcode(OP_END);
+			}
 		}
 	}
 	else if (state->type == S_IMPORT) {
@@ -387,8 +388,11 @@ static void codegen_statement(void* expre) {
 		write_address_at(size, doneJumpLoc);
 	}
 	else if (state->type == S_LOOP) {
+		if (!state->op.loop_statement.statement_true) {
+			// Don't generate if empty loop body
+			return;
+		}
 		// Setup Loop Index
-
 		write_opcode(OP_FRM); // Start Local Variable Frame OUTER
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_NUMBER, data_value_num(0)));
