@@ -190,7 +190,6 @@ static void identifier(void) {
 	else if (streq(text, "true")) { add_token(T_TRUE); }
 
 	else if (streq(text, "let"))  { add_token(T_LET); }
-	else if (streq(text, "set"))  { add_token(T_SET); }
 	else if (streq(text, "for"))  { add_token(T_LOOP); }
 	else if (streq(text, "none")) { add_token(T_NONE); }
 	else if (streq(text, "in"))   { add_token(T_IN); }

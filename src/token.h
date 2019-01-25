@@ -61,7 +61,6 @@
 	OP(T_TRUE) \
 	OP(T_FALSE) \
 	OP(T_LET) \
-	OP(T_SET) \
 	OP(T_LOOP) \
 	OP(T_DEFFN) \
 	OP(T_RET) \
