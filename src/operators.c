@@ -40,6 +40,7 @@ enum operator token_operator_binary(token op) {
 		case T_LEFT_BRACK: return O_SUBSCRIPT;
 		case T_TILDE: return O_IN;
         case T_EQUAL: return O_ASSIGN;
+		case T_MOD_EQUAL: return O_MOD_EQUAL;
 		default:;
 	}
 	error_compile(op.t_line, op.t_col, OPERATORS_INVALID_BINARY);

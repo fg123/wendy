@@ -271,7 +271,14 @@ static bool scan_token(void) {
 			}
 			break;
 		case '\\': add_token(match('=') ? T_ASSIGN_INTSLASH : T_INTSLASH); break;
-		case '%': add_token(T_PERCENT); break;
+		case '%':
+			if (match('=')) {
+				add_token(T_MOD_EQUAL);
+			}
+			else {
+				add_token(T_PERCENT);
+			}
+			break;
 		case '@': add_token(T_AT); break;
 		case ';': add_token(T_SEMICOLON); break;
 		case ':': add_token(T_COLON); break;

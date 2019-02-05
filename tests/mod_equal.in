@@ -1,0 +1,6 @@
+let a = 12345;
+let rem = a %= 10;
+for rem != 0 {
+    rem;
+    rem = a %= 10;
+}

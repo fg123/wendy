@@ -125,6 +125,7 @@ static void codegen_lvalue_expr(expr* expression) {
 		if (expression->op.lit_expr.type != D_IDENTIFIER) {
 			error_lexer(expression->line, expression->col,
 				CODEGEN_LVALUE_EXPECTED_IDENTIFIER);
+			return;
 		}
 		write_opcode(OP_WHERE);
 		write_string(expression->op.lit_expr.value.string);
@@ -137,6 +138,7 @@ static void codegen_lvalue_expr(expr* expression) {
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
 				error_lexer(expression->line, expression->col,
 					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
+				return;
 			}
 			//expression->op.bin_expr.right->op.lit_expr.t_type = T_MEMBER;
 			write_opcode(OP_MEMPTR);
@@ -183,6 +185,7 @@ static void codegen_expr_list_for_call_named(expr_list* list) {
 		error_lexer(assign_expr->line,
 					assign_expr->col,
 					CODEGEN_NAMED_ARGUMENT_NOT_LITERAL);
+		return;
 	}
 
 	codegen_expr(assign_expr->op.assign_expr.rvalue);
@@ -568,7 +571,25 @@ static void codegen_expr(void* expre) {
 		write_data(copy_data(expression->op.lit_expr));
 	}
 	else if (expression->type == E_BINARY) {
-		if (expression->op.bin_expr.operator == O_MEMBER) {
+		if (expression->op.bin_expr.operator == O_MOD_EQUAL) {
+			/* Special operator just for Dhruvit, first we calculate the remainder */
+			codegen_expr(expression->op.bin_expr.left);
+			codegen_expr(expression->op.bin_expr.right);
+			write_opcode(OP_BIN);
+			write_byte(O_REM);
+
+			/* Then we simulate a div_equals operation */
+			codegen_expr(expression->op.bin_expr.right);
+			codegen_lvalue_expr(expression->op.bin_expr.left);
+			write_opcode(OP_READ);
+			write_opcode(OP_RBIN);
+			write_byte(O_IDIV);
+			write_opcode(OP_WRITE);
+			write_byte(1);
+			/* Skip the default OP_BIN */
+			return;
+		}
+		else if (expression->op.bin_expr.operator == O_MEMBER) {
 			codegen_expr(expression->op.bin_expr.left);
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
 				error_lexer(expression->line, expression->col,

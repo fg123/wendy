@@ -575,6 +575,13 @@ static void scan_expr(expr* expression) {
 		}
 	}
 	else if (expression->type == E_BINARY) {
+		if (expression->op.bin_expr.operator == O_MOD_EQUAL) {
+			if (expression->op.bin_expr.left->type == E_LITERAL &&
+				expression->op.bin_expr.left->op.lit_expr.type == D_IDENTIFIER) {
+				add_modified(expression->op.bin_expr.left->op.lit_expr.value.string,
+					expression->line, expression->col);
+			}
+		}
 		scan_expr(expression->op.bin_expr.left);
 		scan_expr(expression->op.bin_expr.right);
 	}

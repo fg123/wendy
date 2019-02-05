@@ -316,7 +316,7 @@ static expr* unary(void) {
 }
 static expr* factor(void) {
 	expr* left = unary();
-	while (match(T_STAR, T_SLASH, T_INTSLASH, T_PERCENT)) {
+	while (match(T_STAR, T_SLASH, T_INTSLASH, T_PERCENT, T_MOD_EQUAL)) {
 		token op = previous();
 		expr* right = unary();
 		left = make_bin_expr(left, op, right);
