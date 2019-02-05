@@ -4,3 +4,4 @@ for rem != 0 {
     rem;
     rem = a %= 10;
 }
+a
