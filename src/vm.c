@@ -1266,7 +1266,7 @@ static data char_of(data a) {
 		return res;
 	}
 	else {
-		return a;
+		return copy_data(a);
 	}
 }
 
