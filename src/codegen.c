@@ -1035,10 +1035,6 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 			get_string(buffer + i, &i);
 			get_string(buffer + i, &i);
 		}
-		else if (op == OP_ASSERT) {
-			i++;
-			get_string(buffer + i, &i);
-		}
 		else if (op == OP_NATIVE) {
 			get_address(buffer + i, &i);
 			get_string(buffer + i, &i);

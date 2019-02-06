@@ -415,21 +415,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				memory[memory_register].value.number--;
 				break;
 			}
-			case OP_ASSERT: {
-				data_type matching = bytecode[i++];
-				char* c = get_string(bytecode + i, &i);
-				if (memory[memory_register].type != matching) {
-					error_runtime(line, c);
-				}
-				break;
-			}
 			case OP_FRM: {
 				push_auto_frame(i, "automatic", line);
 				push_mem_reg(memory_register, line);
-				break;
-			}
-			case OP_MPTR: {
-				memory_register = (address)memory[memory_register].value.number;
 				break;
 			}
 			case OP_END: {
