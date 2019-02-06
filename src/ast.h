@@ -72,7 +72,7 @@ typedef struct expr_list {
 
 typedef struct statement {
 	enum { S_EXPR, S_OPERATION, S_LET, S_STRUCT, S_IF, S_BLOCK, S_LOOP, S_SET,
-		S_IMPORT, S_EMPTY, S_BYTECODE }
+		S_IMPORT, S_EMPTY }
 		type;
 	union { expr*                                       expr_statement;
 			struct {    opcode      operator;
@@ -91,7 +91,6 @@ typedef struct statement {
 						struct statement*   statement_true; } loop_statement;
 			struct statement_list*                      block_statement;
 			char*                                       import_statement;
-			struct expr_list*							bytecode_statement;
 	} op;
 	int src_line;
 } statement;

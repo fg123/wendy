@@ -188,30 +188,6 @@ static expr_list* identifier_list(void) {
 	return list;
 }
 
-static expr_list* read_bytecode_token_list(token_type end_delimiter) {
-	if (peek().t_type == end_delimiter) return 0;
-	expr_list* list = safe_malloc(sizeof(expr_list));
-	list->next = 0;
-	expr** curr = &list->elem;
-	expr_list* curr_list = list;
-	forever {
-		*curr = make_lit_expr(advance());
-		if (peek().t_type != end_delimiter) {
-			curr_list->next = safe_malloc(sizeof(expr_list));
-			curr_list = curr_list->next;
-			curr_list->next = 0;
-			curr = &curr_list->elem;
-		} else break;
-	}
-	if (error_thrown) {
-		// rollback
-		traverse_expr_list(list, &ast_safe_free_impl);
-		return 0;
-	}
-	else {
-		return list;
-	}
-}
 static expr_list* expression_list(token_type end_delimiter) {
 	if (peek().t_type == end_delimiter) return 0;
 	expr_list* list = safe_malloc(sizeof(expr_list));
@@ -424,16 +400,6 @@ static statement* parse_statement(void) {
 			consume(T_RIGHT_BRACE);
 			sm->type = S_BLOCK;
 			sm->op.block_statement = sl;
-			break;
-		}
-		case T_DOLLAR_SIGN: {
-			// Bytecode Block
-			consume(T_LEFT_BRACE);
-			// Build with no separator!
-			expr_list* el = read_bytecode_token_list(T_RIGHT_BRACE);
-			consume(T_RIGHT_BRACE);
-			sm->type = S_BYTECODE;
-			sm->op.bytecode_statement = el;
 			break;
 		}
 		case T_LET: {
@@ -753,9 +719,6 @@ void traverse_statement(statement* state, traversal_algorithm* algo) {
 		traverse_expr(state->op.loop_statement.condition, algo);
 		traverse_statement(state->op.loop_statement.statement_true, algo);
 	}
-	else if (state->type == S_BYTECODE) {
-		traverse_expr_list(state->op.bytecode_statement, algo);
-	}
 	algo->level--;
 	if (algo->type == HANDLE_AFTER_CHILDREN) algo->handle_statement(state, algo);
 }
@@ -882,9 +845,6 @@ static void print_s(statement* state, traversal_algorithm* algo) {
 	}
 	else if (state->type == S_EMPTY) {
 		printf("Empty Statement\n");
-	}
-	else if (state->type == S_BYTECODE) {
-		printf("Bytecode Statement\n");
 	}
 	printf("%s", RESET);
 }
