@@ -43,6 +43,10 @@ extern size_t closure_list_size;
 extern address mem_reg_pointer;
 extern address arg_pointer;
 
+extern size_t callstack_size;
+extern size_t argstack_size;
+extern size_t memregstack_size;
+
 // init_memory() initializes the memory module
 void init_memory(void);
 

@@ -25,10 +25,10 @@ void print_verbose_info(void) {
 		fprintf(stderr, RED "VERBOSE ERROR DUMP\n" RESET);
 		fprintf(stderr, GRN "Limits\n" RESET);
 		fprintf(stderr, "MEMORY_SIZE %d\n", MEMORY_SIZE);
-		fprintf(stderr, "STACK_SIZE %d\n", STACK_SIZE);
-		fprintf(stderr, "ARGSTACK_SIZE %d\n", ARGSTACK_SIZE);
+		fprintf(stderr, "STACK_SIZE %zu\n", callstack_size);
+		fprintf(stderr, "ARGSTACK_SIZE %zu\n", argstack_size);
 		fprintf(stderr, "RESERVED_MEMORY %d\n", RESERVED_MEMORY);
-		fprintf(stderr, "MEMREGSTACK_SIZE %d\n", MEMREGSTACK_SIZE);
+		fprintf(stderr, "MEMREGSTACK_SIZE %zu\n", memregstack_size);
 		fprintf(stderr, GRN "Memory\n" RESET);
 		fprintf(stderr, "FP: %d 0x%X\n", frame_pointer, frame_pointer);
 		fprintf(stderr, "SP: %d 0x%X\n", stack_pointer, stack_pointer);

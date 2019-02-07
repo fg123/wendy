@@ -293,8 +293,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			case OP_ARGCLN: {
 				// TODO: This instruction can be modified to support
 				//   variable arguments.
-				data* extra_args = safe_malloc(ARGSTACK_SIZE *
-											   sizeof(extra_args));
+				data* extra_args = safe_malloc(INITIAL_ARGSTACK_SIZE *
+											   sizeof(data));
 				size_t count = 0;
 				while (top_arg(line)->type != D_END_OF_ARGUMENTS) {
 					if (top_arg(line)->type == D_NAMED_ARGUMENT_NAME) {

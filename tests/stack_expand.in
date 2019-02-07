@@ -1,0 +1,10 @@
+// Default callstack is 1024 high; we test that that can be auto-expanded
+
+let fn => (x) {
+	if (x == 0) {
+		ret 0;
+	}
+	ret 1 + fn(x - 1);
+}
+
+fn(2048);

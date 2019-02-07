@@ -27,8 +27,17 @@ address closure_list_pointer = 0;
 size_t closure_list_size = 0;
 address mem_reg_pointer = 0;
 
+size_t callstack_size = INITIAL_STACK_SIZE;
+size_t argstack_size = INITIAL_ARGSTACK_SIZE;
+size_t memregstack_size = INITIAL_MEMREGSTACK_SIZE;
+
 // Pointer to the end of the main() stack frame
 static address main_end_pointer = 0;
+
+#define resize(container, current) do { \
+	current *= 2; \
+	container = safe_realloc(container, current * sizeof(*container)); \
+} while(0)
 
 static inline bool is_at_main(void) {
 	return frame_pointer == 0;
@@ -248,10 +257,10 @@ void init_memory(void) {
 	memory = safe_calloc(MEMORY_SIZE, sizeof(data));
 
 	// Initialize Argument Stack
-	arg_stack = safe_calloc(ARGSTACK_SIZE, sizeof(data));
+	arg_stack = safe_calloc(argstack_size, sizeof(data));
 
 	// Initialize MemReg
-	mem_reg_stack = safe_calloc(MEMREGSTACK_SIZE, sizeof(address));
+	mem_reg_stack = safe_calloc(memregstack_size, sizeof(address));
 
 	// Initialize linked list of Free Memory
 	free_memory = safe_malloc(sizeof(mem_block));
@@ -260,7 +269,7 @@ void init_memory(void) {
 	free_memory->next = 0;
 
 	// Initialize Call Stack
-	call_stack = safe_calloc(STACK_SIZE, sizeof(stack_entry));
+	call_stack = safe_calloc(callstack_size, sizeof(stack_entry));
 
 	closure_list = safe_calloc(INITIAL_CLOSURES_SIZE, sizeof(stack_entry*));
 	closure_list_sizes = safe_malloc(sizeof(size_t) * INITIAL_CLOSURES_SIZE);
@@ -305,15 +314,17 @@ void c_free_memory(void) {
 
 void check_memory(int line) {
 	// Check stack
-	if (stack_pointer >= STACK_SIZE) {
-		printf("Call stack at %d with limit %d!", stack_pointer, STACK_SIZE);
-		error_runtime(line, MEMORY_STACK_OVERFLOW);
+	if (stack_pointer >= callstack_size - 10) {
+		resize(call_stack, callstack_size);
+		// printf("Call stack at %d with limit %d!", stack_pointer, STACK_SIZE);
+		// error_runtime(line, MEMORY_STACK_OVERFLOW);
 	}
 	// Check argstack
-	if (arg_pointer >= ARGSTACK_SIZE) {
-		printf("Internal Stack out of memory! %d with limit %d.\n",
-				arg_pointer, ARGSTACK_SIZE);
-		error_runtime(line, MEMORY_STACK_OVERFLOW);
+	if (arg_pointer >= argstack_size - 10) {
+		resize(arg_stack, argstack_size);
+		// printf("Internal Stack out of memory! %d with limit %d.\n",
+		// 		arg_pointer, ARGSTACK_SIZE);
+		// error_runtime(line, MEMORY_STACK_OVERFLOW);
 	}
 	if (!has_memory(1)) {
 		// Collect Garbage
@@ -574,8 +585,10 @@ data* get_value_of_address(address a, int line) {
 }
 
 void push_mem_reg(address memory_register, int line) {
-	if (mem_reg_pointer >= MEMREGSTACK_SIZE) {
-		error_runtime(line, MEMORY_REGISTER_STACK_OVERFLOW);
+	UNUSED(line);
+	if (mem_reg_pointer >= memregstack_size) {
+		resize(mem_reg_stack, memregstack_size);
+		// error_runtime(line, MEMORY_REGISTER_STACK_OVERFLOW);
 	}
 	mem_reg_stack[mem_reg_pointer++] = memory_register;
 }
