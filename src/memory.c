@@ -12,6 +12,7 @@
 #define CHAR(s) (*s)
 
 data* memory;
+data* arg_stack;
 mem_block* free_memory;
 stack_entry* call_stack;
 address* mem_reg_stack;
@@ -246,18 +247,20 @@ void init_memory(void) {
 	// Initialize Memory
 	memory = safe_calloc(MEMORY_SIZE, sizeof(data));
 
+	// Initialize Argument Stack
+	arg_stack = safe_calloc(ARGSTACK_SIZE, sizeof(data));
+
 	// Initialize MemReg
 	mem_reg_stack = safe_calloc(MEMREGSTACK_SIZE, sizeof(address));
 
 	// Initialize linked list of Free Memory
 	free_memory = safe_malloc(sizeof(mem_block));
-	free_memory->size = MEMORY_SIZE - ARGSTACK_SIZE - RESERVED_MEMORY;
+	free_memory->size = MEMORY_SIZE - RESERVED_MEMORY;
 	free_memory->start = RESERVED_MEMORY;
 	free_memory->next = 0;
 
 	// Initialize Call Stack
 	call_stack = safe_calloc(STACK_SIZE, sizeof(stack_entry));
-	arg_pointer = MEMORY_SIZE - 1;
 
 	closure_list = safe_calloc(INITIAL_CLOSURES_SIZE, sizeof(stack_entry*));
 	closure_list_sizes = safe_malloc(sizeof(size_t) * INITIAL_CLOSURES_SIZE);
@@ -270,7 +273,9 @@ void init_memory(void) {
 }
 
 void clear_arg_stack(void) {
-	arg_pointer = MEMORY_SIZE - 1;
+	while (arg_pointer --> 0) {
+		destroy_data(arg_stack + arg_pointer);
+	}
 }
 
 void c_free_memory(void) {
@@ -278,6 +283,7 @@ void c_free_memory(void) {
 		destroy_data(memory + i);
 	}
 	safe_free(memory);
+	safe_free(arg_stack);
 	safe_free(call_stack);
 	safe_free(mem_reg_stack);
 
@@ -303,10 +309,10 @@ void check_memory(int line) {
 		printf("Call stack at %d with limit %d!", stack_pointer, STACK_SIZE);
 		error_runtime(line, MEMORY_STACK_OVERFLOW);
 	}
-	// Check memory, if the two ends overlap
-	if (arg_pointer <= MEMORY_SIZE - ARGSTACK_SIZE) {
+	// Check argstack
+	if (arg_pointer >= ARGSTACK_SIZE) {
 		printf("Internal Stack out of memory! %d with limit %d.\n",
-				MEMORY_SIZE - arg_pointer, ARGSTACK_SIZE);
+				arg_pointer, ARGSTACK_SIZE);
 		error_runtime(line, MEMORY_STACK_OVERFLOW);
 	}
 	if (!has_memory(1)) {
@@ -430,23 +436,22 @@ void print_call_stack(FILE* file, int maxlines) {
 }
 
 void push_arg(data t, int line) {
-	write_memory(arg_pointer, t, line);
-	arg_pointer--;
+	arg_stack[arg_pointer++] = t;
 	check_memory(line);
 }
 
 data* top_arg(int line) {
-	if (arg_pointer != MEMORY_SIZE - 1) {
-		return &memory[arg_pointer + 1];
+	if (arg_pointer != 0) {
+		return &arg_stack[arg_pointer - 1];
 	}
 	error_runtime(line, MEMORY_STACK_UNDERFLOW);
 	return 0;
 }
 
 data pop_arg(int line) {
-	if (arg_pointer != MEMORY_SIZE - 1) {
-		data ret = copy_data(memory[++arg_pointer]);
-		destroy_data(&memory[arg_pointer]);
+	if (arg_pointer != 0) {
+		data ret = copy_data(arg_stack[--arg_pointer]);
+		destroy_data(&arg_stack[arg_pointer]);
 		return ret;
 	}
 	error_runtime(line, MEMORY_STACK_UNDERFLOW);
