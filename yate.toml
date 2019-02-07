@@ -1,0 +1,5 @@
+# "tabs" (0) or "spaces" (1)
+indentation_style = 0
+trim_trailing_whitespace = true
+tab_size = 4
+
