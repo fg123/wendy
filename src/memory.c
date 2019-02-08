@@ -282,7 +282,8 @@ void init_memory(void) {
 }
 
 void clear_arg_stack(void) {
-	while (arg_pointer --> 0) {
+	while (arg_pointer > 0) {
+		arg_pointer--;
 		destroy_data(arg_stack + arg_pointer);
 	}
 }
@@ -456,7 +457,7 @@ data* top_arg(int line) {
 		return &arg_stack[arg_pointer - 1];
 	}
 	error_runtime(line, MEMORY_STACK_UNDERFLOW);
-	return 0;
+	return &memory[0];
 }
 
 data pop_arg(int line) {
@@ -548,7 +549,12 @@ bool id_exist(char* id, bool search_main) {
 }
 
 address get_address_of_id(char* id, int line) {
-	return call_stack[get_stack_pos_of_id(id, line)].val;
+	address stack_entry = get_stack_pos_of_id(id, line);
+	if (!stack_entry) {
+		/* Some error occured, nothing lies at 0 */
+		return 0;
+	}
+	return call_stack[stack_entry].val;
 }
 
 address get_stack_pos_of_id(char* id, int line) {

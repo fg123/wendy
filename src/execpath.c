@@ -10,7 +10,7 @@
 
 char* get_path() {
     HMODULE module = GetModuleHandleA(NULL);
-    char* path = safe_malloc(W_MAX_PATH);
+    char* path = safe_calloc(W_MAX_PATH, sizeof(char));
     int end = GetModuleFileNameA(module, path, W_MAX_PATH);
     while (path[end] != '/' && path[end] != '\\') {
         end--;
@@ -23,7 +23,7 @@ char* get_path() {
 #include <string.h>
 
 char* get_path() {
-    char* path = safe_malloc(W_MAX_PATH);
+    char* path = safe_calloc(W_MAX_PATH, sizeof(char));
     uint32_t size = W_MAX_PATH;
     if(_NSGetExecutablePath(path, &size) == 0) {
         size_t end = strlen(path);
@@ -48,7 +48,7 @@ char* get_path() {
 ssize_t readlink(const char *path, char *buf, size_t bufsiz);
 
 char* get_path() {
-    char* path = safe_malloc(W_MAX_PATH);
+    char* path = safe_calloc(W_MAX_PATH, sizeof(char));
     int end = readlink("/proc/self/exe", path, W_MAX_PATH);
     while (path[end] != '/' && path[end] != '\\') {
         end--;
