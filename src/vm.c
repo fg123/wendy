@@ -455,7 +455,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				write_memory(memory_register, value, line);
 				break;
 			}
-			case OP_MKPTR: {
+			case OP_MKREF: {
 				push_arg(make_data((data_type) bytecode[i++],
 					data_value_num(memory_register)), line);
 				break;

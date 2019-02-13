@@ -24,6 +24,9 @@ static uint8_t* bytecode = 0;
 static size_t capacity = 0;
 static size_t size = 0;
 static int global_loop_id = 0;
+void unused(void) {
+	UNUSED(global_loop_id);
+}
 
 int verify_header(uint8_t* bytecode) {
 	char* start = (char*)bytecode;
@@ -221,8 +224,9 @@ static void codegen_statement(void* expre) {
 	if (state->type == S_LET) {
 		codegen_expr(state->op.let_statement.rvalue);
 		// Request Memory
-		write_opcode(OP_RBW);
+		write_opcode(OP_DECL);
 		write_string(state->op.let_statement.lvalue);
+		write_opcode(OP_WRITE);
 	}
 	else if (state->type == S_OPERATION) {
 		if (state->op.operation_statement.operator == OP_RET) {
@@ -358,15 +362,13 @@ static void codegen_statement(void* expre) {
 			curr = curr->next;
 		}
 		// Request Memory to Store MetaData
-		write_opcode(OP_REQ);
-		write_byte(push_size);
-		write_opcode(OP_WRITE);
-		write_byte(push_size);
-		write_opcode(OP_MKPTR);
+		write_opcode(OP_MKREF);
 		write_byte(D_STRUCT);
+		write_integer(push_size);
 
-		write_opcode(OP_RBW);
+		write_opcode(OP_DECL);
 		write_string(struct_name);
+		write_opcode(OP_WRITE);
 		write_double_at(push_size, metaHeaderLoc + 1);
 	}
 	else if (state->type == S_IF) {
@@ -395,64 +397,64 @@ static void codegen_statement(void* expre) {
 			// Don't generate if empty loop body
 			return;
 		}
-		// Setup Loop Index
-		write_opcode(OP_FRM); // Start Local Variable Frame OUTER
-		write_opcode(OP_PUSH);
-		write_data(make_data(D_NUMBER, data_value_num(0)));
-		write_opcode(OP_RBW);
-		char loopIndexName[30];
-		sprintf(loopIndexName, LOOP_COUNTER_PREFIX "%d", global_loop_id++);
-		write_string(loopIndexName);
+		// // Setup Loop Index
+		// write_opcode(OP_FRM); // Start Local Variable Frame OUTER
+		// write_opcode(OP_PUSH);
+		// write_data(make_data(D_NUMBER, data_value_num(0)));
+		// write_opcode(OP_RBW);
+		// char loopIndexName[30];
+		// sprintf(loopIndexName, LOOP_COUNTER_PREFIX "%d", global_loop_id++);
+		// write_string(loopIndexName);
 
-		if (state->op.loop_statement.index_var) {
-			// User has a custom variable, also declare that.
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_NUMBER, data_value_num(0)));
-			write_opcode(OP_RBW);
-			write_string(state->op.loop_statement.index_var);
-		}
+		// if (state->op.loop_statement.index_var) {
+		// 	// User has a custom variable, also declare that.
+		// 	write_opcode(OP_PUSH);
+		// 	write_data(make_data(D_NUMBER, data_value_num(0)));
+		// 	write_opcode(OP_RBW);
+		// 	write_string(state->op.loop_statement.index_var);
+		// }
 
-		// Start of Loop, Push Condition to Stack
-		int loop_start_addr = size;
-		codegen_expr(state->op.loop_statement.condition);
+		// // Start of Loop, Push Condition to Stack
+		// int loop_start_addr = size;
+		// codegen_expr(state->op.loop_statement.condition);
 
-		// Check Condition and Jump if Needed
-		write_opcode(OP_LJMP);
-		int loop_skip_loc = size;
-		size += sizeof(address);
-		write_string(loopIndexName);
+		// // Check Condition and Jump if Needed
+		// write_opcode(OP_LJMP);
+		// int loop_skip_loc = size;
+		// size += sizeof(address);
+		// write_string(loopIndexName);
 
-		write_opcode(OP_FRM); // Start Local Variable Frame
+		// write_opcode(OP_FRM); // Start Local Variable Frame
 
-		// Write Custom Var and Bind
-		if (state->op.loop_statement.index_var) {
-			write_opcode(OP_LBIND);
-			write_string(state->op.loop_statement.index_var);
-			write_string(loopIndexName);
-		}
-		else {
-			write_opcode(OP_POP);
-		}
+		// // Write Custom Var and Bind
+		// if (state->op.loop_statement.index_var) {
+		// 	write_opcode(OP_LBIND);
+		// 	write_string(state->op.loop_statement.index_var);
+		// 	write_string(loopIndexName);
+		// }
+		// else {
+		// 	write_opcode(OP_POP);
+		// }
 
-		codegen_statement(state->op.loop_statement.statement_true);
-		write_opcode(OP_END);
+		// codegen_statement(state->op.loop_statement.statement_true);
+		// write_opcode(OP_END);
 
-		write_opcode(OP_WHERE);
-		write_string(loopIndexName);
-		write_opcode(OP_INC);
-		if (state->op.loop_statement.index_var) {
-			write_opcode(OP_READ);
-			write_opcode(OP_WHERE);
-			write_string(state->op.loop_statement.index_var);
-			write_opcode(OP_WRITE);
-			write_byte(1);
-		}
-		write_opcode(OP_JMP);
-		write_address(loop_start_addr);
+		// write_opcode(OP_WHERE);
+		// write_string(loopIndexName);
+		// write_opcode(OP_INC);
+		// if (state->op.loop_statement.index_var) {
+		// 	write_opcode(OP_READ);
+		// 	write_opcode(OP_WHERE);
+		// 	write_string(state->op.loop_statement.index_var);
+		// 	write_opcode(OP_WRITE);
+		// 	write_byte(1);
+		// }
+		// write_opcode(OP_JMP);
+		// write_address(loop_start_addr);
 
-		// Write End of Loop
-		write_address_at(size, loop_skip_loc);
-		write_opcode(OP_END);
+		// // Write End of Loop
+		// write_address_at(size, loop_skip_loc);
+		// write_opcode(OP_END);
 	}
 }
 
@@ -485,13 +487,13 @@ static void codegen_expr(void* expre) {
 			write_byte(O_REM);
 
 			/* Then we simulate a div_equals operation */
+			codegen_expr(expression->op.bin_expr.left);
 			codegen_expr(expression->op.bin_expr.right);
-			codegen_lvalue_expr(expression->op.bin_expr.left);
-			write_opcode(OP_READ);
-			write_opcode(OP_RBIN);
+			write_opcode(OP_BIN);
 			write_byte(O_IDIV);
+
+			codegen_lvalue_expr(expression->op.bin_expr.left);
 			write_opcode(OP_WRITE);
-			write_byte(1);
 			/* Skip the default OP_BIN */
 			return;
 		}
@@ -534,18 +536,21 @@ static void codegen_expr(void* expre) {
 	}
 	else if (expression->type == E_ASSIGN) {
         enum operator op = expression->op.assign_expr.operator;
+
+		if (op != O_ASSIGN) {
+			codegen_expr(expression->op.assign_expr.lvalue);
+		}
+
 		codegen_expr(expression->op.assign_expr.rvalue);
 
-		codegen_lvalue_expr(expression->op.assign_expr.lvalue);
         // O_ASSIGN is the default =
 		if (op != O_ASSIGN) {
-			write_opcode(OP_READ);
-			write_opcode(OP_RBIN);
+			write_opcode(OP_BIN);
 			write_byte(op);
 		}
-		// Memory Register should still be where lvalue is
+
+		codegen_lvalue_expr(expression->op.assign_expr.lvalue);
 		write_opcode(OP_WRITE);
-		write_byte(1);
 	}
 	else if (expression->type == E_UNARY) {
 		codegen_expr(expression->op.una_expr.operand);
@@ -566,13 +571,9 @@ static void codegen_expr(void* expre) {
 			codegen_expr(param->elem);
 			param = param->next;
 		}
-		write_opcode(OP_REQ);
-		// For the Header
-		write_byte(count + 1);
-		write_opcode(OP_WRITE);
-		write_byte(count + 1);
-		write_opcode(OP_MKPTR);
+		write_opcode(OP_MKREF);
 		write_byte(D_LIST);
+		write_integer(count + 1);
 	}
 	else if (expression->type == E_FUNCTION) {
 		write_opcode(OP_JMP);
@@ -626,21 +627,26 @@ static void codegen_expr(void* expre) {
 							CODEGEN_UNEXPECTED_FUNCTION_PARAMETER);
 					}
 					data t = param->elem->op.lit_expr;
-					write_opcode(OP_RBW);
+					write_opcode(OP_DECL);
 					write_string(t.value.string);
+					write_opcode(OP_WRITE);
 					param_names[i++] = t.value.string;
 				}
 				else if (param->elem->type == E_ASSIGN) {
 					has_encountered_default = true;
 					// Bind Default Value First
 					codegen_expr(param->elem->op.assign_expr.rvalue);
-					write_opcode(OP_RBW);
+					write_opcode(OP_DECL);
 					// TODO: Check if assign expr is literal identifier.
 					write_string(param->elem->op.assign_expr.lvalue->
 						op.lit_expr.value.string);
 					// If the top of the stack is marker, this is no-op.
 					write_opcode(OP_WRITE);
-					write_byte(1);
+
+					write_opcode(OP_WHERE);
+					write_string(param->elem->op.assign_expr.lvalue->
+						op.lit_expr.value.string);
+					write_opcode(OP_WRITE);
 					param_names[i++] = param->elem->op.assign_expr.lvalue->
 						op.lit_expr.value.string;
 				}
@@ -671,7 +677,7 @@ static void codegen_expr(void* expre) {
 		write_address_at(size, writeSizeLoc);
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_ADDRESS, data_value_num(startAddr)));
-		write_opcode(OP_CLOSUR);
+		write_opcode(OP_CLOSURE);
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_STRING, data_value_str("self")));
 
@@ -683,13 +689,9 @@ static void codegen_expr(void* expre) {
 				write_opcode(OP_PUSH);
 				write_data(make_data(D_STRING, data_value_str(param_names[i])));
 			}
-			write_opcode(OP_REQ);
-			// For the Header
-			write_byte(count + 1);
-			write_opcode(OP_WRITE);
-			write_byte(count + 1);
-			write_opcode(OP_MKPTR);
+			write_opcode(OP_MKREF);
 			write_byte(D_LIST);
+			write_integer(count + 1);
 		}
 		else {
 			write_opcode(OP_PUSH);
@@ -697,12 +699,9 @@ static void codegen_expr(void* expre) {
 		}
 
 		safe_free(param_names);
-		write_opcode(OP_REQ);
-		write_byte(4);
-		write_opcode(OP_WRITE);
-		write_byte(4);
-		write_opcode(OP_MKPTR);
+		write_opcode(OP_MKREF);
 		write_byte(D_FUNCTION);
+		write_integer(4);
 	}
 }
 
@@ -773,6 +772,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 	fprintf(buffer, GRN "\n.code\n");
 	int max_len = 12;
 	int baseaddr = 0;
+	UNUSED(baseaddr);
 	unsigned int i = 0;
 	if (!get_settings_flag(SETTINGS_REPL)) {
 		i = verify_header(bytecode);
@@ -827,10 +827,6 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 				p += fprintf(buffer, "%d", a);
 				break;
 			}
-			case OP_WRITE: {
-				p += fprintf(buffer, "0x%X", bytecode[i++]);
-				break;
-			}
 			case OP_SRC: {
 				address a = get_address(bytecode + i, &i);
 				p += fprintf(buffer, "%d", a);
@@ -848,6 +844,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 				p += fprintf(buffer, "%.*s", max_len, c);
 				break;
 			}
+			default: break;
 		}
 		while (p++ < 30) {
 			fprintf(buffer, " ");
@@ -956,19 +953,18 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 				get_string(buffer + i, &i);
 				break;
 			}
-			case OP_MKPTR: {
+			case OP_MKREF: {
 				i++; // for the type
 				get_address(buffer + i, &i);
 			}
 			case OP_BIN:
-			case OP_UNA:
-			case OP_WRITE: {
+			case OP_UNA: {
 				i++;
 			}
 			case OP_HALT: {
-				goto done;
+				return;
 			}
+			default: break;
 		}
 	}
-done:
 }

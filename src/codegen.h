@@ -28,6 +28,7 @@ typedef enum opcode {
 	OP_RET,
 	OP_DECL,
 	OP_WRITE,
+	OP_IN,
 	OP_OUT,
 	OP_OUTL,
 	OP_JMP,
@@ -35,26 +36,34 @@ typedef enum opcode {
 	OP_FRM,
 	OP_END,
 	OP_SRC,
+	OP_HALT,
 	OP_NATIVE,
 	OP_IMPORT,
 	OP_ARGCLN,
+	OP_CLOSURE,
 	OP_MKREF,
 	OP_WHERE,
 	OP_NTHPTR,
-	OP_MEMPTR
+	OP_MEMPTR,
+	OP_INC,
+	OP_DEC
 } opcode;
 
 #define OPCODE_STRING \
-	"push", "bin", "una", "call", "ret", "decl", "write",\
-	"out", "outl", "jmp", "jif", "frm", "end", "src",\
-	"native", "import", "argcln", "mkref", "where", "nthptr", "memptr"
+	"push", "bin", "una", "call", "ret", "decl", "write", "in",\
+	"out", "outl", "jmp", "jif", "frm", "end", "src", "halt",\
+	"native", "import", "argcln", "closur", "mkref", "where", "nthptr", "memptr"\
+	"inc", "dec"
 
 extern const char* opcode_string[];
+
+// Forward Declaration
+struct statement_list;
 
 // generate_code(ast) generates Wendy ByteCode based on the ast and
 //   returns the ByteArray
 // effects: allocates memory, caller must free
-uint8_t* generate_code(statement_list* ast, size_t* size);
+uint8_t* generate_code(struct statement_list* ast, size_t* size);
 
 // print_bytecode(bytecode, buffer) prints the given bytecode into
 //   a readable format into the buffer.
