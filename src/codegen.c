@@ -785,68 +785,69 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 		int printSourceLine = -1;
 		p += fprintf(buffer, YEL "%6s " RESET, opcode_string[op]);
 
-		if (op == OP_PUSH) {
-			data t = get_data(&bytecode[i], &i);
-			if (t.type == D_STRING) {
-				p += fprintf(buffer, "%.*s ", max_len, t.value.string);
-				if (strlen(t.value.string) > (size_t) max_len) {
+		switch (op) {
+			case OP_PUSH: {
+				data t = get_data(&bytecode[i], &i);
+				if (t.type == D_STRING) {
+					p += fprintf(buffer, "%.*s ", max_len, t.value.string);
+					if (strlen(t.value.string) > (size_t) max_len) {
+						p += fprintf(buffer, ">");
+					}
+				}
+				else {
+					p += print_data_inline(&t, buffer);
+				}
+				break;
+			}
+			case OP_BIN:
+			case OP_UNA: {
+				operator o = bytecode[i++];
+				p += fprintf(buffer, "%s", operator_string[o]);
+				break;
+			}
+			case OP_DECL:
+			case OP_WHERE:
+			case OP_IMPORT:
+			case OP_MEMPTR: {
+				char* c = get_string(bytecode + i, &i);
+				p += fprintf(buffer, "%.*s ", max_len, c);
+				if (strlen(c) > (size_t) max_len) {
 					p += fprintf(buffer, ">");
 				}
+				if (op == OP_IMPORT) {
+					// i is at null term
+					p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
+				}
+				break;
 			}
-			else {
-				p += print_data_inline(&t, buffer);
+			case OP_MKREF: {
+				data_type t = bytecode[i++];
+				p += fprintf(buffer, "%s", data_string[t]);
+				address a = get_address(bytecode + i, &i);
+				p += fprintf(buffer, "%d", a);
+				break;
 			}
-		}
-		else if (op == OP_BIN || op == OP_UNA || op == OP_RBIN) {
-			operator o = bytecode[i++];
-			p += fprintf(buffer, "%s", operator_string[o]);
-		}
-		else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW ||
-				 op == OP_IMPORT || op == OP_MEMPTR) {
-			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", max_len, c);
-			if (strlen(c) > (size_t) max_len) {
-				p += fprintf(buffer, ">");
+			case OP_WRITE: {
+				p += fprintf(buffer, "0x%X", bytecode[i++]);
+				break;
 			}
-			if (op == OP_IMPORT) {
-				// i is at null term
+			case OP_SRC: {
+				address a = get_address(bytecode + i, &i);
+				p += fprintf(buffer, "%d", a);
+				printSourceLine = a;
+				break;
+			}
+			case OP_JMP:
+			case OP_JIF: {
 				p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
+				break;
 			}
-		}
-		else if (op == OP_MKPTR) {
-			data_type t = bytecode[i++];
-			p += fprintf(buffer, "%s", data_string[t]);
-		}
-		else if (op == OP_REQ || op == OP_WRITE) {
-			p += fprintf(buffer, "0x%X", bytecode[i++]);
-		}
-		else if (op == OP_SRC) {
-			address a = get_address(bytecode + i, &i);
-			p += fprintf(buffer, "%d", a);
-			printSourceLine = a;
-		}
-		else if (op == OP_JMP || op == OP_JIF) {
-			p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
-		}
-		else if (op == OP_LJMP) {
-			p += fprintf(buffer, "0x%X ",
-				get_address(bytecode + i + baseaddr, &i));
-			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", max_len, c);
-			if (strlen(c) > (size_t) max_len) {
-				p += fprintf(buffer, ">");
+			case OP_NATIVE: {
+				p += fprintf(buffer, "%d ", get_address(bytecode + i, &i));
+				char* c = get_string(bytecode + i, &i);
+				p += fprintf(buffer, "%.*s", max_len, c);
+				break;
 			}
-		}
-		else if (op == OP_LBIND) {
-			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", max_len, c);
-			c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", max_len, c);
-		}
-		else if (op == OP_NATIVE) {
-			p += fprintf(buffer, "%d ", get_address(bytecode + i, &i));
-			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s", max_len, c);
 		}
 		while (p++ < 30) {
 			fprintf(buffer, " ");
@@ -903,55 +904,71 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 	}
 	forever {
 		opcode op = buffer[i++];
-		if (op == OP_PUSH) {
-			size_t tokLoc = i;
-			data t = get_data(buffer + i, &i);
-			if (t.type == D_ADDRESS) {
-				t.value.number += offset;
-				write_data_at_buffer(t, buffer, tokLoc);
+		switch (op) {
+			case OP_PUSH: {
+				size_t tokLoc = i;
+				data t = get_data(buffer + i, &i);
+				if (t.type == D_ADDRESS) {
+					t.value.number += offset;
+					write_data_at_buffer(t, buffer, tokLoc);
+				}
+				break;
+			}
+			case OP_DECL:
+			case OP_WHERE:
+			case OP_MEMPTR: {
+				get_string(buffer + i, &i);
+				break;
+			}
+			case OP_IMPORT: {
+				get_string(buffer + i, &i);
+				unsigned int bi = i;
+				address loc = get_address(buffer + i, &i);
+				loc += offset;
+				write_address_at_buffer(loc, buffer, bi);
+				break;
+			}
+			case OP_SRC: {
+				get_address(buffer + i, &i);
+				break;
+			}
+			case OP_JMP:
+			case OP_JIF: {
+				unsigned int bi = i;
+				address loc = get_address(buffer + i, &i);
+				loc += offset;
+				write_address_at_buffer(loc, buffer, bi);
+				break;
+			}
+			// else if (op == OP_LJMP) {
+			// 	unsigned int bi = i;
+			// 	address loc = get_address(buffer + i, &i);
+			// 	loc += offset;
+			// 	write_address_at_buffer(loc, buffer, bi);
+			// 	get_string(buffer + i, &i);
+			// }
+			// else if (op == OP_LBIND) {
+			// 	get_string(buffer + i, &i);
+			// 	get_string(buffer + i, &i);
+			// }
+			case OP_NATIVE: {
+				get_address(buffer + i, &i);
+				get_string(buffer + i, &i);
+				break;
+			}
+			case OP_MKPTR: {
+				i++; // for the type
+				get_address(buffer + i, &i);
+			}
+			case OP_BIN:
+			case OP_UNA:
+			case OP_WRITE: {
+				i++;
+			}
+			case OP_HALT: {
+				goto done;
 			}
 		}
-		else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW || op == OP_MEMPTR) {
-			get_string(buffer + i, &i);
-		}
-		else if (op == OP_IMPORT) {
-			get_string(buffer + i, &i);
-			unsigned int bi = i;
-			address loc = get_address(buffer + i, &i);
-			loc += offset;
-			write_address_at_buffer(loc, buffer, bi);
-		}
-		else if (op == OP_SRC) {
-			get_address(buffer + i, &i);
-		}
-		else if (op == OP_JMP || op == OP_JIF) {
-			unsigned int bi = i;
-			address loc = get_address(buffer + i, &i);
-			loc += offset;
-			write_address_at_buffer(loc, buffer, bi);
-		}
-		else if (op == OP_LJMP) {
-			unsigned int bi = i;
-			address loc = get_address(buffer + i, &i);
-			loc += offset;
-			write_address_at_buffer(loc, buffer, bi);
-			get_string(buffer + i, &i);
-		}
-		else if (op == OP_LBIND) {
-			get_string(buffer + i, &i);
-			get_string(buffer + i, &i);
-		}
-		else if (op == OP_NATIVE) {
-			get_address(buffer + i, &i);
-			get_string(buffer + i, &i);
-		}
-		else if (op == OP_REQ || op == OP_MKPTR ||
-				 op == OP_BIN || op == OP_UNA || op == OP_RBIN ||
-				 op == OP_WRITE) {
-			i++;
-		}
-		if (op == OP_HALT) {
-			break;
-		}
 	}
+done:
 }
