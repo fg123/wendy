@@ -13,7 +13,7 @@
 	OP(D_IDENTIFIER) \
 	OP(D_STRING) \
 	OP(D_NUMBER) \
-	OP(D_ADDRESS) \
+	OP(D_INSTRUCTION_ADDRESS) \
 	OP(D_INTERNAL_POINTER) \
 	OP(D_MEMBER) \
 	OP(D_FUNCTION) \
@@ -24,11 +24,11 @@
 	OP(D_OBJ_TYPE) \
 	OP(D_STRUCT) \
 	OP(D_STRUCT_NAME) \
-	OP(D_STRUCT_METADATA) \
+	OP(D_STRUCT_HEADER) \
 	OP(D_STRUCT_SHARED) \
 	OP(D_STRUCT_PARAM) \
 	OP(D_STRUCT_INSTANCE) \
-	OP(D_STRUCT_INSTANCE_HEAD) \
+	OP(D_STRUCT_INSTANCE_HEADER) \
 	OP(D_STRUCT_FUNCTION) \
 	OP(D_NONERET) \
 	OP(D_NONE) \
@@ -45,15 +45,17 @@ typedef enum {
 
 extern const char* data_string[];
 
+typedef struct data data;
 typedef union {
 	double number;
 	char* string;
+	data* reference;
 } data_value;
 
-typedef struct {
+struct data {
 	data_type type;
 	data_value value;
-} data;
+};
 
 data make_data(data_type type, data_value value);
 data copy_data(data d);
@@ -61,8 +63,10 @@ void destroy_data(data* d);
 
 data_value data_value_str(char *str);
 data_value data_value_num(double num);
+data_value data_value_ptr(data* ptr);
 data_value data_value_size(int size);
 bool is_numeric(data t);
+bool is_reference(data t);
 
 data time_data(void);
 data noneret_data(void);

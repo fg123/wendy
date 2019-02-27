@@ -113,6 +113,8 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_INVALID_NATIVE_NUMERICAL_TYPE_ERROR "Type error in native function call. Expected numerical value."
 #define VM_INVALID_NATIVE_STRING_TYPE_ERROR "Type error in native function call. Expected string value."
 
+#define VM_INTERNAL_ERROR "An internal VM error occured: %s"
+
 // Colors
 #if defined(_WIN32) || defined(NO_COLOR)
 

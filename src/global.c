@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 
 typedef struct malloc_node {
 	char* filename;
@@ -22,6 +23,26 @@ bool last_printed_newline = false;
 char* safe_strdup_impl(const char* s, char* allocated) {
 	strcpy(allocated, s);
 	return allocated;
+}
+
+char* safe_concat_impl(char *first, ...) {
+	va_list args;
+	va_start(args, first);
+	char* str = first;
+	size_t count = 0;
+	while (str) {
+		count += strlen(str);
+		str = va_arg(args, char*);
+	}
+	va_end(args);
+	char* result = safe_calloc(count + 1, sizeof(char));
+	va_start(args, first);
+	str = first;
+	while (str) {
+		strcat(result, str);
+		str = va_arg(args, char*);
+	}
+	return result;
 }
 
 inline bool streq(const char* a, const char* b) {

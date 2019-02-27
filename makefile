@@ -10,10 +10,8 @@ EXTERNAL_LIBRARIES = -lreadline -lm
 _DEPS = *.h
 DEPS = $(patsubst %,$(INCDIR)/%,$(_DEPS))
 
-_OBJ = main.o debugger.o scanner.o token.o memory.o error.o execpath.o ast.o \
-	codegen.o vm.o global.o source.o native.o optimizer.o imports.o data.o \
-	operators.o dependencies.o
-OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
+SRC = $(wildcard $(SRCDIR)/*.c)
+OBJ = $(SRC:%.c=%.o)
 
 all: setup main libraries test
 

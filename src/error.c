@@ -24,19 +24,12 @@ void print_verbose_info(void) {
 	if (get_settings_flag(SETTINGS_VERBOSE)) {
 		fprintf(stderr, RED "VERBOSE ERROR DUMP\n" RESET);
 		fprintf(stderr, GRN "Limits\n" RESET);
-		fprintf(stderr, "MEMORY_SIZE %d\n", MEMORY_SIZE);
-		fprintf(stderr, "STACK_SIZE %zu\n", callstack_size);
-		fprintf(stderr, "ARGSTACK_SIZE %zu\n", argstack_size);
-		fprintf(stderr, "RESERVED_MEMORY %d\n", RESERVED_MEMORY);
-		fprintf(stderr, "MEMREGSTACK_SIZE %zu\n", memregstack_size);
+		fprintf(stderr, "Call Stack Size %zu\n", call_stack_size);
+		fprintf(stderr, "Working Stack Size %zu\n", working_stack_size);
 		fprintf(stderr, GRN "Memory\n" RESET);
 		fprintf(stderr, "FP: %d 0x%X\n", frame_pointer, frame_pointer);
-		fprintf(stderr, "SP: %d 0x%X\n", stack_pointer, stack_pointer);
-		fprintf(stderr, "AP: %d 0x%X\n", arg_pointer, arg_pointer);
-		fprintf(stderr, "CP: %d 0x%X\n", closure_list_pointer, closure_list_pointer);
-		fprintf(stderr, "CP: %d 0x%X\n", closure_list_pointer, closure_list_pointer);
-        fprintf(stderr, "MRSP: %d 0x%X\n", mem_reg_pointer, mem_reg_pointer);
-		print_free_memory();
+		fprintf(stderr, "SP: %d 0x%X\n", call_stack_pointer, call_stack_pointer);
+		fprintf(stderr, "AP: %d 0x%X\n", working_stack_pointer, working_stack_pointer);
 	}
 }
 

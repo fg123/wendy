@@ -4,7 +4,6 @@
 #include "global.h"
 #include "native.h"
 #include "scanner.h"
-#include "debugger.h"
 #include "ast.h"
 #include "vm.h"
 #include "codegen.h"
@@ -244,7 +243,7 @@ int repl(void) {
 cleanup:
 	free_imported_libraries_ll();
 	safe_free(source_to_run);
-	c_free_memory();
+	free_memory();
 	if (has_run) {
 		vm_cleanup_if_repl();
 	}
@@ -391,7 +390,7 @@ int main(int argc, char** argv) {
 wendy_exit:
 	free_imported_libraries_ll();
 	free_source();
-	c_free_memory();
+	free_memory();
 	check_leak();
 	return 0;
 }

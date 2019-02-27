@@ -323,7 +323,7 @@ static void codegen_statement(void* expre) {
 		// Push Header and Name
 		write_opcode(OP_PUSH);
 		int metaHeaderLoc = size;
-		write_data(make_data(D_STRUCT_METADATA, data_value_num(1)));
+		write_data(make_data(D_STRUCT_HEADER, data_value_num(1)));
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_STRUCT_NAME, data_value_str(struct_name)));
 		write_opcode(OP_PUSH);
@@ -481,14 +481,16 @@ static void codegen_expr(void* expre) {
 	else if (expression->type == E_BINARY) {
 		if (expression->op.bin_expr.operator == O_MOD_EQUAL) {
 			/* Special operator just for Dhruvit, first we calculate the remainder */
-			codegen_expr(expression->op.bin_expr.left);
+			codegen_end_marker();
 			codegen_expr(expression->op.bin_expr.right);
+			codegen_expr(expression->op.bin_expr.left);
 			write_opcode(OP_BIN);
 			write_byte(O_REM);
 
 			/* Then we simulate a div_equals operation */
-			codegen_expr(expression->op.bin_expr.left);
+			codegen_end_marker();
 			codegen_expr(expression->op.bin_expr.right);
+			codegen_expr(expression->op.bin_expr.left);
 			write_opcode(OP_BIN);
 			write_byte(O_IDIV);
 
@@ -498,7 +500,7 @@ static void codegen_expr(void* expre) {
 			return;
 		}
 		else if (expression->op.bin_expr.operator == O_MEMBER) {
-			codegen_expr(expression->op.bin_expr.left);
+			codegen_end_marker();
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
 				error_lexer(expression->line, expression->col,
 					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
@@ -507,10 +509,12 @@ static void codegen_expr(void* expre) {
 			write_opcode(OP_PUSH);
 			write_data(copy_data(
                 expression->op.bin_expr.right->op.lit_expr));
+			codegen_expr(expression->op.bin_expr.left);
 		}
 		else {
-			codegen_expr(expression->op.bin_expr.left);
+			codegen_end_marker();
 			codegen_expr(expression->op.bin_expr.right);
+			codegen_expr(expression->op.bin_expr.left);
 		}
 		write_opcode(OP_BIN);
 		write_byte(expression->op.bin_expr.operator);
@@ -553,6 +557,7 @@ static void codegen_expr(void* expre) {
 		write_opcode(OP_WRITE);
 	}
 	else if (expression->type == E_UNARY) {
+		codegen_end_marker();
 		codegen_expr(expression->op.una_expr.operand);
 		write_opcode(OP_UNA);
 		write_byte(expression->op.una_expr.operator);
@@ -676,7 +681,7 @@ static void codegen_expr(void* expre) {
 		}
 		write_address_at(size, writeSizeLoc);
 		write_opcode(OP_PUSH);
-		write_data(make_data(D_ADDRESS, data_value_num(startAddr)));
+		write_data(make_data(D_INSTRUCTION_ADDRESS, data_value_num(startAddr)));
 		write_opcode(OP_CLOSURE);
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_STRING, data_value_str("self")));
@@ -882,7 +887,7 @@ static void write_address_at_buffer(address a, uint8_t* buffer, size_t loc) {
 
 static void write_data_at_buffer(data t, uint8_t* buffer, size_t loc) {
 	buffer[loc++] = t.type;
-	if (t.type == D_ADDRESS) {
+	if (t.type == D_INSTRUCTION_ADDRESS) {
 		if (!is_big_endian) loc += sizeof(double);
 		unsigned char * p = (void*)&t.value.number;
 		for (size_t i = 0; i < sizeof(double); i++) {
@@ -905,7 +910,7 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 			case OP_PUSH: {
 				size_t tokLoc = i;
 				data t = get_data(buffer + i, &i);
-				if (t.type == D_ADDRESS) {
+				if (t.type == D_INSTRUCTION_ADDRESS) {
 					t.value.number += offset;
 					write_data_at_buffer(t, buffer, tokLoc);
 				}
@@ -956,10 +961,12 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 			case OP_MKREF: {
 				i++; // for the type
 				get_address(buffer + i, &i);
+				break;
 			}
 			case OP_BIN:
 			case OP_UNA: {
 				i++;
+				break;
 			}
 			case OP_HALT: {
 				return;

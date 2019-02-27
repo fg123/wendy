@@ -22,6 +22,10 @@ data copy_data(data d) {
 	if (is_numeric(d)) {
 		return make_data(d.type, data_value_num(d.value.number));
 	}
+	else if (is_reference(d)) {
+		return make_data(d.type, data_value_ptr(
+			refcnt_copy(d.value.reference)));
+	}
 	else {
 		return make_data(d.type, data_value_str(d.value.string));
 	}
@@ -42,7 +46,10 @@ bool data_equal(data* a, data* b) {
 }
 
 void destroy_data(data* d) {
-	if (!is_numeric(*d)) {
+	if (is_reference(*d)) {
+		refcnt_free(d->value.reference);
+	}
+	else if (!is_numeric(*d)) {
 		safe_free(d->value.string);
 	}
 	d->type = D_EMPTY;
@@ -51,6 +58,12 @@ void destroy_data(data* d) {
 data_value data_value_str(char *str) {
 	data_value r;
 	r.string = safe_strdup(str);
+	return r;
+}
+
+data_value data_value_ptr(data* ptr) {
+	data_value r;
+	r.reference = ptr;
 	return r;
 }
 
@@ -66,13 +79,28 @@ data_value data_value_num(double num) {
 	return r;
 }
 
-bool is_numeric(data t) {
-	return t.type == D_NUMBER || t.type == D_ADDRESS || t.type == D_LIST ||
-		t.type == D_LIST_HEADER || t.type == D_STRUCT || t.type == D_FUNCTION ||
-		t.type == D_STRUCT_METADATA || t.type == D_STRUCT_INSTANCE ||
-		t.type == D_STRUCT_INSTANCE_HEAD || t.type == D_STRUCT_FUNCTION ||
+bool is_reference(data t) {
+	return t.type == D_STRUCT ||
+		t.type == D_LIST ||
+		t.type == D_FUNCTION ||
 		t.type == D_CLOSURE ||
-		t.type == D_EMPTY || t.type == D_INTERNAL_POINTER || t.type == D_END_OF_ARGUMENTS;
+		t.type == D_STRUCT_INSTANCE ||
+		t.type == D_STRUCT_FUNCTION;
+}
+
+bool is_numeric(data t) {
+	return t.type == D_NUMBER ||
+		t.type == D_INSTRUCTION_ADDRESS ||
+		t.type == D_LIST_HEADER ||
+		t.type == D_STRUCT_HEADER||
+		t.type == D_STRUCT_INSTANCE_HEADER ||
+		t.type == D_STRUCT_FUNCTION ||
+		t.type == D_EMPTY ||
+		t.type == D_END_OF_ARGUMENTS ||
+		// This is actually a "reference" type, but because the
+		// corresponding pointer is not ref-counted, we label it
+		// as numeric.
+		t.type == D_INTERNAL_POINTER;
 }
 
 data time_data() {
@@ -141,17 +169,16 @@ void print_data(const data* t) {
 }
 
 unsigned int print_params_if_available(FILE* buf, const data* function_data) {
-	data list_ref = memory[(int)function_data->value.number + 3];
+	data list_ref = function_data->value.reference[3];
 	if (list_ref.type != D_LIST) return 0;
 	unsigned int p = 0;
-	address list_start = list_ref.value.number;
-	unsigned int size = memory[list_start].value.number;
+	unsigned int size = list_ref.value.reference->value.number;
 	p += fprintf(buf, "(");
 	for (unsigned int i = 0; i < size; i++) {
 		if (i != 0) {
 			p += fprintf(buf, ", ");
 		}
-		p += fprintf(buf, "%s", memory[list_start + i + 1].value.string);
+		p += fprintf(buf, "%s", list_ref.value.reference[i + 1].value.string);
 	}
 	p += fprintf(buf, ")");
 	return p;
@@ -179,9 +206,7 @@ unsigned int print_data_inline(const data* t, FILE* buf) {
 		p += fprintf(buf, "<eoargs>");
 	}
 	else if (t->type == D_STRUCT_INSTANCE) {
-		data instance_loc = memory[(int)(t->value.number)];
-		p += fprintf(buf, "<struct:%s>",
-				memory[(int)instance_loc.value.number + 1].value.string);
+		p += fprintf(buf, "<struct:%s>", t->value.reference[1].value.string);
 	}
 	else if (t->type == D_RANGE) {
 		p += fprintf(buf, "<range from %d to %d>", range_start(*t), range_end(*t));
@@ -189,16 +214,15 @@ unsigned int print_data_inline(const data* t, FILE* buf) {
 	else if (t->type == D_LIST_HEADER) {
 		p += fprintf(buf, "<lhd size %d>", (int)(t->value.number));
 	}
-	else if (t->type == D_STRUCT_METADATA) {
+	else if (t->type == D_STRUCT_HEADER) {
 		p += fprintf(buf, "<meta size %d>", (int)(t->value.number));
 	}
 	else if (t->type == D_LIST) {
-		address start = t->value.number;
-		data l_header = memory[start];
+		size_t size = t->value.reference->value.number;
 		p += fprintf(buf, "[");
-		for (int i = 0; i < l_header.value.number; i++) {
+		for (size_t i = 0; i < size; i++) {
 			if (i != 0) p += fprintf(buf, ", ");
-			p += print_data_inline(&memory[start + i + 1], buf);
+			p += print_data_inline(&t->value.reference[i + 1], buf);
 		}
 		p += fprintf(buf, "]");
 	}
