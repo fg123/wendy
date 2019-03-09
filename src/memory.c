@@ -203,7 +203,7 @@ bool pop_frame(bool is_ret, address* ret) {
 		*ret = unwrap_number(call_stack[trace + 1].val);
 	}
 	frame_pointer = unwrap_number(call_stack[trace].val);
-	while (call_stack_pointer >= trace) {
+	while (call_stack_pointer > trace) {
 		call_stack_pointer -= 1;
 		safe_free(call_stack[call_stack_pointer].id);
 		destroy_data(&call_stack[call_stack_pointer].val);

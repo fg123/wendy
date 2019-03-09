@@ -282,6 +282,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_RET: {
+				if (frame_pointer == 0) {
+					// We tried to return from the main function!
+					error_runtime(line, VM_RET_FROM_MAIN);
+					continue;
+				}
 				pop_frame(true, &i);
 				break;
 			}

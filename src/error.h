@@ -88,6 +88,7 @@ void error_compile(int line, int col, char* message, ...);
 #define MEMORY_REGISTER_STACK_OVERFLOW "Internal memory stack overflowed."
 
 // VM Errors:
+#define VM_RET_FROM_MAIN "Illegal return statement called at the top level."
 #define VM_INVALID_OPCODE "Invalid opcode encountered (0x%X at 0x%X)."
 #define VM_VAR_DECLARED_ALREADY "Identifier '%s' was already declared!"
 #define VM_NOT_A_LIST "Setting nth item of identifier must be List."
