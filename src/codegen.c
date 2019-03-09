@@ -135,7 +135,7 @@ static void codegen_lvalue_expr(expr* expression) {
 	}
 	else if (expression->type == E_BINARY) {
 		// Left side in memory reg
-		codegen_lvalue_expr(expression->op.bin_expr.left);
+		codegen_expr(expression->op.bin_expr.left);
 
 		if (expression->op.bin_expr.operator == O_MEMBER) {
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
@@ -481,14 +481,12 @@ static void codegen_expr(void* expre) {
 	else if (expression->type == E_BINARY) {
 		if (expression->op.bin_expr.operator == O_MOD_EQUAL) {
 			/* Special operator just for Dhruvit, first we calculate the remainder */
-			codegen_end_marker();
 			codegen_expr(expression->op.bin_expr.right);
 			codegen_expr(expression->op.bin_expr.left);
 			write_opcode(OP_BIN);
 			write_byte(O_REM);
 
 			/* Then we simulate a div_equals operation */
-			codegen_end_marker();
 			codegen_expr(expression->op.bin_expr.right);
 			codegen_expr(expression->op.bin_expr.left);
 			write_opcode(OP_BIN);
@@ -500,7 +498,6 @@ static void codegen_expr(void* expre) {
 			return;
 		}
 		else if (expression->op.bin_expr.operator == O_MEMBER) {
-			codegen_end_marker();
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
 				error_lexer(expression->line, expression->col,
 					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
@@ -512,7 +509,6 @@ static void codegen_expr(void* expre) {
 			codegen_expr(expression->op.bin_expr.left);
 		}
 		else {
-			codegen_end_marker();
 			codegen_expr(expression->op.bin_expr.right);
 			codegen_expr(expression->op.bin_expr.left);
 		}
@@ -557,7 +553,6 @@ static void codegen_expr(void* expre) {
 		write_opcode(OP_WRITE);
 	}
 	else if (expression->type == E_UNARY) {
-		codegen_end_marker();
 		codegen_expr(expression->op.una_expr.operand);
 		write_opcode(OP_UNA);
 		write_byte(expression->op.una_expr.operator);
@@ -829,7 +824,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 				data_type t = bytecode[i++];
 				p += fprintf(buffer, "%s", data_string[t]);
 				address a = get_address(bytecode + i, &i);
-				p += fprintf(buffer, "%d", a);
+				p += fprintf(buffer, " %d", a);
 				break;
 			}
 			case OP_SRC: {

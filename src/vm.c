@@ -165,8 +165,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_BIN: {
 				operator op = bytecode[i++];
-				data b = pop_arg(line);
 				data a = pop_arg(line);
+				data b = pop_arg(line);
 				data any_d = any_data();
 				char* a_and_b = get_binary_overload_name(op, a, b);
 				char* any_a = get_binary_overload_name(op, any_d, b);
@@ -328,6 +328,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				data reference = make_data(type, data_value_ptr(storage));
 				while (size > 0) {
 					storage[size - 1] = pop_arg(line);
+					size -= 1;
 				}
 				if (!is_reference(reference)) {
 					error_runtime(line, VM_INTERNAL_ERROR,
