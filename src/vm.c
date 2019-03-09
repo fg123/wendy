@@ -229,7 +229,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					error_runtime(line, VM_VAR_DECLARED_ALREADY, id);
 				}
 				else {
-					push_stack_entry(id, line);
+					stack_entry* result = push_stack_entry(id, line);
+					push_arg(make_data(D_INTERNAL_POINTER, data_value_ptr(&result->val)));
 				}
 				break;
 			}
@@ -533,8 +534,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				if (top_arg(line)->type == D_END_OF_ARGUMENTS ||
 					top_arg(line)->type == D_NAMED_ARGUMENT_NAME)
 					break;
-				data value = pop_arg(line);
 				data ptr = pop_arg(line);
+				data value = pop_arg(line);
 				if (ptr.type != D_INTERNAL_POINTER) {
 					error_runtime(line, VM_INTERNAL_ERROR, "WRITE on non-pointer");
 					destroy_data(&value);
