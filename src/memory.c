@@ -61,27 +61,35 @@ void check_memory(void) {
 
 data *refcnt_malloc(size_t count) {
 	// We allocate:
-	// | size_t | count * data |
-	//          ^- return ptr to here
-	data* allocated = safe_malloc(count * sizeof(data) + sizeof(size_t));
-	size_t* size_p = (size_t*)allocated;
-	*size_p = 1;
+	// | count  | refs   | data         |
+	// | size_t | size_t | count * data |
+	//                   ^- return ptr to here
+	data* allocated = safe_calloc(count * sizeof(data) + (2 * sizeof(size_t)), 1);
+	size_t* count_p = (size_t*) allocated;
+	size_t* refs_p = (void*) allocated + sizeof(size_t);
+	*refs_p = 1;
+	*count_p = count;
 	// This forces no pointer arithmetic
-	return (void*)allocated + sizeof(size_t);
+	return (void*)allocated + (2 * sizeof(size_t));
 }
 
 void refcnt_free(data *ptr) {
-	size_t* size_p = (void*)ptr - sizeof(size_t);
-	*size_p -= 1;
+	size_t* refs_p = (void*)ptr - sizeof(size_t);
+	*refs_p -= 1;
 	// TODO: crash if refcount is below 0...
-	if (*size_p == 0) {
-		safe_free(size_p);
+	if (*refs_p == 0) {
+		size_t* count_p = (void*)refs_p - sizeof(size_t);
+		for (size_t i = 0; i < *count_p; i++) {
+			destroy_data(&ptr[i]);
+		}
+		// count_p also points to the start of the actual allocation
+		safe_free(count_p);
 	}
 }
 
 data *refcnt_copy(data *ptr) {
-	size_t* size_p = (void*)ptr - sizeof(size_t);
-	*size_p += 1;
+	size_t* refs_p = (void*)ptr - sizeof(size_t);
+	*refs_p += 1;
 	return ptr;
 }
 
@@ -92,42 +100,23 @@ data* wendy_list_malloc(size_t size) {
 }
 
 data *create_closure(void) {
-	// address location = closure_list_pointer;
-	// // Things to reserve.
-	// size_t size = call_stack_pointer - main_end_pointer;
-
-	// stack_entry* closure = safe_malloc(sizeof(stack_entry) * size);
-	// size_t actual_size = 0;
-	// for (size_t i = main_end_pointer; i < call_stack_pointer; i++) {
-	// 	if (is_identifier_entry(i)) {
-	// 		strcpy(closure[actual_size].id, call_stack[i].id);
-	// 		closure[actual_size].val = call_stack[i].val;
-	// 		actual_size++;
-	// 	}
-	// }
-	// if (actual_size <= 0) {
-	// 	safe_free(closure);
-	// 	return NO_CLOSURE;
-	// }
-	// closure = safe_realloc(closure, actual_size * sizeof(stack_entry));
-	// closure_list[closure_list_pointer] = closure;
-	// closure_list_sizes[closure_list_pointer] = actual_size;
-	// closure_list_pointer++;
-
-	// if (closure_list_pointer == closure_list_size) {
-	// 	// Resize for more storage
-	// 	closure_list_size *= 2;
-	// 	closure_list = safe_realloc(closure_list,
-	// 		closure_list_size * sizeof(stack_entry*));
-	// 	// Reset 0s
-	// 	for (size_t i = closure_list_pointer; i < closure_list_size; i++) {
-	// 		closure_list[i] = 0;
-	// 	}
-	// 	closure_list_sizes = safe_realloc(closure_list_sizes,
-	// 		closure_list_size * sizeof(size_t));
-	// }
-	// return location;
-	return 0;
+	size_t size = 0;
+	for (size_t i = main_end_pointer; i < call_stack_pointer; i++) {
+		if (is_identifier_entry(i)) {
+			size += 1;
+		}
+	}
+	// We store a closure as a wendy-list of: identifier, value, identifier 2, value 2, etc
+	data *closure_list = wendy_list_malloc(size * 2);
+	size_t index = 1;
+	for (size_t i = main_end_pointer; i < call_stack_pointer; i++) {
+		if (is_identifier_entry(i)) {
+			// Add to closure list
+			closure_list[index++] = make_data(D_IDENTIFIER, data_value_str(call_stack[i].id));
+			closure_list[index++] = copy_data(call_stack[i].val);
+		}
+	}
+	return closure_list;
 }
 
 void init_memory(void) {
@@ -272,24 +261,16 @@ data pop_arg(int line) {
 	return none_data();
 }
 
-// TODO(felixguo): memory leak here potentially
-void copy_stack_entry(stack_entry se, int line) {
-	UNUSED(line);
-	call_stack[call_stack_pointer] = se;
-	call_stack[call_stack_pointer].is_closure = true;
-	call_stack_pointer += 1;
-	if (is_at_main()) {
-		main_end_pointer = call_stack_pointer;
-	}
-	check_memory();
-}
-
 stack_entry* push_stack_entry(char* id, int line) {
 	// TODO(felixguo): can probably remove line
 	UNUSED(line);
 	stack_entry new_entry;
 	new_entry.is_closure = false;
 	new_entry.id = safe_strdup(id);
+
+	// We cannot be sure that .val will be written to, so we cannot
+	//   leave it uninitialized.
+	new_entry.val = make_data(D_EMPTY, data_value_num(0));
 	call_stack[call_stack_pointer++] = new_entry;
 	if (is_at_main()) {
 		// currently in main function

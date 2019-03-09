@@ -74,10 +74,6 @@ bool pop_frame(bool is_ret, address* ret);
 //   this leaves the val as EMPTY, and not NONE
 stack_entry* push_stack_entry(char* id, int line);
 
-// copy_stack_entry(se) copies the given stack entry into the top of the call
-//   stack, USE FOR CLOSURES
-void copy_stack_entry(stack_entry se, int line);
-
 // id_exist(id, search_main) returns true if id exists in the current stackframe
 bool id_exist(char* id, bool search_main);
 

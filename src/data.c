@@ -184,7 +184,8 @@ unsigned int print_data_inline(const data* t, FILE* buf) {
 	else if (t->type == D_STRUCT_HEADER) {
 		p += fprintf(buf, "<meta size %d>", (int)(t->value.number));
 	}
-	else if (t->type == D_LIST) {
+	else if (t->type == D_LIST || t->type == D_CLOSURE) {
+		// Special case here because closures are implemented as lists
 		size_t size = t->value.reference->value.number;
 		p += fprintf(buf, "[");
 		for (size_t i = 0; i < size; i++) {

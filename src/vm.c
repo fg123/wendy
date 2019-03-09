@@ -141,6 +141,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			// This branch could slow down the VM but the CPU should branch
 			// predict after one or two iterations.
 			printf(BLU "<+%04X>: " RESET "%s\n", i, opcode_string[op]);
+			print_call_stack(stdout, 20);
 		}
 		i += 1;
 		switch (op) {
@@ -231,6 +232,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				else {
 					stack_entry* result = push_stack_entry(id, line);
 					push_arg(make_data(D_INTERNAL_POINTER, data_value_ptr(&result->val)));
+					last_pushed_identifier = id;
 				}
 				break;
 			}
@@ -372,7 +374,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_CLOSURE: {
-				// TODO(felixguo): Fix Closures
+				// create_closure() could return NULL when there's no closure, so the
+				//   refcnt code is structured to ignore null pointer references
 				push_arg(make_data(D_CLOSURE, data_value_ptr(create_closure())));
 				break;
 			}
@@ -458,7 +461,53 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_CALL:
 			wendy_vm_call: {
-				// data top = pop_arg(line);
+				data top = pop_arg(line);
+				// TODO(felixguo): constructor for structs
+				if (top.type != D_FUNCTION) {
+					error_runtime(line, VM_FN_CALL_NOT_FN);
+					destroy_data(&top);
+					break;
+				}
+				data boundName = top.value.reference[2];
+				char* function_disp = safe_malloc((128 + strlen(boundName.value.string)) * sizeof(char));
+				function_disp[0] = 0;
+				if (boundName.value.string && streq(boundName.value.string, "self")) {
+					sprintf(function_disp, "annonymous:0x%X", i);
+				}
+				else {
+					sprintf(function_disp, "%s:0x%X", boundName.value.string, i);
+				}
+				push_frame(function_disp, i, line);
+				safe_free(function_disp);
+
+				// TODO: do struct stuff
+
+				data addr = top.value.reference[0];
+				if (addr.type != D_INSTRUCTION_ADDRESS) {
+					error_runtime(line, VM_INTERNAL_ERROR, "Address of function is not D_INSTRUCTION_ADDRESS");
+					destroy_data(&top);
+					break;
+				}
+				i = (address) addr.value.number;
+				// Push closure variables
+				data *list_data = top.value.reference[1].value.reference;
+				size_t size = list_data[0].value.number;
+				for (size_t i = 0; i < size; i += 2) {
+					if (list_data[i].type != D_IDENTIFIER) {
+						error_runtime(line, VM_INTERNAL_ERROR, "Did not find a D_IDENTIFIER in function closure");
+						destroy_data(&top);
+						break;
+					}
+					stack_entry *entry = push_stack_entry(list_data[i].value.string, line);
+					entry->val = copy_data(list_data[i + 1]);
+				}
+
+				// At this point, we put `top` back into the stack, so no need to destroy it
+				if (strcmp(boundName.value.string, "self") != 0) {
+					push_stack_entry("self", line)->val = copy_data(top);
+				}
+				push_stack_entry(boundName.value.string, line)->val = top;
+
 				// int loc = top.value.number;
 				// data boundName = memory[loc + 2];
 				// char* function_disp = safe_malloc(128 * sizeof(char));
@@ -548,21 +597,19 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					destroy_data(&ptr);
 					continue;
 				}
-				destroy_data(ptr.value.reference);
+				destroy_data(&ptr.value.reference[0]);
 
 				// Since value is written back, we don't need to destroy it
 				*(ptr.value.reference) = value;
 
-				// TODO(felixguo): Not sure what the next part is for, will look later
-				// 	if (memory[j].type == D_FUNCTION) {
-				// 		// Write Name to Function
-				// 		char* bind_name = last_pushed_identifier;
-				// 		address fn_adr = memory[j].value.number;
-				// 		data_value* fn_name_data = &memory[fn_adr + 2].value;
-				// 		fn_name_data->string = safe_realloc(
-				// 			fn_name_data->string, strlen(bind_name) + 1);
-				// 		strcpy(fn_name_data->string, bind_name);
-				// 	}
+				if (ptr.value.reference->type == D_FUNCTION) {
+					// Write Name to Function
+					char* bind_name = last_pushed_identifier;
+					data* fn_data = ptr.value.reference->value.reference;
+					fn_data[2].value.string = safe_realloc(
+						fn_data[2].value.string, strlen(bind_name) + 1);
+					strcpy(fn_data[2].value.string, bind_name);
+				}
 				break;
 			}
 			case OP_OUT: {
@@ -800,6 +847,9 @@ static data eval_binop(operator op, data a, data b) {
 		}
 		else if (streq("char", b.value.string)) {
 			return char_of(a);
+		}
+		else if (a.type == D_FUNCTION && streq("closure", b.value.string)) {
+			return copy_data(a.value.reference[1]);
 		}
 		else if (a.type == D_FUNCTION && streq("params", b.value.string)) {
 			return copy_data(a.value.reference[3]);
@@ -1161,6 +1211,8 @@ static data type_of(data a) {
 			return make_data(D_OBJ_TYPE, data_value_str("range"));
 		case D_LIST:
 			return make_data(D_OBJ_TYPE, data_value_str("list"));
+		case D_CLOSURE:
+			return make_data(D_OBJ_TYPE, data_value_str("closure"));
 		case D_STRUCT:
 			return make_data(D_OBJ_TYPE, data_value_str("struct"));
 		case D_OBJ_TYPE:
