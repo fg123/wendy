@@ -4,6 +4,7 @@
 #include "global.h"
 #include "token.h"
 #include <stdio.h>
+#include <time.h>
 
 // data.h - Felix Guo
 // This module manages the data model for WendyScript
@@ -61,19 +62,23 @@ data make_data(data_type type, data_value value);
 data copy_data(data d);
 void destroy_data(data* d);
 
-data_value data_value_str(char *str);
+// This allows us to trace memory leaks to where it's actually allocated
+#define data_value_str(str) data_value_str_impl(safe_strdup(str))
+data_value data_value_str_impl(char *duplicated);
+
 data_value data_value_num(double num);
 data_value data_value_ptr(data* ptr);
 data_value data_value_size(int size);
 bool is_numeric(data t);
 bool is_reference(data t);
 
-data time_data(void);
-data noneret_data(void);
-data none_data(void);
-data false_data(void);
-data any_data(void);
-data true_data(void);
+#define time_data() make_data(D_NUMBER, data_value_num(time(NULL)))
+#define noneret_data() make_data(D_NONERET, data_value_str("<noneret>"))
+#define none_data() make_data(D_NONE, data_value_str("<none>"))
+#define false_data() make_data(D_FALSE, data_value_str("<false>"))
+#define any_data() make_data(D_ANY, data_value_str("ANYYYYTHING"))
+#define true_data() make_data(D_TRUE, data_value_str("<true>"))
+
 data range_data(int start, int end);
 int range_start(data r);
 int range_end(data r);

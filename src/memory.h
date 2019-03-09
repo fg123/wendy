@@ -71,6 +71,7 @@ void push_auto_frame(address ret, char* type, int line);
 bool pop_frame(bool is_ret, address* ret);
 
 // push_stack_entry(id) declares a new variable in the stack frame
+//   this leaves the val as EMPTY, and not NONE
 stack_entry* push_stack_entry(char* id, int line);
 
 // copy_stack_entry(se) copies the given stack entry into the top of the call

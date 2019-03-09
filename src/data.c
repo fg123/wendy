@@ -1,10 +1,8 @@
 #include "data.h"
 #include "global.h"
 #include "memory.h"
-#include "time.h"
 #include <string.h>
 #include <stdbool.h>
-#include <time.h>
 
 // Implementation for Data Model
 
@@ -55,9 +53,9 @@ void destroy_data(data* d) {
 	d->type = D_EMPTY;
 }
 
-data_value data_value_str(char *str) {
+data_value data_value_str_impl(char *duplicated) {
 	data_value r;
-	r.string = safe_strdup(str);
+	r.string = duplicated;
 	return r;
 }
 
@@ -101,37 +99,6 @@ bool is_numeric(data t) {
 		// corresponding pointer is not ref-counted, we label it
 		// as numeric.
 		t.type == D_INTERNAL_POINTER;
-}
-
-data time_data() {
-	data t = make_data(D_NUMBER, data_value_num(time(NULL)));
-	return t;
-}
-
-data false_data() {
-	data t = make_data(D_FALSE, data_value_str("<false>"));
-	return t;
-}
-
-data true_data() {
-	data t = make_data(D_TRUE, data_value_str("<true>"));
-	return t;
-}
-
-data none_data() {
-	data t = make_data(D_NONE, data_value_str("<none>"));
-	return t;
-}
-
-data any_data() {
-	data t = make_data(D_ANY, data_value_str("used to refer to one or some of "
-		"a thing or number of things, no matter how much or many."));
-	return t;
-}
-
-data noneret_data() {
-	data t = make_data(D_NONERET, data_value_str("<noneret>"));
-	return t;
 }
 
 data range_data(int start, int end) {

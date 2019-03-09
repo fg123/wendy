@@ -152,6 +152,7 @@ void free_memory(void) {
 	safe_free(working_stack);
 	for (size_t i = 0; i < call_stack_pointer; i++) {
 		destroy_data(&call_stack[i].val);
+		safe_free(call_stack[i].id);
 	}
 	safe_free(call_stack);
 }
@@ -192,7 +193,6 @@ void push_auto_frame(address ret, char* type, int line) {
 	se->val = wrap_number(ret);
 }
 
-// TODO(felixguo): Free call stack ids!
 bool pop_frame(bool is_ret, address* ret) {
 	if (is_at_main()) return true;
 	address trace = frame_pointer;
@@ -202,8 +202,12 @@ bool pop_frame(bool is_ret, address* ret) {
 		}
 		*ret = unwrap_number(call_stack[trace + 1].val);
 	}
-	call_stack_pointer = trace;
 	frame_pointer = unwrap_number(call_stack[trace].val);
+	while (call_stack_pointer >= trace) {
+		call_stack_pointer -= 1;
+		safe_free(call_stack[call_stack_pointer].id);
+		destroy_data(&call_stack[call_stack_pointer].val);
+	}
 	return (is_ret || call_stack[trace].id[0] == CHAR(FUNCTION_START));
 }
 
@@ -273,7 +277,7 @@ void copy_stack_entry(stack_entry se, int line) {
 	UNUSED(line);
 	call_stack[call_stack_pointer] = se;
 	call_stack[call_stack_pointer].is_closure = true;
-	call_stack_pointer++;
+	call_stack_pointer += 1;
 	if (is_at_main()) {
 		main_end_pointer = call_stack_pointer;
 	}
@@ -284,7 +288,6 @@ stack_entry* push_stack_entry(char* id, int line) {
 	// TODO(felixguo): can probably remove line
 	UNUSED(line);
 	stack_entry new_entry;
-	new_entry.val = none_data();
 	new_entry.is_closure = false;
 	new_entry.id = safe_strdup(id);
 	call_stack[call_stack_pointer++] = new_entry;
