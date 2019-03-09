@@ -256,31 +256,29 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_ARGCLN: {
-				// TODO: This instruction can be modified to support
-				//   variable arguments.
-				// data* extra_args = safe_malloc(INITIAL_ARGSTACK_SIZE *
-				// 							   sizeof(data));
-				// size_t count = 0;
-				// while (top_arg(line)->type != D_END_OF_ARGUMENTS) {
-				// 	if (top_arg(line)->type == D_NAMED_ARGUMENT_NAME) {
-				// 		data identifier = pop_arg(line);
-				// 		address loc =
-				// 			get_address_of_id(identifier.value.string, line);
-				// 		// write_memory(loc, pop_arg(line), line);
-				// 		destroy_data(&identifier);
-				// 	}
-				// 	else {
-				// 		data r = pop_arg(line);
-				// 		extra_args[count++] = r;
-				// 	}
-				// }
-				// // Assign "arguments" variable with rest of the arguments.
-				// address ladr = push_memory_wendy_list(extra_args, count, line);
-				// address adr = push_memory(make_data(D_LIST, data_value_num(ladr)), line);
-				// push_stack_entry("arguments", adr, line);
-				// safe_free(extra_args);
-				// // Pop End of Arguments
-				// pop_arg(line);
+				// TODO: 128 limit here seems a bit arbitrary and we
+				data* extra_args = wendy_list_malloc(128);
+				size_t count = 0;
+				while (top_arg(line)->type != D_END_OF_ARGUMENTS) {
+					if (top_arg(line)->type == D_NAMED_ARGUMENT_NAME) {
+						data identifier = pop_arg(line);
+						data* loc = get_address_of_id(identifier.value.string, line);
+						destroy_data(loc);
+						*loc = pop_arg(line);
+						destroy_data(&identifier);
+					}
+					else {
+						data r = pop_arg(line);
+						extra_args[count++] = r;
+					}
+				}
+				// We need to re-write the list counter
+				extra_args[0].value.number = count;
+				// Assign "arguments" variable with rest of the arguments.
+				push_stack_entry("arguments", line)->val =
+					make_data(D_LIST, data_value_ptr(extra_args));
+				// Pop End of Arguments
+				pop_arg(line);
 				break;
 			}
 			case OP_RET: {
@@ -492,6 +490,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				// Push closure variables
 				data *list_data = top.value.reference[1].value.reference;
 				size_t size = list_data[0].value.number;
+
+				// Move the pointer to the "first" item, because the 0th item is the list-header
+				list_data += 1;
 				for (size_t i = 0; i < size; i += 2) {
 					if (list_data[i].type != D_IDENTIFIER) {
 						error_runtime(line, VM_INTERNAL_ERROR, "Did not find a D_IDENTIFIER in function closure");
@@ -586,17 +587,18 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_WRITE: {
-				if (top_arg(line)->type == D_END_OF_ARGUMENTS ||
-					top_arg(line)->type == D_NAMED_ARGUMENT_NAME)
-					break;
 				data ptr = pop_arg(line);
-				data value = pop_arg(line);
 				if (ptr.type != D_INTERNAL_POINTER) {
 					error_runtime(line, VM_INTERNAL_ERROR, "WRITE on non-pointer");
-					destroy_data(&value);
 					destroy_data(&ptr);
 					continue;
 				}
+
+				if (top_arg(line)->type == D_END_OF_ARGUMENTS ||
+					top_arg(line)->type == D_NAMED_ARGUMENT_NAME)
+					break;
+
+				data value = pop_arg(line);
 				destroy_data(&ptr.value.reference[0]);
 
 				// Since value is written back, we don't need to destroy it
