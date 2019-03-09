@@ -52,7 +52,7 @@ typedef enum opcode {
 #define OPCODE_STRING \
 	"push", "bin", "una", "call", "ret", "decl", "write", "in",\
 	"out", "outl", "jmp", "jif", "frm", "end", "src", "halt",\
-	"native", "import", "argcln", "closur", "mkref", "where", "nthptr", "memptr"\
+	"native", "import", "argcln", "closur", "mkref", "where", "nthptr", "memptr",\
 	"inc", "dec"
 
 extern const char* opcode_string[];

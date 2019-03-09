@@ -23,10 +23,7 @@ const char* opcode_string[] = {
 static uint8_t* bytecode = 0;
 static size_t capacity = 0;
 static size_t size = 0;
-static int global_loop_id = 0;
-void unused(void) {
-	UNUSED(global_loop_id);
-}
+static size_t global_loop_id = 0;
 
 int verify_header(uint8_t* bytecode) {
 	char* start = (char*)bytecode;
@@ -397,64 +394,91 @@ static void codegen_statement(void* expre) {
 			// Don't generate if empty loop body
 			return;
 		}
-		// // Setup Loop Index
-		// write_opcode(OP_FRM); // Start Local Variable Frame OUTER
-		// write_opcode(OP_PUSH);
-		// write_data(make_data(D_NUMBER, data_value_num(0)));
-		// write_opcode(OP_RBW);
-		// char loopIndexName[30];
-		// sprintf(loopIndexName, LOOP_COUNTER_PREFIX "%d", global_loop_id++);
-		// write_string(loopIndexName);
+		write_opcode(OP_FRM);
 
-		// if (state->op.loop_statement.index_var) {
-		// 	// User has a custom variable, also declare that.
-		// 	write_opcode(OP_PUSH);
-		// 	write_data(make_data(D_NUMBER, data_value_num(0)));
-		// 	write_opcode(OP_RBW);
-		// 	write_string(state->op.loop_statement.index_var);
-		// }
+		bool is_iterating_loop = state->op.loop_statement.index_var;
 
-		// // Start of Loop, Push Condition to Stack
-		// int loop_start_addr = size;
-		// codegen_expr(state->op.loop_statement.condition);
+		char loop_index_name[30];
+		char loop_container_name[30];
+		char loop_size_name[30];
 
-		// // Check Condition and Jump if Needed
-		// write_opcode(OP_LJMP);
-		// int loop_skip_loc = size;
-		// size += sizeof(address);
-		// write_string(loopIndexName);
+		if (is_iterating_loop) {
+			size_t loop_id = global_loop_id++;
+			sprintf(loop_index_name, LOOP_COUNTER_PREFIX "index_%zd", loop_id);
+			sprintf(loop_container_name, LOOP_COUNTER_PREFIX "container_%zd", loop_id);
+			sprintf(loop_size_name, LOOP_COUNTER_PREFIX "size_%zd", loop_id);
 
-		// write_opcode(OP_FRM); // Start Local Variable Frame
+			// index = 0
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_NUMBER, data_value_num(0)));
+			write_opcode(OP_DECL);
+			write_string(loop_index_name);
+			write_opcode(OP_WRITE);
 
-		// // Write Custom Var and Bind
-		// if (state->op.loop_statement.index_var) {
-		// 	write_opcode(OP_LBIND);
-		// 	write_string(state->op.loop_statement.index_var);
-		// 	write_string(loopIndexName);
-		// }
-		// else {
-		// 	write_opcode(OP_POP);
-		// }
+			// container = <expr>
+			codegen_expr(state->op.loop_statement.condition);
+			write_opcode(OP_DECL);
+			write_string(loop_container_name);
+			write_opcode(OP_WRITE);
 
-		// codegen_statement(state->op.loop_statement.statement_true);
-		// write_opcode(OP_END);
+			// size = container.size
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_MEMBER_IDENTIFIER, data_value_str("size")));
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(loop_container_name)));
+			write_opcode(OP_BIN);
+			write_byte(O_MEMBER);
+			write_opcode(OP_DECL);
+			write_string(loop_size_name);
+			write_opcode(OP_WRITE);
 
-		// write_opcode(OP_WHERE);
-		// write_string(loopIndexName);
-		// write_opcode(OP_INC);
-		// if (state->op.loop_statement.index_var) {
-		// 	write_opcode(OP_READ);
-		// 	write_opcode(OP_WHERE);
-		// 	write_string(state->op.loop_statement.index_var);
-		// 	write_opcode(OP_WRITE);
-		// 	write_byte(1);
-		// }
-		// write_opcode(OP_JMP);
-		// write_address(loop_start_addr);
+			// <ident> = none
+			write_opcode(OP_PUSH);
+			write_data(none_data());
+			write_opcode(OP_DECL);
+			write_string(state->op.loop_statement.index_var);
+			write_opcode(OP_WRITE);
+		}
 
-		// // Write End of Loop
-		// write_address_at(size, loop_skip_loc);
-		// write_opcode(OP_END);
+		address loop_start_addr = size;
+		if (is_iterating_loop) {
+			// internalCounter < size
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(loop_size_name)));
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(loop_index_name)));
+			write_opcode(OP_BIN);
+			write_byte(O_LT);
+		}
+		else {
+			codegen_expr(state->op.loop_statement.condition);
+		}
+		write_opcode(OP_JIF);
+		int loop_skip_loc = size;
+		size += sizeof(address);
+		if (is_iterating_loop) {
+			// <ident> = container[internalCounter]
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(loop_index_name)));
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(loop_container_name)));
+			write_opcode(OP_BIN);
+			write_byte(O_SUBSCRIPT);
+			write_opcode(OP_WHERE);
+			write_string(state->op.loop_statement.index_var);
+			write_opcode(OP_WRITE);
+		}
+		codegen_statement(state->op.loop_statement.statement_true);
+		if (is_iterating_loop) {
+			write_opcode(OP_WHERE);
+			write_string(loop_index_name);
+			write_opcode(OP_INC);
+		}
+		write_opcode(OP_JMP);
+		write_address(loop_start_addr);
+		write_address_at(size, loop_skip_loc);
+
+		write_opcode(OP_END);
 	}
 }
 

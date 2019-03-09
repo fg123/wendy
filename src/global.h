@@ -28,7 +28,7 @@
 
 // Compiler/VM Settings
 #define OPERATOR_OVERLOAD_PREFIX "#@"
-#define LOOP_COUNTER_PREFIX ":\")"
+#define LOOP_COUNTER_PREFIX ":"
 
 #define DIVIDER "===================="
 
