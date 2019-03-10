@@ -1151,6 +1151,9 @@ static data size_of(data a) {
 	else if (a.type == D_LIST) {
 		size = a.value.reference->value.number;
 	}
+	else if (a.type == D_RANGE) {
+		size = abs(range_end(a) - range_start(a));
+	}
 	return make_data(D_NUMBER, data_value_num(size));
 }
 
