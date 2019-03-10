@@ -358,7 +358,6 @@ static void codegen_statement(void* expre) {
 			push_size += 2;
 			curr = curr->next;
 		}
-		// Request Memory to Store MetaData
 		write_opcode(OP_MKREF);
 		write_byte(D_STRUCT);
 		write_integer(push_size);
@@ -583,6 +582,12 @@ static void codegen_expr(void* expre) {
 	}
 	else if (expression->type == E_CALL) {
 		codegen_expr_list_for_call(expression->op.call_expr.arguments);
+		if (expression->op.call_expr.function->type == E_BINARY &&
+			expression->op.call_expr.function->op.bin_expr.operator == O_MEMBER) {
+			// Struct Member Call, we will generate an extra "argument" that is the
+			//   reference to the LHS
+			codegen_expr(expression->op.call_expr.function->op.bin_expr.left);
+		}
 		codegen_expr(expression->op.call_expr.function);
 		write_opcode(OP_CALL);
 	}
@@ -917,8 +922,6 @@ static void write_data_at_buffer(data t, uint8_t* buffer, size_t loc) {
 
 void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 	UNUSED(length);
-	// TODO: This is a little sketchy because of the difference in
-	// headers between REPL mode and not.
 	unsigned int i = 0;
 	if (streq(WENDY_VM_HEADER, (char*)buffer)) {
 		i += strlen(WENDY_VM_HEADER) + 1;

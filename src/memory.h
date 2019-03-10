@@ -44,7 +44,9 @@ data pop_arg(int line);
 
 // refcnt_malloc() allocates a block of memory with reference count
 //   returned from MKPTR mostly, the count is 1 by default
-data *refcnt_malloc(size_t count);
+// We use a macro here so leaks can be traced back to the caller
+#define refcnt_malloc(count) refcnt_malloc_impl(safe_calloc((count) * sizeof(data) + (2 * sizeof(size_t)), 1), count)
+data *refcnt_malloc_impl(data* allocated, size_t count);
 
 // refcnt_free() reduces the refcount by 1, and frees the heap memory
 //   if the refcount is 0

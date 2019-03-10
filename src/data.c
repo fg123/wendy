@@ -81,6 +81,8 @@ bool is_reference(data t) {
 	return t.type == D_STRUCT ||
 		t.type == D_LIST ||
 		t.type == D_FUNCTION ||
+		t.type == D_STRUCT_FUNCTION ||
+		t.type == D_STRUCT_METADATA ||
 		t.type == D_CLOSURE ||
 		t.type == D_STRUCT_INSTANCE ||
 		t.type == D_STRUCT_FUNCTION;
@@ -92,7 +94,6 @@ bool is_numeric(data t) {
 		t.type == D_LIST_HEADER ||
 		t.type == D_STRUCT_HEADER||
 		t.type == D_STRUCT_INSTANCE_HEADER ||
-		t.type == D_STRUCT_FUNCTION ||
 		t.type == D_EMPTY ||
 		t.type == D_END_OF_ARGUMENTS ||
 		// This is actually a "reference" type, but because the
@@ -173,7 +174,7 @@ unsigned int print_data_inline(const data* t, FILE* buf) {
 		p += fprintf(buf, "<eoargs>");
 	}
 	else if (t->type == D_STRUCT_INSTANCE) {
-		p += fprintf(buf, "<struct:%s>", t->value.reference[1].value.string);
+		p += fprintf(buf, "<struct:%s>", t->value.reference[1].value.reference[1].value.string);
 	}
 	else if (t->type == D_RANGE) {
 		p += fprintf(buf, "<range from %d to %d>", range_start(*t), range_end(*t));

@@ -141,7 +141,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			// This branch could slow down the VM but the CPU should branch
 			// predict after one or two iterations.
 			printf(BLU "<+%04X>: " RESET "%s\n", i, opcode_string[op]);
-			print_call_stack(stdout, 20);
+			// print_call_stack(stdout, 20);
 		}
 		i += 1;
 		switch (op) {
@@ -154,7 +154,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 						d = time_data();
 					}
 					else {
-						d = copy_data(*get_value_of_id(t.value.string, line));
+						data* value = get_value_of_id(t.value.string, line);
+						if (!value) {
+							break;
+						}
+						d = copy_data(*value);
 					}
 				}
 				else {
@@ -378,65 +382,58 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_MEMPTR: {
-				// TODO(felixguo): implement structs
 				// Member Pointer
 				// Structs can only modify Static members, instances modify instance
 				//   members.
 				// Either will be allowed to look through static parameters.
-				// data t = memory[memory_register];
-				// char* member = get_string(bytecode + i, &i);
-				// if (t.type != D_STRUCT && t.type != D_STRUCT_INSTANCE) {
-				// 	if (t.type == D_NONERET) {
-				// 		error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
-				// 	} else {
-				// 		error_runtime(line, VM_NOT_A_STRUCT);
-				// 	}
-				// 	break;
-				// }
-				// address metadata = (int)(t.value.number);
-				// if (t.type == D_STRUCT_INSTANCE) {
-				// 	// metadata actually points to the STRUCT_INSTANCE_HEAD
-				// 	//   right now.
-				// 	metadata = (address)(memory[metadata].value.number);
-				// }
-				// data_type struct_type = t.type;
-				// address struct_header = t.value.number;
-				// bool found = false;
-				// while(!found) {
-				// 	int params_passed = 0;
-				// 	int size = (int)(memory[metadata].value.number);
-				// 	for (int i = 0; i < size; i++) {
-				// 		data mdata = memory[metadata + i];
-				// 		if (mdata.type == D_STRUCT_SHARED &&
-				// 			streq(mdata.value.string, member)) {
-				// 			// Found the static member we were looking for.
-				// 			memory_register = metadata + i + 1;
-				// 			found = true;
-				// 			if (memory[memory_register].type == D_FUNCTION) {
-				// 				memory[memory_register].type = D_STRUCT_FUNCTION;
-				// 			}
-				// 			break;
-				// 		}
-				// 		else if (mdata.type == D_STRUCT_PARAM) {
-				// 			if (struct_type == D_STRUCT_INSTANCE &&
-				// 				streq(mdata.value.string, member)) {
-				// 				// Found the instance member we were looking for.
-				// 				// Address of the STRUCT_INSTANCE_HEADER offset by
-				// 				//   params_passed + 1;
-				// 				address loc = struct_header + params_passed + 1;
-				// 				memory_register = loc;
-				// 				found = true;
-				// 				if (memory[memory_register].type == D_FUNCTION) {
-				// 					memory[memory_register].type = D_STRUCT_FUNCTION;
-				// 				}
-				// 				break;
-				// 			}
-				// 			params_passed++;
-				// 		}
-				// 	}
-				// 	if (found) break;
-				// 	error_runtime(line, VM_MEMBER_NOT_EXIST, member);
-				// }
+				data instance = pop_arg(line);
+				char* member = get_string(bytecode + i, &i);
+				if (instance.type != D_STRUCT && instance.type != D_STRUCT_INSTANCE) {
+					if (instance.type == D_NONERET) {
+						error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
+					} else {
+						error_runtime(line, VM_NOT_A_STRUCT);
+					}
+					destroy_data(&instance);
+					break;
+				}
+				data* metadata = instance.value.reference;
+				if (instance.type == D_STRUCT_INSTANCE) {
+					// metadata actually points to the STRUCT_INSTANCE_HEAD
+					//   right now.
+					metadata = metadata[1].value.reference;
+					// TODO: assert metadata is a metadata
+				}
+				data_type struct_type = instance.type;
+				bool found = false;
+				int params_passed = 0;
+				int size = metadata[0].value.number;
+				for (int i = 0; i < size; i++) {
+					data mdata = metadata[i + 1];
+					if (mdata.type == D_STRUCT_SHARED &&
+						streq(mdata.value.string, member)) {
+						// Found the static member we were looking for.
+						push_arg(make_data(D_INTERNAL_POINTER, data_value_ptr(&metadata[i + 2])));
+						found = true;
+						break;
+					}
+					else if (mdata.type == D_STRUCT_PARAM) {
+						if (struct_type == D_STRUCT_INSTANCE &&
+							streq(mdata.value.string, member)) {
+							// Found the instance member we were looking for.
+							// Address of the STRUCT_INSTANCE_HEADER offset by
+							//   params_passed + 1;
+							push_arg(make_data(D_INTERNAL_POINTER, data_value_ptr(&instance.value.reference[params_passed + 2])));
+							found = true;
+							break;
+						}
+						params_passed++;
+					}
+				}
+				if (!found) {
+					error_runtime(line, VM_MEMBER_NOT_EXIST, member);
+				}
+				destroy_data(&instance);
 				break;
 			}
 			case OP_JMP: {
@@ -460,8 +457,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			case OP_CALL:
 			wendy_vm_call: {
 				data top = pop_arg(line);
-				// TODO(felixguo): constructor for structs
-				if (top.type != D_FUNCTION) {
+				if (top.type != D_FUNCTION && top.type != D_STRUCT && top.type != D_STRUCT_FUNCTION) {
 					error_runtime(line, VM_FN_CALL_NOT_FN);
 					destroy_data(&top);
 					break;
@@ -478,7 +474,35 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				push_frame(function_disp, i, line);
 				safe_free(function_disp);
 
-				// TODO: do struct stuff
+				if (top.type == D_STRUCT) {
+					// Calling Struct Constructor
+					data* metadata = top.value.reference;
+
+					destroy_data(&top);
+					// Select `init` function.
+					top = copy_data(metadata[3]);
+					top.type = D_STRUCT_FUNCTION;
+
+					// Find how many STRUCT_PARAMs there are
+					size_t params = 0;
+					size_t metadata_size = metadata[0].value.number;
+					for (size_t i = 0; i < metadata_size; i++) {
+						if (metadata[i + 1].type == D_STRUCT_PARAM) {
+							params++;
+						}
+					}
+
+					// +1 for the header, +1 for the metadata pointer
+					data* struct_instance = refcnt_malloc(params + 2);
+					struct_instance[0] = make_data(D_STRUCT_INSTANCE_HEADER, data_value_num(params + 1));
+					struct_instance[1] = make_data(D_STRUCT_METADATA, data_value_ptr(refcnt_copy(metadata)));
+
+					for (size_t i = 0; i < params; i++) {
+						struct_instance[i + 2] = none_data();
+					}
+
+					push_arg(make_data(D_STRUCT_INSTANCE, data_value_ptr(struct_instance)));
+				}
 
 				data addr = top.value.reference[0];
 				if (addr.type != D_INSTRUCTION_ADDRESS) {
@@ -487,6 +511,20 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					break;
 				}
 				i = (address) addr.value.number;
+
+				if (top.type == D_STRUCT_FUNCTION) {
+					// Either we pushed the new instance on the stack on top, or
+					//   codegen generated the instance on the top.
+					data instance = pop_arg(line);
+					if (instance.type != D_STRUCT_INSTANCE && instance.type != D_STRUCT) {
+						error_runtime(line, VM_INTERNAL_ERROR, "D_STRUCT_FUNCTION encountered but top of stack is not a instance nor a struct.");
+						destroy_data(&top);
+						destroy_data(&instance);
+						break;
+					}
+					push_stack_entry("this", line)->val = instance;
+				}
+
 				// Push closure variables
 				data *list_data = top.value.reference[1].value.reference;
 				size_t size = list_data[0].value.number;
@@ -508,82 +546,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					push_stack_entry("self", line)->val = copy_data(top);
 				}
 				push_stack_entry(boundName.value.string, line)->val = top;
-
-				// int loc = top.value.number;
-				// data boundName = memory[loc + 2];
-				// char* function_disp = safe_malloc(128 * sizeof(char));
-				// function_disp[0] = 0;
-				// if (boundName.value.string && streq(boundName.value.string, "self")) {
-				// 	sprintf(function_disp, "annonymous:0x%X", i);
-				// }
-				// else {
-				// 	sprintf(function_disp, "%s:0x%X", boundName.value.string, i);
-				// }
-				// push_frame(function_disp, i, line);
-				// safe_free(function_disp);
-				// push_mem_reg(memory_register, line);
-				// if (top.type == D_STRUCT) {
-				// 	address j = top.value.number;
-				// 	top = memory[j + 3];
-				// 	top.type = D_STRUCT_FUNCTION;
-				// 	// grab the size of the metadata chain also check if there's an
-				// 	//   overloaded init.
-				// 	int m_size = memory[j].value.number;
-				// 	int params = 0;
-				// 	for (int i = 0; i < m_size; i++) {
-				// 		if (memory[j + i].type == D_STRUCT_PARAM) {
-				// 			params++;
-				// 		}
-				// 	}
-
-				// 	int si_size = 0;
-				// 	data* struct_instance =
-				// 		safe_malloc(MAX_STRUCT_META_LEN * sizeof(data));
-
-				// 	si_size = params + 1; // + 1 for the header
-				// 	struct_instance[0] = make_data(D_STRUCT_INSTANCE_HEADER,
-				// 			data_value_num(j));
-				// 	int offset = params;
-				// 	for (int i = 0; i < params; i++) {
-				// 		struct_instance[offset - i] = none_data();
-				// 	}
-				// 	// Struct instance is done.
-				// 	address a = push_memory_array(struct_instance, si_size, line);
-				// 	safe_free(struct_instance);
-				// 	memory_register_A = a;
-				// }
-
-				// if (top.type != D_FUNCTION && top.type != D_STRUCT_FUNCTION) {
-				// 	error_runtime(line, VM_FN_CALL_NOT_FN);
-				// }
-				// if (top.type == D_STRUCT_FUNCTION) {
-				// 	data_type t;
-				// 	if (memory[memory_register_A].type == D_STRUCT_INSTANCE_HEADER) {
-				// 		t = D_STRUCT_INSTANCE;
-				// 	}
-				// 	else {
-				// 		t = D_STRUCT;
-				// 	}
-				// 	push_stack_entry("this", push_memory(make_data(
-				// 		t, data_value_num(memory_register_A)), line), line);
-				// }
-				// // Top might have changed, reload
-				// loc = top.value.number;
-				// address addr = memory[loc].value.number;
-				// i = addr;
-				// // push closure variables
-				// address cloc = memory[loc + 1].value.number;
-				// if (cloc != NO_CLOSURE) {
-				// 	size_t size = closure_list_sizes[cloc];
-				// 	for (size_t i = 0; i < size; i++) {
-				// 		copy_stack_entry(closure_list[cloc][i], line);
-				// 	}
-				// }
-				// address adr = push_memory(top, line);
-				// if (strcmp(boundName.value.string, "self") != 0) {
-				// 	push_stack_entry("self", adr, line);
-				// }
-				// push_stack_entry(boundName.value.string, adr, line);
 				break;
 			}
 			case OP_WRITE: {
@@ -796,47 +758,45 @@ static data eval_binop(operator op, data a, data b) {
 			return false_data();
 		}
 		if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
-			return none_data();
-			// TODO(felixguo): implement structs
 			// Either will be allowed to look through static parameters.
-			// address metadata = (int)(a.value.number);
-			// if (a.type == D_STRUCT_INSTANCE) {
-			// 	// metadata actually points to the STRUCT_INSTANE_HEADER
-			// 	//   right now.
-			// 	// metadata = (address)(memory[metadata].value.number);
-			// }
-			// data_type struct_type = a.type;
-			// address struct_header = a.value.number;
+			data* metadata = a.value.reference;
+			if (a.type == D_STRUCT_INSTANCE) {
+				// metadata actually points to the STRUCT_INSTANCE_HEADER
+				//   right now, we need one below that for the metadata
+				metadata = metadata[1].value.reference;
+			}
+			data_type struct_type = a.type;
 
-			// int params_passed = 0;
-			// int size = (int)(memory[metadata].value.number);
-			// for (int i = 0; i < size; i++) {
-			// 	data mdata = memory[metadata + i];
-			// 	if (mdata.type == D_STRUCT_SHARED &&
-			// 		streq(mdata.value.string, b.value.string)) {
-			// 		// Found the static member we were looking for
-			// 		data result = copy_data(memory[metadata + i + 1]);
-			// 		if (result.type == D_FUNCTION) {
-			// 			result.type = D_STRUCT_FUNCTION;
-			// 		}
-			// 		return result;
-			// 	}
-			// 	else if (mdata.type == D_STRUCT_PARAM) {
-			// 		if (struct_type == D_STRUCT_INSTANCE &&
-			// 			streq(mdata.value.string, b.value.string)) {
-			// 			// Found the instance member we were looking for.
-			// 			// Address of the STRUCT_INSTANCE_HEADER offset by
-			// 			//   params_passed + 1;
-			// 			address loc = struct_header + params_passed + 1;
-			// 			data result = copy_data(memory[loc]);
-			// 			if (result.type == D_FUNCTION) {
-			// 				result.type = D_STRUCT_FUNCTION;
-			// 			}
-			// 			return result;
-			// 		}
-			// 		params_passed++;
-			// 	}
-			// }
+			int params_passed = 0;
+			int size = metadata[0].value.number;
+			for (int i = 0; i < size; i++) {
+				data mdata = metadata[i + 1];
+				if (mdata.type == D_STRUCT_SHARED &&
+					streq(mdata.value.string, b.value.string)) {
+					// Found the static member we were looking for
+					data result = copy_data(metadata[i + 2]);
+					if (result.type == D_FUNCTION) {
+						result.type = D_STRUCT_FUNCTION;
+					}
+					return result;
+				}
+				else if (mdata.type == D_STRUCT_PARAM) {
+					if (struct_type == D_STRUCT_INSTANCE &&
+						streq(mdata.value.string, b.value.string)) {
+						// Found the instance member we were looking for.
+						// Address of the STRUCT_INSTANCE_HEADER offset by
+						//   params_passed + 1;
+						// + 1 for header, + 1 to get to next entry where the value
+						//   is stored
+						data result = copy_data(a.value.reference[params_passed + 2]);
+						if (result.type == D_FUNCTION) {
+							result.type = D_STRUCT_FUNCTION;
+						}
+						return result;
+					}
+					params_passed++;
+				}
+			}
 		}
 		if (streq("size", b.value.string)) {
 			return size_of(a);

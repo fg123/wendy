@@ -59,12 +59,11 @@ void check_memory(void) {
 	}
 }
 
-data *refcnt_malloc(size_t count) {
+data *refcnt_malloc_impl(data* allocated, size_t count) {
 	// We allocate:
 	// | count  | refs   | data         |
 	// | size_t | size_t | count * data |
 	//                   ^- return ptr to here
-	data* allocated = safe_calloc(count * sizeof(data) + (2 * sizeof(size_t)), 1);
 	size_t* count_p = (size_t*) allocated;
 	size_t* refs_p = (void*) allocated + sizeof(size_t);
 	*refs_p = 1;
@@ -75,7 +74,9 @@ data *refcnt_malloc(size_t count) {
 
 void refcnt_free(data *ptr) {
 	size_t* refs_p = (void*)ptr - sizeof(size_t);
+
 	*refs_p -= 1;
+
 	// TODO: crash if refcount is below 0...
 	if (*refs_p == 0) {
 		size_t* count_p = (void*)refs_p - sizeof(size_t);
@@ -253,8 +254,8 @@ data* top_arg(int line) {
 
 data pop_arg(int line) {
 	if (working_stack_pointer != 0) {
-		data ret = copy_data(working_stack[--working_stack_pointer]);
-		destroy_data(&working_stack[working_stack_pointer]);
+		data ret = working_stack[--working_stack_pointer];
+		working_stack[working_stack_pointer] = make_data(D_EMPTY, data_value_num(0));
 		return ret;
 	}
 	error_runtime(line, MEMORY_STACK_UNDERFLOW);
