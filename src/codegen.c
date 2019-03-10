@@ -560,11 +560,11 @@ static void codegen_expr(void* expre) {
 	else if (expression->type == E_ASSIGN) {
         enum operator op = expression->op.assign_expr.operator;
 
+		codegen_expr(expression->op.assign_expr.rvalue);
+
 		if (op != O_ASSIGN) {
 			codegen_expr(expression->op.assign_expr.lvalue);
 		}
-
-		codegen_expr(expression->op.assign_expr.rvalue);
 
         // O_ASSIGN is the default =
 		if (op != O_ASSIGN) {
