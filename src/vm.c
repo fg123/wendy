@@ -231,13 +231,15 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			case OP_DECL: {
 				char *id = get_string(bytecode + i, &i);
 				if (id_exist(id, false)) {
-					error_runtime(line, VM_VAR_DECLARED_ALREADY, id);
+					address a = get_stack_pos_of_id(id, line);
+					if (!call_stack[a].is_closure) {
+						error_runtime(line, VM_VAR_DECLARED_ALREADY, id);
+						continue;
+					}
 				}
-				else {
-					stack_entry* result = push_stack_entry(id, line);
-					push_arg(make_data(D_INTERNAL_POINTER, data_value_ptr(&result->val)));
-					last_pushed_identifier = id;
-				}
+				stack_entry* result = push_stack_entry(id, line);
+				push_arg(make_data(D_INTERNAL_POINTER, data_value_ptr(&result->val)));
+				last_pushed_identifier = id;
 				break;
 			}
 			case OP_WHERE: {
@@ -539,6 +541,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					}
 					stack_entry *entry = push_stack_entry(list_data[i].value.string, line);
 					entry->val = copy_data(list_data[i + 1]);
+					entry->is_closure = true;
 				}
 
 				// At this point, we put `top` back into the stack, so no need to destroy it
