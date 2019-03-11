@@ -274,8 +274,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 						destroy_data(&identifier);
 					}
 					else {
-						data r = pop_arg(line);
-						extra_args[count++] = r;
+						extra_args[count + 1] = pop_arg(line);
+						count += 1;
 					}
 				}
 				// We need to re-write the list counter
@@ -284,7 +284,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				push_stack_entry("arguments", line)->val =
 					make_data(D_LIST, data_value_ptr(extra_args));
 				// Pop End of Arguments
-				pop_arg(line);
+				data eoargs = pop_arg(line);
+				destroy_data(&eoargs);
 				break;
 			}
 			case OP_RET: {
