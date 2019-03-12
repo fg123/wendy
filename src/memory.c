@@ -21,6 +21,9 @@ address call_stack_pointer = 0;
 size_t call_stack_size = INITIAL_STACK_SIZE;
 size_t working_stack_size = INITIAL_WORKING_STACK_SIZE;
 
+struct refcnt_container* all_containers_start = 0;
+struct refcnt_container* all_containers_end = 0;
+
 // Pointer to the end of the main() stack frame
 static address main_end_pointer = 0;
 
@@ -61,36 +64,67 @@ void check_memory(void) {
 
 data *refcnt_malloc_impl(data* allocated, size_t count) {
 	// We allocate:
-	// | count  | refs   | data         |
-	// | size_t | size_t | count * data |
-	//                   ^- return ptr to here
-	size_t* count_p = (size_t*) allocated;
-	size_t* refs_p = (void*) allocated + sizeof(size_t);
-	*refs_p = 1;
-	*count_p = count;
+	// | refcnt_container | data         |
+	// |                  | count * data |
+	//                    ^- return ptr to here
+	struct refcnt_container* container_info =
+		(struct refcnt_container*) allocated;
+	container_info->count = count;
+	container_info->refs = 1;
+
+	if (!all_containers_end && !all_containers_start) {
+		all_containers_start = container_info;
+		all_containers_end = container_info;
+	}
+
+	all_containers_end->next = container_info;
+	container_info->prev = all_containers_end;
+
+	all_containers_start->prev = container_info;
+	container_info->next = all_containers_start;
+
+	all_containers_end = container_info;
+
 	// This forces no pointer arithmetic
-	return (void*)allocated + (2 * sizeof(size_t));
+	return (void*)allocated + sizeof(struct refcnt_container);
 }
 
 void refcnt_free(data *ptr) {
-	size_t* refs_p = (void*)ptr - sizeof(size_t);
+	struct refcnt_container* container_info =
+		(void*)ptr - sizeof(struct refcnt_container);
 
-	*refs_p -= 1;
+	container_info->refs -= 1;
 
 	// TODO: crash if refcount is below 0...
-	if (*refs_p == 0) {
-		size_t* count_p = (void*)refs_p - sizeof(size_t);
-		for (size_t i = 0; i < *count_p; i++) {
+	if (container_info->refs == 0) {
+		for (size_t i = 0; i < container_info->count; i++) {
 			destroy_data(&ptr[i]);
 		}
 		// count_p also points to the start of the actual allocation
-		safe_free(count_p);
+		if (container_info == all_containers_start && container_info == all_containers_end) {
+			all_containers_start = 0;
+			all_containers_end = 0;
+		}
+		else {
+			container_info->prev->next = container_info->next;
+			container_info->next->prev = container_info->prev;
+			if (container_info == all_containers_end) {
+				all_containers_end = container_info->prev;
+			}
+			if (container_info == all_containers_start) {
+				all_containers_start = container_info->next;
+			}
+			container_info->prev = 0;
+			container_info->next = 0;
+		}
+		safe_free(container_info);
 	}
 }
 
 data *refcnt_copy(data *ptr) {
-	size_t* refs_p = (void*)ptr - sizeof(size_t);
-	*refs_p += 1;
+	struct refcnt_container* container_info =
+		(void*)ptr - sizeof(struct refcnt_container);
+	container_info->refs += 1;
 	return ptr;
 }
 
@@ -145,6 +179,12 @@ void free_memory(void) {
 		safe_free(call_stack[i].id);
 	}
 	safe_free(call_stack);
+
+	// Check remaining cycled references
+	while (all_containers_start) {
+		refcnt_free((void*)all_containers_start +
+			sizeof(struct refcnt_container));
+	}
 }
 
 void push_frame(char* name, address ret, int line) {

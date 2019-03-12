@@ -30,6 +30,16 @@ extern address call_stack_pointer;
 extern size_t call_stack_size;
 extern size_t working_stack_size;
 
+struct refcnt_container {
+	size_t count;
+	size_t refs;
+	struct refcnt_container* prev;
+	struct refcnt_container* next;
+};
+
+extern struct refcnt_container* all_containers_start;
+extern struct refcnt_container* all_containers_end;
+
 // init_memory() initializes the memory module
 void init_memory(void);
 
@@ -45,7 +55,9 @@ data pop_arg(int line);
 // refcnt_malloc() allocates a block of memory with reference count
 //   returned from MKPTR mostly, the count is 1 by default
 // We use a macro here so leaks can be traced back to the caller
-#define refcnt_malloc(count) refcnt_malloc_impl(safe_calloc((count) * sizeof(data) + (2 * sizeof(size_t)), 1), count)
+#define refcnt_malloc(count) \
+	refcnt_malloc_impl(safe_calloc( \
+		(count) * sizeof(data) + sizeof(struct refcnt_container), 1), count)
 data *refcnt_malloc_impl(data* allocated, size_t count);
 
 // refcnt_free() reduces the refcount by 1, and frees the heap memory
