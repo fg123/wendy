@@ -625,26 +625,33 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				destroy_data(&t);
 				break;
 			}
-			// DEPRECATED
 			case OP_IN: {
 				// Scan one line from the input.
-				// char buffer[INPUT_BUFFER_SIZE];
-				// while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
+				data ptr = pop_arg(line);
+				if (ptr.type != D_INTERNAL_POINTER) {
+					error_runtime(line, VM_INTERNAL_ERROR, "INC on non-pointer");
+					continue;
+				}
+				data* storage = ptr.value.reference;
+				destroy_data(storage);
 
-				// char* end_ptr = buffer;
-				// errno = 0;
-				// double d = strtod(buffer, &end_ptr);
-				// // null terminator or newline character
-				// if (errno != 0 || (*end_ptr != 0 && *end_ptr != 10)) {
-				// 	size_t len = strlen(buffer);
-				// 	// remove last newline
-				// 	buffer[len - 1] = 0;
-				// 	write_memory(memory_register, make_data(D_STRING, data_value_str(buffer)), line);
-				// }
-				// else {
-				// 	// conversion successful
-				// 	write_memory(memory_register, make_data(D_NUMBER, data_value_num(d)), line);
-				// }
+				char buffer[INPUT_BUFFER_SIZE];
+				while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
+
+				char* end_ptr = buffer;
+				errno = 0;
+				double d = strtod(buffer, &end_ptr);
+				// null terminator or newline character
+				if (errno != 0 || (*end_ptr != 0 && *end_ptr != 10)) {
+					size_t len = strlen(buffer);
+					// remove last newline
+					buffer[len - 1] = 0;
+					*storage = make_data(D_STRING, data_value_str(buffer));
+				}
+				else {
+					// conversion successful
+					*storage = make_data(D_NUMBER, data_value_num(d));
+				}
 				break;
 			}
 			case OP_HALT:
