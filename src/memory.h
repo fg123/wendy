@@ -69,7 +69,8 @@ data *refcnt_copy(data *ptr);
 
 // wendy_list_malloc is a helper for refcnt allocating space for a wendy
 //   list but also inserting a header
-data* wendy_list_malloc(size_t size);
+#define wendy_list_malloc(size) wendy_list_malloc_impl(refcnt_malloc((size) + 1), (size))
+data* wendy_list_malloc_impl(data* allocated, size_t size);
 
 // push_frame(name) creates a new stack frame (when starting a function call)
 void push_frame(char* name, address ret, int line);

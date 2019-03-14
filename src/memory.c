@@ -84,7 +84,9 @@ data *refcnt_malloc_impl(data* allocated, size_t count) {
 	container_info->next = all_containers_start;
 
 	all_containers_end = container_info;
-
+	if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
+		printf("refcnt malloc %p\n", allocated);
+	}
 	// This forces no pointer arithmetic
 	return (void*)allocated + sizeof(struct refcnt_container);
 }
@@ -94,7 +96,10 @@ void refcnt_free(data *ptr) {
 		(void*)ptr - sizeof(struct refcnt_container);
 
 	container_info->refs -= 1;
-
+	if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
+		printf("refcnt free %p, count %zd\n",
+			container_info, container_info->refs);
+	}
 	// TODO: crash if refcount is below 0...
 	if (container_info->refs == 0) {
 		for (size_t i = 0; i < container_info->count; i++) {
@@ -125,13 +130,16 @@ data *refcnt_copy(data *ptr) {
 	struct refcnt_container* container_info =
 		(void*)ptr - sizeof(struct refcnt_container);
 	container_info->refs += 1;
+	if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
+		printf("refcnt copy %p, count %zd\n",
+			container_info, container_info->refs);
+	}
 	return ptr;
 }
 
-data* wendy_list_malloc(size_t size) {
-	data* result = refcnt_malloc(size + 1);
-	result[0] = make_data(D_LIST_HEADER, data_value_num(size));
-	return result;
+data* wendy_list_malloc_impl(data* allocated, size_t size) {
+	allocated[0] = make_data(D_LIST_HEADER, data_value_num(size));
+	return allocated;
 }
 
 data *create_closure(void) {
@@ -175,6 +183,9 @@ void free_memory(void) {
 	}
 	safe_free(working_stack);
 	for (size_t i = 0; i < call_stack_pointer; i++) {
+		if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
+			printf("Clearing %s at %p\n", call_stack[i].id, call_stack[i].val.value.reference);
+		}
 		destroy_data(&call_stack[i].val);
 		safe_free(call_stack[i].id);
 	}

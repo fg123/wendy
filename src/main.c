@@ -53,6 +53,7 @@ void invalid_usage(void) {
 	printf("    --nogc            : disables garbage-collection.\n");
 	printf("    --optimize        : enables optimization algorithm (this will destroy overloaded primitive operators).\n");
 	printf("    --trace-vm        : traces each VM instruction.\n");
+	printf("    --trace-refcnt    : traces each ref-count action.\n");
     printf("    --dry-run         : compiles but does not write to a file or invoke the VM.\n");
 	printf("    -c, --compile     : compiles the given file but does not run.\n");
 	printf("    -v, --verbose     : displays information about memory state on error.\n");
@@ -90,6 +91,9 @@ bool process_options(char** options, int len, char** source) {
 		else if (streq("--trace-vm", options[i])) {
 			set_settings_flag(SETTINGS_TRACE_VM);
 		}
+		else if (streq("--trace-refcnt", options[i])) {
+			set_settings_flag(SETTINGS_TRACE_REFCNT);
+		}
         else if (streq("--dry-run", options[i])) {
             set_settings_flag(SETTINGS_DRY_RUN);
         }
@@ -105,10 +109,6 @@ bool process_options(char** options, int len, char** source) {
 		else if (streq("-t", options[i]) ||
 				 streq("--token-list", options[i])) {
 			set_settings_flag(SETTINGS_TOKEN_LIST_PRINT);
-		}
-		else if (streq("-d", options[i]) ||
-				 streq("--disassemble", options[i])) {
-			set_settings_flag(SETTINGS_DISASSEMBLE);
 		}
 		else if (streq("-d", options[i]) ||
 				 streq("--disassemble", options[i])) {
