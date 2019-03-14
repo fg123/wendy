@@ -57,16 +57,9 @@ static bool _id_exist(char* fn) {
 static char* get_binary_overload_name(operator op, data a, data b) {
 	data type_a = type_of(a);
 	data type_b = type_of(b);
-	int len = strlen(OPERATOR_OVERLOAD_PREFIX);
-	len += strlen(type_a.value.string);
-	len += strlen(operator_string[op]);
-	len += strlen(type_b.value.string);
-	char* fn_name = safe_malloc((len + 1) * sizeof(char));
-	fn_name[0] = 0;
-	strcat(fn_name, OPERATOR_OVERLOAD_PREFIX);
-	strcat(fn_name, type_a.value.string);
-	strcat(fn_name, operator_string[op]);
-	strcat(fn_name, type_b.value.string);
+	char* fn_name = safe_concat(OPERATOR_OVERLOAD_PREFIX, type_a.value.string,
+		operator_string[op], type_b.value.string);
+
 	destroy_data(&type_a);
 	destroy_data(&type_b);
 	return fn_name;
@@ -74,28 +67,16 @@ static char* get_binary_overload_name(operator op, data a, data b) {
 
 static char* get_unary_overload_name(operator op, data a) {
 	data type_a = type_of(a);
-	int len = strlen(OPERATOR_OVERLOAD_PREFIX);
-	len += strlen(operator_string[op]);
-	len += strlen(type_a.value.string);
-	char* fn_name = safe_malloc((len + 1) * sizeof(char));
-	fn_name[0] = 0;
-	strcat(fn_name, OPERATOR_OVERLOAD_PREFIX);
-	strcat(fn_name, operator_string[op]);
-	strcat(fn_name, type_a.value.string);
+	char* fn_name = safe_concat(OPERATOR_OVERLOAD_PREFIX,
+		operator_string[op], type_a.value.string);
+
 	destroy_data(&type_a);
 	return fn_name;
 }
 
 static char* get_print_overload_name(data a) {
 	data type_a = type_of(a);
-	int len = strlen(OPERATOR_OVERLOAD_PREFIX);
-	len += 1; // for @
-	len += strlen(type_a.value.string);
-	char* fn_name = safe_malloc((len + 1) * sizeof(char));
-	fn_name[0] = 0;
-	strcat(fn_name, OPERATOR_OVERLOAD_PREFIX);
-	strcat(fn_name, "@");
-	strcat(fn_name, type_a.value.string);
+	char* fn_name = safe_concat(OPERATOR_OVERLOAD_PREFIX "@", type_a.value.string);
 	destroy_data(&type_a);
 	return fn_name;
 }
@@ -141,7 +122,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			// This branch could slow down the VM but the CPU should branch
 			// predict after one or two iterations.
 			printf(BLU "<+%04X>: " RESET "%s\n", i, opcode_string[op]);
-			// print_call_stack(stdout, 20);
 		}
 		i += 1;
 		switch (op) {
