@@ -8,10 +8,10 @@
 //   tokens, which are passed into [AST] to create a syntax tree.
 
 // scan_tokens(source) creates a list of tokens from the source
-int scan_tokens(char* source_, token** destination, size_t* alloc_size);
+int scan_tokens(char* source_, struct token** destination, size_t* alloc_size);
 
 // print_token_list() prints the list of tokens
-void print_token_list(token* tokens, size_t size);
+void print_token_list(struct token* tokens, size_t size);
 
 
 #endif

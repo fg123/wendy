@@ -27,13 +27,13 @@
 //  function_call   ->  primary | primary ("(" expression_list ")")*
 //  primary         ->  NUMBER | STRING | TRUE | FALSE | NONE | IDENTIFIER |
 //                      "(" expression ")" | "[" expression_list "]" |
-//                      "#:" "(" identifier_list ")" "{" statement_list "}"
+//                      "#:" "(" identifier_list ")" "{" struct statement_list "}"
 // Inspired by https://lambda.uta.edu/cse5317/notes/node26.html
 
-typedef struct expr {
+struct expr {
 	enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_ASSIGN, E_IF }
 		type;
-	union { data                                            lit_expr;
+	union { struct data                                     lit_expr;
 			struct {    enum operator       operator;
 						struct expr*        left;
 						struct expr*        right; }        bin_expr;
@@ -63,81 +63,81 @@ typedef struct expr {
 		} op;
 	int col;
 	int line;
-} expr;
+};
 
-typedef struct expr_list {
-	expr*               elem;
+struct expr_list {
+	struct expr*               elem;
 	struct expr_list*   next;
-} expr_list;
+};
 
-typedef struct statement {
+struct statement {
 	enum { S_EXPR, S_OPERATION, S_LET, S_STRUCT, S_IF, S_BLOCK, S_LOOP, S_SET,
 		S_IMPORT, S_EMPTY }
 		type;
-	union { expr*                                       expr_statement;
-			struct {    opcode      operator;
-						expr*       operand; }          operation_statement;
+	union { struct expr*                                       expr_statement;
+			struct {    enum opcode      operator;
+						struct expr*       operand; }          operation_statement;
 			struct {    char*       lvalue;
-						expr*       rvalue; }           let_statement;
+						struct expr*       rvalue; }           let_statement;
 			struct {    char*       name;
-						expr_list*  instance_members;
-						expr_list*  static_members;
-						expr* init_fn; }                struct_statement;
-			struct {    expr*       condition;
+						struct expr_list*  instance_members;
+						struct expr_list*  static_members;
+						struct expr* init_fn; }                struct_statement;
+			struct {    struct expr*       condition;
 						struct statement*   statement_true;
 						struct statement*   statement_false; }  if_statement;
 			struct {    char*       index_var;
-						expr*       condition;
+						struct expr*       condition;
 						struct statement*   statement_true; } loop_statement;
 			struct statement_list*                      block_statement;
 			char*                                       import_statement;
 	} op;
 	int src_line;
-} statement;
+};
 
-typedef struct statement_list {
-	statement*              elem;
+struct statement_list {
+	struct statement*              elem;
 	struct statement_list*  next;
-} statement_list;
+};
 
-typedef enum traversal_algorithm_type {
+enum traversal_algorithm_type {
 	HANDLE_BEFORE_CHILDREN, HANDLE_AFTER_CHILDREN
-	} traversal_algorithm_type;
+};
 
-typedef struct traversal_algorithm {
-	void (*handle_expr)(expr *, struct traversal_algorithm*);
-	void (*handle_expr_list)(expr_list *, struct traversal_algorithm*);
-	void (*handle_statement)(statement *, struct traversal_algorithm*);
-	void (*handle_statement_list)(statement_list *, struct traversal_algorithm*);
-	traversal_algorithm_type type;
+struct traversal_algorithm {
+	void (*handle_expr)(struct expr *, struct traversal_algorithm*);
+	void (*handle_expr_list)(struct expr_list *, struct traversal_algorithm*);
+	void (*handle_statement)(struct statement *, struct traversal_algorithm*);
+	void (*handle_statement_list)(struct statement_list *, struct traversal_algorithm*);
+	enum traversal_algorithm_type type;
 
 	// Internal tracker of which level of traversal
 	int level;
-} traversal_algorithm;
+};
 
-extern traversal_algorithm ast_safe_free_impl;
+extern struct traversal_algorithm ast_safe_free_impl;
 
 // generate_ast(tokens, length) generates an ast based on the tokens/length
-statement_list* generate_ast(token* tokens, size_t length);
+struct statement_list* generate_ast(struct token* tokens, size_t length);
 
 // free_ast(ast) frees all the memory associated with the AST module
-void free_ast(statement_list* ast);
+void free_ast(struct statement_list* ast);
 
 // print_ast(ast) prints the tree in post order
-void print_ast(statement_list* ast);
+void print_ast(struct statement_list* ast);
 
 // ast_error_flag() returns true if the AST module encountered an error, and
 //   false otherwise
 bool ast_error_flag(void);
 
-void traverse_ast(statement_list*, traversal_algorithm*);
-void traverse_expr(expr*, traversal_algorithm*);
-void traverse_expr_list(expr_list*, traversal_algorithm*);
-void traverse_statement_list(statement_list*, traversal_algorithm*);
-void traverse_statement(statement*, traversal_algorithm*);
+void traverse_ast(struct statement_list*, struct traversal_algorithm*);
+void traverse_expr(struct expr*, struct traversal_algorithm*);
+void traverse_expr_list(struct expr_list*, struct traversal_algorithm*);
+void traverse_statement_list(struct statement_list*, struct traversal_algorithm*);
+void traverse_statement(struct statement*, struct traversal_algorithm*);
 
-void ast_safe_free_e(expr* ptr, traversal_algorithm* algo);
-void ast_safe_free_el(expr_list* ptr, traversal_algorithm* algo);
-void ast_safe_free_s(statement* ptr, traversal_algorithm* algo);
-void ast_safe_free_sl(statement_list* ptr, traversal_algorithm* algo);
+void ast_safe_free_e(struct expr* ptr, struct traversal_algorithm* algo);
+void ast_safe_free_el(struct expr_list* ptr, struct traversal_algorithm* algo);
+void ast_safe_free_s(struct statement* ptr, struct traversal_algorithm* algo);
+void ast_safe_free_sl(struct statement_list* ptr, struct traversal_algorithm* algo);
 #endif

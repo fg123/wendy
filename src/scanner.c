@@ -10,15 +10,15 @@ static size_t source_len;
 static size_t current; // is used to keep track of source current
 static size_t start;
 static char* source;
-static token* tokens;
+static struct token* tokens;
 static size_t tokens_alloc_size;
 static size_t t_curr; // t_curr is used to keep track of addToken
 static size_t line;
 static size_t col;
 
 static bool scan_token(void);
-static void add_token(token_type type);
-static void add_token_with_value(token_type type, token_data val);
+static void add_token(enum token_type type);
+static void add_token_with_value(enum token_type type, union token_data val);
 
 static bool is_at_end(void) {
 	return current >= source_len;
@@ -386,13 +386,13 @@ static bool scan_token(void) {
 	return true;
 }
 
-int scan_tokens(char* source_, token** destination, size_t* alloc_size) {
+int scan_tokens(char* source_, struct token** destination, size_t* alloc_size) {
 	source_len = strlen(source_);
 	source = safe_malloc(source_len + 1);
 	strcpy(source, source_);
 
 	tokens_alloc_size = source_len;
-	tokens = safe_malloc(tokens_alloc_size * sizeof(token));
+	tokens = safe_malloc(tokens_alloc_size * sizeof(struct token));
 	t_curr = 0;
 	current = 0;
 	line = 1;
@@ -407,14 +407,14 @@ int scan_tokens(char* source_, token** destination, size_t* alloc_size) {
 	return t_curr;
 }
 
-static void add_token(token_type type) {
+static void add_token(enum token_type type) {
 	char val[current - start + 1];
 	memcpy(val, &source[start], current - start);
 	val[current - start] = '\0';
 	add_token_with_value(type, make_data_str(val));
 }
 
-static void add_token_with_value(token_type type, token_data val) {
+static void add_token_with_value(enum token_type type, union token_data val) {
 	if (type == T_NONE) {
         tokens[t_curr++] = none_token();
         safe_free(val.string);
@@ -428,16 +428,16 @@ static void add_token_with_value(token_type type, token_data val) {
         safe_free(val.string);
     }
 	else {
-		token new_t = { type, line, col, val };
+		struct token new_t = { type, line, col, val };
 		tokens[t_curr++] = new_t;
 	}
 	if (t_curr == tokens_alloc_size) {
 		tokens_alloc_size += 200;
-		tokens = safe_realloc(tokens, tokens_alloc_size * sizeof(token));
+		tokens = safe_realloc(tokens, tokens_alloc_size * sizeof(struct token));
 	}
 }
 
-void print_token_list(token* tokens, size_t size) {
+void print_token_list(struct token* tokens, size_t size) {
 	for(size_t i = 0; i < size; i++) {
 		if (tokens[i].t_type == T_NUMBER) {
 			printf("[%zd][Line %d] - %s -> %f\n", i, tokens[i].t_line,

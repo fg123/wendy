@@ -11,51 +11,49 @@
 //   algorithm doesn't apply here. The optimizer passes does not only read from
 //   the AST, but readily mutates it as well.
 
-// Linked list node of identifiers within a statement block
-typedef struct id_node id_node;
+// Linked list node of identifiers within a struct statement block
 struct id_node {
 	char* id_name;
-	expr* value;
+	struct expr* value;
 	int modified_count;
 	int usage_count;
-	id_node* next;
+	struct id_node* next;
 };
 
-// Statement scope block to simulate function calls and checking if identifiers exist.
-typedef struct statement_block statement_block;
+// struct statement scope block to simulate function calls and checking if identifiers exist.
 struct statement_block {
-	id_node* id_list;
-	statement_block* next;
+	struct id_node* id_list;
+	struct statement_block* next;
 };
 
-static statement_block* curr_statement_block = 0;
+static struct statement_block* curr_statement_block = 0;
 
 // Forward Declarations
-static void free_id_nodes(id_node* node);
-static void free_statement_blocks(statement_block* block);
-static statement_list* optimize_statement_list(statement_list* list);
-static statement* optimize_statement(statement* state);
-static expr* optimize_expr(expr* expression);
-static expr_list* optimize_expr_list(expr_list* list);
-static statement_list* scan_statement_list_with_new_block(statement_list* list);
-static void scan_statement_list(statement_list* list);
-static void scan_statement(statement* state);
-static void scan_expr(expr* expression);
-static void scan_expr_list(expr_list* list);
+static void free_id_nodes(struct id_node* node);
+static void free_statement_blocks(struct statement_block* block);
+static struct statement_list* optimize_statement_list(struct statement_list* list);
+static struct statement* optimize_statement(struct statement* state);
+static struct expr* optimize_expr(struct expr* expression);
+static struct expr_list* optimize_expr_list(struct expr_list* list);
+static struct statement_list* scan_statement_list_with_new_block(struct statement_list* list);
+static void scan_statement_list(struct statement_list* list);
+static void scan_statement(struct statement* state);
+static void scan_expr(struct expr* expression);
+static void scan_expr_list(struct expr_list* list);
 
-static inline bool is_boolean(data t) {
+static inline bool is_boolean(struct data t) {
 	return t.type == D_TRUE || t.type == D_FALSE;
 }
 
-static id_node* find_id_node(char* id, int line, int col) {
+static struct id_node* find_id_node(char* id, int line, int col) {
 	UNUSED(line);
 	UNUSED(col);
 	// Search in each block and each list. Returns null if not found for now.
 	// TODO: perform identifier checking here, but will need to add in
 	//   special cases like `this` for OOP
-	statement_block* b = curr_statement_block;
+	struct statement_block* b = curr_statement_block;
 	while (b) {
-		id_node* n = b->id_list;
+		struct id_node* n = b->id_list;
 		while (n) {
 			if (streq(n->id_name, id)) {
 				return n;
@@ -71,12 +69,12 @@ static void remove_entry(char* id, int line, int col) {
 	UNUSED(line);
 	UNUSED(col);
 	// Basic LL Search and Remove
-	statement_block* b = curr_statement_block;
+	struct statement_block* b = curr_statement_block;
 	while (b) {
-		id_node** n = &b->id_list;
+		struct id_node** n = &b->id_list;
 		while (*n) {
 			if (streq((*n)->id_name, id)) {
-				id_node* next = (*n)->next;
+				struct id_node* next = (*n)->next;
 				safe_free(*n);
 				*n = next;
 				return;
@@ -88,39 +86,39 @@ static void remove_entry(char* id, int line, int col) {
 }
 
 static void add_usage(char* id, int line, int col) {
-	id_node* r = find_id_node(id, line, col);
+	struct id_node* r = find_id_node(id, line, col);
 	if (r) r->usage_count++;
 }
 
 static void remove_usage(char* id, int line, int col) {
-	id_node* r = find_id_node(id, line, col);
+	struct id_node* r = find_id_node(id, line, col);
 	if (r) r->usage_count--;
 }
 
 static int get_usage(char* id, int line, int col) {
-	id_node* r = find_id_node(id, line, col);
+	struct id_node* r = find_id_node(id, line, col);
 	if (r) return r->usage_count;
 	else return 100;
 }
 
-static expr* get_value(char* id, int line, int col) {
-	id_node* r = find_id_node(id, line, col);
+static struct expr* get_value(char* id, int line, int col) {
+	struct id_node* r = find_id_node(id, line, col);
 	if (r) return r->value;
 	else return 0;
 }
 
 static int get_modified(char* id, int line, int col) {
-	id_node* r = find_id_node(id, line, col);
+	struct id_node* r = find_id_node(id, line, col);
 	if (r) return r->modified_count;
 	else return 100;
 }
 
 static void add_modified(char* id, int line, int col) {
-	id_node* r = find_id_node(id, line, col);
+	struct id_node* r = find_id_node(id, line, col);
 	if (r) r->modified_count++;
 }
 
-void optimize_safe_free_e(expr* expression, traversal_algorithm* algo) {
+void optimize_safe_free_e(struct expr* expression, struct traversal_algorithm* algo) {
 	UNUSED(algo);
 	if (expression->type == E_LITERAL
 		&& expression->op.lit_expr.type == D_IDENTIFIER) {
@@ -129,22 +127,22 @@ void optimize_safe_free_e(expr* expression, traversal_algorithm* algo) {
 	}
     ast_safe_free_e(expression, algo);
 }
-void optimize_safe_free_el(expr_list* ptr, traversal_algorithm* algo) {
+void optimize_safe_free_el(struct expr_list* ptr, struct traversal_algorithm* algo) {
     UNUSED(algo);
     ast_safe_free_el(ptr, algo);
 }
 
-void optimize_safe_free_s(statement* ptr, traversal_algorithm* algo) {
+void optimize_safe_free_s(struct statement* ptr, struct traversal_algorithm* algo) {
     UNUSED(algo);
     ast_safe_free_s(ptr, algo);
 }
 
-void optimize_safe_free_sl(statement_list* ptr, traversal_algorithm* algo) {
+void optimize_safe_free_sl(struct statement_list* ptr, struct traversal_algorithm* algo) {
     UNUSED(algo);
     ast_safe_free_sl(ptr, algo);
 }
 
-traversal_algorithm optimize_safe_free_impl = {
+struct traversal_algorithm optimize_safe_free_impl = {
 	optimize_safe_free_e,
 	optimize_safe_free_el,
 	optimize_safe_free_s,
@@ -152,35 +150,35 @@ traversal_algorithm optimize_safe_free_impl = {
 	HANDLE_AFTER_CHILDREN, 0
 };
 
-statement_list* optimize_ast(statement_list* ast) {
-	statement_list* result = scan_statement_list_with_new_block(ast);
+struct statement_list* optimize_ast(struct statement_list* ast) {
+	struct statement_list* result = scan_statement_list_with_new_block(ast);
 	free_statement_blocks(curr_statement_block);
 	return result;
 }
 
-static void free_statement_block(statement_block* block) {
+static void free_statement_block(struct statement_block* block) {
 	if (!block) return;
 	free_id_nodes(curr_statement_block->id_list);
 	safe_free(block);
 }
 
-void free_statement_blocks(statement_block* block) {
+void free_statement_blocks(struct statement_block* block) {
 	if (!block) return;
 	free_statement_blocks(block->next);
 	free_statement_block(block);
 }
 
-static void free_id_nodes(id_node* node) {
+static void free_id_nodes(struct id_node* node) {
 	if (!node) return;
 	free_id_nodes(node->next);
 	safe_free(node);
 }
 
-static void add_node(char* id, expr* value) {
+static void add_node(char* id, struct expr* value) {
 	if (!curr_statement_block) {
 		error_general(OPTIMIZER_NO_STATEMENT_BLOCK);
 	}
-	id_node* new_node = safe_malloc(sizeof(id_node));
+	struct id_node* new_node = safe_malloc(sizeof(struct id_node));
 	new_node->id_name = id;
 	new_node->value = value;
 	new_node->modified_count = 0;
@@ -190,19 +188,19 @@ static void add_node(char* id, expr* value) {
 }
 
 static void make_new_block(void) {
-	statement_block* new_block = safe_malloc(sizeof(statement_block));
+	struct statement_block* new_block = safe_malloc(sizeof(struct statement_block));
 	new_block->next = curr_statement_block;
 	new_block->id_list = 0;
 	curr_statement_block = new_block;
 }
 
 static void delete_block(void) {
-	statement_block* next = curr_statement_block->next;
+	struct statement_block* next = curr_statement_block->next;
 	free_statement_block(curr_statement_block);
 	curr_statement_block = next;
 }
 
-static statement_list* scan_optimize_statement_list(statement_list* list) {
+static struct statement_list* scan_optimize_statement_list(struct statement_list* list) {
 	// We run two passes of optimization for some unknown reason. I added this
 	//   back in the day and I can't remember why :)
 	scan_statement_list(list);
@@ -210,7 +208,7 @@ static statement_list* scan_optimize_statement_list(statement_list* list) {
 	list = optimize_statement_list(list);
 	return list;
 }
-static statement_list* scan_statement_list_with_new_block(statement_list* list) {
+static struct statement_list* scan_statement_list_with_new_block(struct statement_list* list) {
 	make_new_block();
 	list = scan_optimize_statement_list(list);
 	delete_block();
@@ -218,7 +216,7 @@ static statement_list* scan_statement_list_with_new_block(statement_list* list) 
 }
 
 /* OPTIMIZE CODE */
-static statement* optimize_statement(statement* state) {
+static struct statement* optimize_statement(struct statement* state) {
 	if (!state) return 0;
 	if (state->type == S_LET) {
 		state->op.let_statement.rvalue =
@@ -257,15 +255,15 @@ static statement* optimize_statement(statement* state) {
 	else if (state->type == S_IF) {
 		state->op.if_statement.condition =
 			optimize_expr(state->op.if_statement.condition);
-		expr* condition = state->op.if_statement.condition;
+		struct expr* condition = state->op.if_statement.condition;
 
 		state->op.if_statement.statement_true =
 			optimize_statement(state->op.if_statement.statement_true);
 		state->op.if_statement.statement_false =
 			optimize_statement(state->op.if_statement.statement_false);
 
-		statement* run_if_false = state->op.if_statement.statement_false;
-		statement* run_if_true = state->op.if_statement.statement_true;
+		struct statement* run_if_false = state->op.if_statement.statement_false;
+		struct statement* run_if_true = state->op.if_statement.statement_true;
 		if (condition->type == E_LITERAL && condition->op.lit_expr.type == D_TRUE) {
 			// Always going to be true!
 			traverse_statement(run_if_false, &optimize_safe_free_impl);
@@ -294,7 +292,7 @@ static statement* optimize_statement(statement* state) {
 	return state;
 }
 
-static statement_list* optimize_statement_list(statement_list* list) {
+static struct statement_list* optimize_statement_list(struct statement_list* list) {
 	if (!list) return 0;
 	list->next = optimize_statement_list(list->next);
 	list->elem = optimize_statement(list->elem);
@@ -302,21 +300,21 @@ static statement_list* optimize_statement_list(statement_list* list) {
 		return list;
 	}
 	else {
-		// No Statement
-		statement_list* next = list->next;
+		// No struct statement
+		struct statement_list* next = list->next;
 		safe_free(list);
 		return next;
 	}
 }
 
-static expr* optimize_expr(expr* expression) {
+static struct expr* optimize_expr(struct expr* expression) {
 	if (!expression) return 0;
 	if (expression->type == E_LITERAL) {
 		if (expression->op.lit_expr.type == D_IDENTIFIER) {
 			// Is a static, then replace with value if literal
 			if (get_modified(expression->op.lit_expr.value.string,
 				expression->line, expression->col) == 0) {
-				expr* value = get_value(expression->op.lit_expr.value.string,
+				struct expr* value = get_value(expression->op.lit_expr.value.string,
 					expression->line, expression->col);
 				if (value && value->type == E_LITERAL) {
 					remove_usage(expression->op.lit_expr.value.string,
@@ -333,10 +331,10 @@ static expr* optimize_expr(expr* expression) {
 		expression->op.bin_expr.right =
 			optimize_expr(expression->op.bin_expr.right);
 
-		expr* left = expression->op.bin_expr.left;
-		expr* right = expression->op.bin_expr.right;
+		struct expr* left = expression->op.bin_expr.left;
+		struct expr* right = expression->op.bin_expr.right;
 		enum operator op = expression->op.bin_expr.operator;
-        data possible_optimized;
+        struct data possible_optimized;
 		if (left->type == E_LITERAL && left->op.lit_expr.type == D_NUMBER &&
 			right->type == E_LITERAL && right->op.lit_expr.type == D_NUMBER) {
 			// Peek Optimization is Available on Numbers
@@ -433,7 +431,7 @@ static expr* optimize_expr(expr* expression) {
 		expression->op.una_expr.operand =
 			optimize_expr(expression->op.una_expr.operand);
 		enum operator op = expression->op.una_expr.operator;
-		expr* operand = expression->op.una_expr.operand;
+		struct expr* operand = expression->op.una_expr.operand;
 		if (op == O_NEG && operand->type == E_LITERAL &&
 			operand->op.lit_expr.type == D_NUMBER) {
 			// Apply here
@@ -489,7 +487,7 @@ static expr* optimize_expr(expr* expression) {
 	return expression;
 }
 
-static expr_list* optimize_expr_list(expr_list* list) {
+static struct expr_list* optimize_expr_list(struct expr_list* list) {
 	if (!list) return 0;
 	list->next = optimize_expr_list(list->next);
 	list->elem = optimize_expr(list->elem);
@@ -497,15 +495,15 @@ static expr_list* optimize_expr_list(expr_list* list) {
 		return list;
 	}
 	else {
-		// No Statement
-		expr_list* next = list->next;
+		// No struct statement
+		struct expr_list* next = list->next;
 		safe_free(list);
 		return next;
 	}
 }
 
 /* BEGIN SCANNING CODE */
-static void scan_statement(statement* state) {
+static void scan_statement(struct statement* state) {
 	if (!state) return;
 	if (state->type == S_LET) {
 		// Add Usage
@@ -514,7 +512,7 @@ static void scan_statement(statement* state) {
 		scan_expr(state->op.let_statement.rvalue);
 	}
 	else if (state->type == S_OPERATION) {
-		opcode op = state->op.operation_statement.operator;
+		enum opcode op = state->op.operation_statement.operator;
 		if (op == OP_RET) {
 			scan_expr(state->op.operation_statement.operand);
 		}
@@ -559,13 +557,13 @@ static void scan_statement(statement* state) {
 	}
 }
 
-static void scan_statement_list(statement_list* list) {
+static void scan_statement_list(struct statement_list* list) {
 	if (!list) return;
 	scan_statement(list->elem);
 	scan_statement_list(list->next);
 }
 
-static void scan_expr(expr* expression) {
+static void scan_expr(struct expr* expression) {
 	if (!expression) return;
 	if (expression->type == E_LITERAL) {
 		if (expression->op.lit_expr.type == D_IDENTIFIER) {
@@ -602,7 +600,7 @@ static void scan_expr(expr* expression) {
 	}
 	else if (expression->type == E_FUNCTION) {
 		make_new_block();
-		expr_list* curr = expression->op.func_expr.parameters;
+		struct expr_list* curr = expression->op.func_expr.parameters;
 		while (curr) {
 			add_node(curr->elem->op.lit_expr.value.string, 0);
 			curr = curr->next;
@@ -621,7 +619,7 @@ static void scan_expr(expr* expression) {
 	}
 }
 
-static void scan_expr_list(expr_list* list) {
+static void scan_expr_list(struct expr_list* list) {
 	if (!list) return;
 	scan_expr(list->elem);
 	scan_expr_list(list->next);

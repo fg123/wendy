@@ -5,17 +5,17 @@
 #include <string.h>
 #include <stdarg.h>
 
-typedef struct malloc_node {
+struct malloc_node {
 	char* filename;
 	int line_num;
 	size_t size;
 	void* ptr;
 	struct malloc_node* next;
 	struct malloc_node* prev;
-} malloc_node;
+};
 
-static malloc_node* malloc_node_start = 0;
-static malloc_node* malloc_node_end = 0;
+static struct malloc_node* malloc_node_start = 0;
+static struct malloc_node* malloc_node_end = 0;
 static bool settings_data[SETTINGS_COUNT] = { false };
 bool is_big_endian = true;
 bool last_printed_newline = false;
@@ -54,15 +54,15 @@ void determine_endianness() {
 	is_big_endian = ((*(char*)&i) == 0);
 }
 
-void set_settings_flag(settings_flags flag) {
+void set_settings_flag(enum settings_flags flag) {
 	settings_data[flag] = true;
 }
 
-bool get_settings_flag(settings_flags flag) {
+bool get_settings_flag(enum settings_flags flag) {
 	return settings_data[flag];
 }
 
-static void attach_to_list(malloc_node* new_node) {
+static void attach_to_list(struct malloc_node* new_node) {
 	if (!malloc_node_end && !malloc_node_start) {
 		malloc_node_start = new_node;
 		malloc_node_end = new_node;
@@ -77,7 +77,7 @@ static void attach_to_list(malloc_node* new_node) {
 	malloc_node_end = new_node;
 }
 
-static void remove_from_list(malloc_node* node) {
+static void remove_from_list(struct malloc_node* node) {
 	if (node == malloc_node_start && node == malloc_node_end) {
 		malloc_node_start = 0;
 		malloc_node_end = 0;
@@ -97,7 +97,7 @@ static void remove_from_list(malloc_node* node) {
 
 void* safe_malloc_impl(size_t size, char* filename, int line_num) {
 	/* Make a node and attaches to end of list. */
-	malloc_node* new_node = malloc(size + sizeof(malloc_node));
+	struct malloc_node* new_node = malloc(size + sizeof(struct malloc_node));
 	if (!new_node) {
 		fprintf(stderr, "SafeMalloc: Couldn't allocate memory! %s at line %d.\n",
 			filename, line_num);
@@ -108,14 +108,14 @@ void* safe_malloc_impl(size_t size, char* filename, int line_num) {
 	new_node->line_num = line_num;
 	new_node->size = size;
 	/* Cast to void to avoid implicit pointer arithmetic */
-	new_node->ptr = (void *)new_node + sizeof(malloc_node);
+	new_node->ptr = (void *)new_node + sizeof(struct malloc_node);
 	attach_to_list(new_node);
 	return new_node->ptr;
 }
 
 void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num) {
 	size *= num;
-	malloc_node* new_node = calloc(1, size + sizeof(malloc_node));
+	struct malloc_node* new_node = calloc(1, size + sizeof(struct malloc_node));
 	if (!new_node) {
 		fprintf(stderr, "SafeCalloc: Couldn't allocate memory! %s at line %d.\n",
 			filename, line_num);
@@ -125,13 +125,13 @@ void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num) {
 	new_node->filename = filename;
 	new_node->line_num = line_num;
 	new_node->size = size;
-	new_node->ptr = (void *)new_node + sizeof(malloc_node);
+	new_node->ptr = (void *)new_node + sizeof(struct malloc_node);
 	attach_to_list(new_node);
 	return new_node->ptr;
 }
 
 void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
-	malloc_node* core_ptr = ptr - sizeof(*core_ptr);
+	struct malloc_node* core_ptr = ptr - sizeof(*core_ptr);
 
 	void* new_ptr = realloc(core_ptr, size + sizeof(*core_ptr));
 	if (!new_ptr) {
@@ -139,7 +139,7 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
 			" line %d.\n", filename, line_num);
 	}
 	// Relink Node
-	malloc_node* moved_node = new_ptr;
+	struct malloc_node* moved_node = new_ptr;
 	moved_node->prev->next = new_ptr;
 	moved_node->next->prev = new_ptr;
 
@@ -151,7 +151,7 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
 		malloc_node_end = new_ptr;
 	}
 
-	moved_node->ptr = new_ptr + sizeof(malloc_node);
+	moved_node->ptr = new_ptr + sizeof(struct malloc_node);
 	moved_node->size = size;
 	return moved_node->ptr;
 }
@@ -159,14 +159,14 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
 void safe_free_impl(void* ptr, char* filename, int line_num) {
 	UNUSED(filename);
 	UNUSED(line_num);
-	malloc_node* node_ptr = ptr - sizeof(malloc_node);
+	struct malloc_node* node_ptr = ptr - sizeof(struct malloc_node);
 	remove_from_list(node_ptr);
 	free(node_ptr);
 	return;
 }
 
 void check_leak() {
-	malloc_node* curr = malloc_node_start;
+	struct malloc_node* curr = malloc_node_start;
 	if (!curr) return;
 	do {
 		fprintf(stderr, "Memory Leak: %zd bytes (%p), allocated from %s at line %d.\n",
@@ -179,10 +179,10 @@ void check_leak() {
 
 void free_alloc() {
 	// Should have an empty list!
-	malloc_node* curr = malloc_node_start;
+	struct malloc_node* curr = malloc_node_start;
 	if (!curr) return;
 	do {
-		malloc_node* next = curr->next;
+		struct malloc_node* next = curr->next;
 		free((void*)curr);
 		curr = next;
 	} while (curr != malloc_node_start);

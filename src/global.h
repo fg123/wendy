@@ -35,7 +35,7 @@
 #define ENUM(x) x,
 #define STRING(x) #x,
 
-typedef enum {
+enum settings_flags {
 	SETTINGS_COMPILE = 0,
 	SETTINGS_NOGC,
 	SETTINGS_ASTPRINT,
@@ -50,10 +50,10 @@ typedef enum {
 	SETTINGS_TRACE_VM,
 	SETTINGS_TRACE_REFCNT,
     SETTINGS_DRY_RUN,
-	SETTINGS_COUNT } settings_flags;
+	SETTINGS_COUNT };
 
-void set_settings_flag(settings_flags flag);
-bool get_settings_flag(settings_flags flag);
+void set_settings_flag(enum settings_flags flag);
+bool get_settings_flag(enum settings_flags flag);
 
 void determine_endianness(void);
 bool streq(const char* a, const char* b);

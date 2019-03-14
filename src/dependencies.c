@@ -1,10 +1,10 @@
 #include "dependencies.h"
 #include <stdio.h>
 
-static void do_nothing_e(expr* e, traversal_algorithm* algo) { UNUSED(e); UNUSED(algo); }
-static void do_nothing_el(expr_list* e, traversal_algorithm* algo) { UNUSED(e); UNUSED(algo); }
-static void do_nothing_sl(statement_list* e, traversal_algorithm* algo) { UNUSED(e); UNUSED(algo); }
-static void handle_statement(statement* s, traversal_algorithm* algo) {
+static void do_nothing_e(struct expr* e, struct traversal_algorithm* algo) { UNUSED(e); UNUSED(algo); }
+static void do_nothing_el(struct expr_list* e, struct traversal_algorithm* algo) { UNUSED(e); UNUSED(algo); }
+static void do_nothing_sl(struct statement_list* e, struct traversal_algorithm* algo) { UNUSED(e); UNUSED(algo); }
+static void handle_statement(struct statement* s, struct traversal_algorithm* algo) {
 	UNUSED(algo);
 	if (s->type == S_IMPORT) {
 		// Log Dependency
@@ -12,7 +12,7 @@ static void handle_statement(statement* s, traversal_algorithm* algo) {
 	}
 }
 
-traversal_algorithm dependency_print_impl = {
+struct traversal_algorithm dependency_print_impl = {
 	do_nothing_e,
 	do_nothing_el,
 	handle_statement,
@@ -21,7 +21,7 @@ traversal_algorithm dependency_print_impl = {
 	0
 };
 
-void print_dependencies(statement_list* ast) {
+void print_dependencies(struct statement_list* ast) {
 	traverse_ast(ast, &dependency_print_impl);
 }
 

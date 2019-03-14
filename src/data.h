@@ -41,37 +41,38 @@
 	OP(D_END_OF_ARGUMENTS) \
 	OP(D_ANY) // No way for client to construct this, can only have a type <any>
 
-typedef enum {
+enum data_type {
 	FOREACH_DATA(ENUM)
-} data_type;
+};
 
 extern const char* data_string[];
 
-typedef struct data data;
-typedef union {
+struct data;
+
+union data_value {
 	double number;
 	char* string;
-	data* reference;
-} data_value;
-
-struct data {
-	data_type type;
-	data_value value;
+	struct data* reference;
 };
 
-data make_data(data_type type, data_value value);
-data copy_data(data d);
-void destroy_data(data* d);
+struct data {
+	enum data_type type;
+	union data_value value;
+};
+
+struct data make_data(enum data_type type, union data_value value);
+struct data copy_data(struct data d);
+void destroy_data(struct data* d);
 
 // This allows us to trace memory leaks to where it's actually allocated
 #define data_value_str(str) data_value_str_impl(safe_strdup(str))
-data_value data_value_str_impl(char *duplicated);
+union data_value data_value_str_impl(char *duplicated);
 
-data_value data_value_num(double num);
-data_value data_value_ptr(data* ptr);
-data_value data_value_size(int size);
-bool is_numeric(data t);
-bool is_reference(data t);
+union data_value data_value_num(double num);
+union data_value data_value_ptr(struct data* ptr);
+union data_value data_value_size(int size);
+bool is_numeric(struct data t);
+bool is_reference(struct data t);
 
 #define time_data() make_data(D_NUMBER, data_value_num(time(NULL)))
 #define noneret_data() make_data(D_NONERET, data_value_str("<noneret>"))
@@ -80,14 +81,14 @@ bool is_reference(data t);
 #define any_data() make_data(D_ANY, data_value_str("ANYYYYTHING"))
 #define true_data() make_data(D_TRUE, data_value_str("<true>"))
 
-data range_data(int start, int end);
-int range_start(data r);
-int range_end(data r);
-data list_header_data(int size);
-void print_data(const data *t);
-bool data_equal(data *a, data *b);
+struct data range_data(int start, int end);
+int range_start(struct data r);
+int range_end(struct data r);
+struct data list_header_data(int size);
+void print_data(const struct data *t);
+bool data_equal(struct data *a, struct data *b);
 
-data literal_to_data(token literal);
-unsigned int print_data_inline(const data *t, FILE *buf);
+struct data literal_to_data(struct token literal);
+unsigned int print_data_inline(const struct data *t, FILE *buf);
 
 #endif

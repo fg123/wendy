@@ -18,59 +18,59 @@ void set_make_token_param(int l, int c) {
 	col = c;
 }
 
-token none_token() {
-	token t = make_token(T_NONE, make_data_str("<none>"));
+struct token none_token() {
+	struct token t = make_token(T_NONE, make_data_str("<none>"));
 	t.t_line = line;
 	t.t_col = col;
 	return t;
 }
 
-token true_token() {
-	token t = make_token(T_TRUE, make_data_str("<true>"));
+struct token true_token() {
+	struct token t = make_token(T_TRUE, make_data_str("<true>"));
 	t.t_line = line;
 	t.t_col = col;
 	return t;
 }
 
-token false_token() {
-	token t = make_token(T_FALSE, make_data_str("<false>"));
+struct token false_token() {
+	struct token t = make_token(T_FALSE, make_data_str("<false>"));
 	t.t_line = line;
 	t.t_col = col;
 	return t;
 }
 
-token empty_token() {
-	token t = make_token(T_EMPTY, make_data_str(""));
+struct token empty_token() {
+	struct token t = make_token(T_EMPTY, make_data_str(""));
 	t.t_line = line;
 	t.t_col = col;
 	return t;
 }
 
-token make_token(token_type t, token_data d) {
-	token token_ = { t, 0, 0, d };
+struct token make_token(enum token_type t, union token_data d) {
+	struct token token_ = { t, 0, 0, d };
 	return token_;
 }
 
-token_data make_data_num(double i) {
-	token_data d;
+union token_data make_data_num(double i) {
+	union token_data d;
 	d.number = i;
 	return d;
 }
 
-token_data make_data_str(char* s) {
-	token_data d;
+union token_data make_data_str(char* s) {
+	union token_data d;
 	d.string = safe_strdup(s);
 	return d;
 }
 
-void print_token(const token* t) {
+void print_token(const struct token* t) {
 	print_token_inline(t, stdout);
 	printf("\n");
 	last_printed_newline = true;
 	fflush(stdout);
 }
 
-unsigned int print_token_inline(const token* t, FILE* buf) {
+unsigned int print_token_inline(const struct token* t, FILE* buf) {
 	unsigned int p = 0;
 	if (t->t_type == T_NUMBER) {
 		size_t len = snprintf(0, 0, "%f", t->t_data.number);
@@ -95,7 +95,7 @@ unsigned int print_token_inline(const token* t, FILE* buf) {
 	return p;
 }
 
-int precedence(token op) {
+int precedence(struct token op) {
 	switch (op.t_type) {
 		case T_PLUS:
 		case T_MINUS:
@@ -131,13 +131,13 @@ int precedence(token op) {
 	}
 }
 
-inline void destroy_token(token l) {
+inline void destroy_token(struct token l) {
 	if (l.t_type != T_NUMBER) {
         safe_free(l.t_data.string);
     }
 }
 
-void free_token_list(token* l, size_t s) {
+void free_token_list(struct token* l, size_t s) {
 	for (size_t i = 0; i < s; i++) {
         destroy_token(l[i]);
 	}

@@ -13,31 +13,31 @@
 
 char** program_arguments = 0;
 int program_arguments_count = 0;
-typedef struct native_function {
+struct native_function {
 	char* name;
 	int argc;
-	data (*function)(data*, int);
-} native_function;
+	struct data (*function)(struct data*, int);
+};
 
-static data native_printCallStack(data* args, int line);
-static data native_reverseString(data* args, int line);
-static data native_stringToInteger(data* args, int line);
-static data native_exec(data* args, int line);
-static data native_getc(data* args, int line);
-static data native_printBytecode(data* args, int line);
-static data native_getImportedLibraries(data* args, int line);
-static data native_getProgramArgs(data* args, int line);
-static data native_read(data* args, int line);
-static data native_readRaw(data* args, int line);
-static data native_readFile(data* args, int line);
-static data native_writeFile(data* args, int line);
+static struct data native_printCallStack(struct data* args, int line);
+static struct data native_reverseString(struct data* args, int line);
+static struct data native_stringToInteger(struct data* args, int line);
+static struct data native_exec(struct data* args, int line);
+static struct data native_getc(struct data* args, int line);
+static struct data native_printBytecode(struct data* args, int line);
+static struct data native_getImportedLibraries(struct data* args, int line);
+static struct data native_getProgramArgs(struct data* args, int line);
+static struct data native_read(struct data* args, int line);
+static struct data native_readRaw(struct data* args, int line);
+static struct data native_readFile(struct data* args, int line);
+static struct data native_writeFile(struct data* args, int line);
 
 // Math Functions
-static data native_pow(data* args, int line);
-static data native_ln(data* args, int line);
-static data native_log(data* args, int line);
+static struct data native_pow(struct data* args, int line);
+static struct data native_ln(struct data* args, int line);
+static struct data native_log(struct data* args, int line);
 
-static native_function native_functions[] = {
+static struct native_function native_functions[] = {
 	{ "printCallStack", 1, native_printCallStack },
 	{ "reverseString", 1, native_reverseString },
 	{ "stringToInteger", 1, native_stringToInteger },
@@ -55,7 +55,7 @@ static native_function native_functions[] = {
 	{ "io_writeFile", 2, native_writeFile }
 };
 
-static double native_to_numeric(data* t, int line) {
+static double native_to_numeric(struct data* t, int line) {
 	UNUSED(line);
 	if (t->type != D_NUMBER) {
 		error_runtime(line, VM_INVALID_NATIVE_NUMERICAL_TYPE_ERROR);
@@ -64,7 +64,7 @@ static double native_to_numeric(data* t, int line) {
 	return t->value.number;
 }
 
-static char* native_to_string(data* t, int line) {
+static char* native_to_string(struct data* t, int line) {
 	UNUSED(line);
 	if (t->type != D_STRING) {
 		error_runtime(line, VM_INVALID_NATIVE_STRING_TYPE_ERROR);
@@ -73,10 +73,10 @@ static char* native_to_string(data* t, int line) {
 	return t->value.string;
 }
 
-static data native_getProgramArgs(data* args, int line) {
+static struct data native_getProgramArgs(struct data* args, int line) {
 	UNUSED(args);
 	UNUSED(line);
-	data* array = wendy_list_malloc(program_arguments_count);
+	struct data* array = wendy_list_malloc(program_arguments_count);
 	int size = 1; // 1st is the header
 	for (int i = 0; i < program_arguments_count; i++) {
 		array[size++] = make_data(D_STRING,
@@ -85,17 +85,17 @@ static data native_getProgramArgs(data* args, int line) {
 	return make_data(D_LIST, data_value_ptr(array));
 }
 
-static data native_getImportedLibraries(data* args, int line) {
+static struct data native_getImportedLibraries(struct data* args, int line) {
 	UNUSED(args);
 	UNUSED(line);
-	import_node *node = imported_libraries;
+	struct import_node *node = imported_libraries;
 	// Traverse once to find length
 	size_t length = 0;
 	while (node) {
 		length++;
 		node = node->next;
 	}
-	data* library_list = wendy_list_malloc(length);
+	struct data* library_list = wendy_list_malloc(length);
 	node = imported_libraries;
 	length = 1;
 	while (node) {
@@ -106,7 +106,7 @@ static data native_getImportedLibraries(data* args, int line) {
 	return make_data(D_LIST, data_value_ptr(library_list));
 }
 
-static data native_getc(data* args, int line) {
+static struct data native_getc(struct data* args, int line) {
 	UNUSED(args);
 	UNUSED(line);
 	char result[2];
@@ -115,21 +115,21 @@ static data native_getc(data* args, int line) {
 	return make_data(D_STRING, data_value_str(result));
 }
 
-static data native_pow(data* args, int line) {
+static struct data native_pow(struct data* args, int line) {
 	double a = native_to_numeric(args, line);
 	double b = native_to_numeric(args + 1, line);
 	return make_data(D_NUMBER, data_value_num(pow(a, b)));
 }
 
-static data native_ln(data* args, int line) {
+static struct data native_ln(struct data* args, int line) {
 	return make_data(D_NUMBER, data_value_num(log(native_to_numeric(args, line))));
 }
 
-static data native_log(data* args, int line) {
+static struct data native_log(struct data* args, int line) {
 	return make_data(D_NUMBER, data_value_num(log10(native_to_numeric(args, line))));
 }
 
-static data native_exec(data* args, int line) {
+static struct data native_exec(struct data* args, int line) {
 	char* command = native_to_string(args, line);
 	if (!get_settings_flag(SETTINGS_SANDBOXED)) {
 		return make_data(D_NUMBER, data_value_num(system(command)));
@@ -137,22 +137,22 @@ static data native_exec(data* args, int line) {
 	return noneret_data();
 }
 
-static data native_printCallStack(data* args, int line) {
+static struct data native_printCallStack(struct data* args, int line) {
 	print_call_stack(stdout, (int)native_to_numeric(args, line));
 	return noneret_data();
 }
 
-static data native_printBytecode(data* args, int line) {
+static struct data native_printBytecode(struct data* args, int line) {
 	UNUSED(args);
 	UNUSED(line);
 	print_current_bytecode();
 	return noneret_data();
 }
 
-static data native_reverseString(data* args, int line) {
+static struct data native_reverseString(struct data* args, int line) {
 	char* string = native_to_string(args, line);
 	int len = strlen(string);
-	data t = make_data(D_STRING, data_value_str(string));
+	struct data t = make_data(D_STRING, data_value_str(string));
 	for (int i = 0; i < len / 2; i++) {
 		char tmp = t.value.string[i];
 		t.value.string[i] = t.value.string[len - i - 1];
@@ -161,7 +161,7 @@ static data native_reverseString(data* args, int line) {
 	return t;
 }
 
-static data native_stringToInteger(data* args, int line) {
+static struct data native_stringToInteger(struct data* args, int line) {
 	char* s = native_to_string(args, line);
 	int integer = 0;
 	bool neg = false;
@@ -178,7 +178,7 @@ static data native_stringToInteger(data* args, int line) {
 	return make_data(D_NUMBER, data_value_num(integer));
 }
 
-static data native_read(data* args, int line) {
+static struct data native_read(struct data* args, int line) {
 	UNUSED(args);
 	UNUSED(line);
 	// Scan one line from the input.
@@ -198,7 +198,7 @@ static data native_read(data* args, int line) {
 	return make_data(D_NUMBER, data_value_num(d));
 }
 
-static data native_readRaw(data* args, int line) {
+static struct data native_readRaw(struct data* args, int line) {
 	UNUSED(args);
 	UNUSED(line);
 	// Scan one line from the input.
@@ -209,14 +209,14 @@ static data native_readRaw(data* args, int line) {
 	return make_data(D_STRING, data_value_str(buffer));
 }
 
-static data native_readFile(data* args, int line) {
+static struct data native_readFile(struct data* args, int line) {
 	if (!get_settings_flag(SETTINGS_SANDBOXED)) {
 		char* file = native_to_string(args, line);
 		FILE *f = fopen(file, "rb");
 		fseek(f, 0, SEEK_END);
 		long fsize = ftell(f);
 		fseek(f, 0, SEEK_SET);  //same as rewind(f);
-		data_value r;
+		union data_value r;
 		r.string = safe_malloc(fsize + 1);
 		fread(r.string, fsize, 1, f);
 		fclose(f);
@@ -226,7 +226,7 @@ static data native_readFile(data* args, int line) {
 	return noneret_data();
 }
 
-static data native_writeFile(data* args, int line) {
+static struct data native_writeFile(struct data* args, int line) {
 	if (!get_settings_flag(SETTINGS_SANDBOXED)) {
 		char* file = native_to_string(args, line);
 		char* content = native_to_string(args + 1, line);
@@ -245,11 +245,11 @@ void native_call(char* function_name, int expected_args, int line) {
 			if (expected_args != argc) {
 				error_runtime(line, VM_INVALID_NATIVE_NUMBER_OF_ARGS, function_name);
 			}
-			data* arg_list = safe_malloc(sizeof(data) * argc);
+			struct data* arg_list = safe_malloc(sizeof(struct data) * argc);
 			for (int j = 0; j < argc; j++) {
 				arg_list[j] = pop_arg(line);
 			}
-			data end_marker = pop_arg(line);
+			struct data end_marker = pop_arg(line);
 			if (end_marker.type != D_END_OF_ARGUMENTS) {
 				error_runtime(line, VM_INVALID_NATIVE_NUMBER_OF_ARGS, function_name);
 			}

@@ -20,7 +20,7 @@
 // =============================================================================
 // https://docs.felixguo.me/architecture/wendy/slim-vm.md
 
-typedef enum opcode {
+enum opcode {
 	OP_PUSH,
 	OP_BIN,
 	OP_UNA,
@@ -47,7 +47,7 @@ typedef enum opcode {
 	OP_MEMPTR,
 	OP_INC,
 	OP_DEC
-} opcode;
+};
 
 #define OPCODE_STRING \
 	"push", "bin", "una", "call", "ret", "decl", "write", "in",\
@@ -77,7 +77,7 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset);
 void write_bytecode(uint8_t* bytecode, FILE* buffer);
 
 // get_token(bytecode, end) gets a token from the bytecode stream
-data get_data(uint8_t* bytecode, unsigned int* end);
+struct data get_data(uint8_t* bytecode, unsigned int* end);
 
 // get_address(bytecode) gets an address from bytecode stream, decoding
 //   endianness as required
@@ -88,7 +88,7 @@ address get_address(uint8_t* bytecode, unsigned int* end);
 char *get_string(uint8_t *bytecode, unsigned int *end);
 
 // verify_header(bytecode) checks the header for information,
-//   then returns the index of the first opcode instruction
+//   then returns the index of the first enum opcode instruction
 int verify_header(uint8_t* bytecode);
 
 #endif

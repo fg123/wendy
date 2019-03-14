@@ -75,63 +75,63 @@
 	OP(T_MEMBER) \
 	OP(T_DOLLAR_SIGN)
 
-typedef enum {
+enum token_type {
 	FOREACH_TOKEN(ENUM)
-} token_type;
+};
 
 extern const char* token_string[];
 
-typedef union {
+union token_data {
 	double number;
 	char* string;
-} token_data;
+};
 
-typedef struct {
-	token_type t_type;
+struct token {
+	enum token_type t_type;
 	int t_line;
 	int t_col;
-	token_data t_data;
-} token;
+	union token_data t_data;
+};
 
 // make_token(t, d) returns a new token
-token make_token(token_type t, token_data d);
+struct token make_token(enum token_type t, union token_data d);
 
 // make_data_int(i) makes a data union with the integer provided
-token_data make_data_num(double i);
+union token_data make_data_num(double i);
 
 // makeDataStr(s) makes a data union with the string provided
-token_data make_data_str(char* s);
+union token_data make_data_str(char* s);
 
 // none_token() returns a none token
-token none_token(void);
+struct token none_token(void);
 
 // false_token() returns a false token
-token false_token(void);
+struct token false_token(void);
 
 // true_token() returns a true token
-token true_token(void);
+struct token true_token(void);
 
 // empty_token() returns an empty token
-token empty_token(void);
+struct token empty_token(void);
 
 // print_token(t) prints the value of the token to the string
-void print_token(const token* t);
+void print_token(const struct token* t);
 
 // print_token_inline(T) prints the value of the token inline and returns # of
 //   characters printed
-unsigned int print_token_inline(const token* t, FILE* buf);
+unsigned int print_token_inline(const struct token* t, FILE* buf);
 
-// precedence(op) returns the precedece of the operator
-int precedence(token op);
+// precedence(op) returns the precedece of the enum operator
+int precedence(struct token op);
 
 // set_make_token_param(l, c) sets the line and column of the current state of
 //   the scanner
 void set_make_token_param(int l, int c);
 
 // destroys_token(t) frees all memory associated with the token
-void destroy_token(token t);
+void destroy_token(struct token t);
 
 // free_token_list(l) frees the token list and associated strings
-void free_token_list(token* l, size_t s);
+void free_token_list(struct token* l, size_t s);
 
 #endif

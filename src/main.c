@@ -135,7 +135,7 @@ bool process_options(char** options, int len, char** source) {
 
 void run(char* input_string) {
 	size_t alloc_size = 0;
-	token* tokens;
+	struct token* tokens;
 	size_t tokens_count;
 	reset_error_flag();
 	tokens_count = scan_tokens(input_string, &tokens, &alloc_size);
@@ -143,7 +143,7 @@ void run(char* input_string) {
 		print_token_list(tokens, tokens_count);
 	}
 
-	statement_list* ast = generate_ast(tokens, tokens_count);
+	struct statement_list* ast = generate_ast(tokens, tokens_count);
 	if (get_settings_flag(SETTINGS_OPTIMIZE)) {
 		ast = optimize_ast(ast);
 	}
@@ -296,7 +296,7 @@ int main(int argc, char** argv) {
 		char* buffer = get_source_buffer();
 		// Begin Processing the File
 		size_t alloc_size = 0;
-		token* tokens;
+		struct token* tokens;
 		size_t tokens_count;
 
 		// Scanning and Tokenizing
@@ -306,7 +306,7 @@ int main(int argc, char** argv) {
 		}
 
 		// Build AST
-		statement_list* ast = generate_ast(tokens, tokens_count);
+		struct statement_list* ast = generate_ast(tokens, tokens_count);
 		if (get_settings_flag(SETTINGS_OPTIMIZE)) {
 			ast = optimize_ast(ast);
 		}

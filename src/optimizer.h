@@ -7,6 +7,6 @@
 // Includes two different types of optimization algorithms, one to prune down
 //   AST and another to optimize bytecode instructions/
 
-statement_list* optimize_ast(statement_list* ast);
+struct statement_list* optimize_ast(struct statement_list* ast);
 
 #endif

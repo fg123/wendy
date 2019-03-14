@@ -98,7 +98,7 @@ static void write_integer(int a) {
 }
 
 // writes data to stream, destroys data
-static void write_data(data t) {
+static void write_data(struct data t) {
 	write_byte(t.type);
 	if (is_numeric(t)) {
 		// Writing a double
@@ -110,7 +110,7 @@ static void write_data(data t) {
 	destroy_data(&t);
 }
 
-static inline void write_opcode(opcode op) {
+static inline void write_opcode(enum opcode op) {
 	guarantee_size(1);
 	write_byte(op);
 }
@@ -119,7 +119,7 @@ static void codegen_expr(void* expre);
 static void codegen_statement(void* expre);
 static void codegen_statement_list(void* expre);
 
-static void codegen_lvalue_expr(expr* expression) {
+static void codegen_lvalue_expr(struct expr* expression) {
 	if (expression->type == E_LITERAL) {
 		// Better be a identifier eh
 		if (expression->op.lit_expr.type != D_IDENTIFIER) {
@@ -167,7 +167,7 @@ static inline void codegen_end_marker(void) {
 		data_value_num(0)));
 }
 
-static void codegen_expr_list_for_call_named(expr_list* list) {
+static void codegen_expr_list_for_call_named(struct expr_list* list) {
 	if (!list) {
 		codegen_end_marker();
 		return;
@@ -179,7 +179,7 @@ static void codegen_expr_list_for_call_named(expr_list* list) {
 	}
 	codegen_expr_list_for_call_named(list->next);
 	// Named Argument
-	expr* assign_expr = list->elem;
+	struct expr* assign_expr = list->elem;
 	if (assign_expr->op.assign_expr.lvalue->type != E_LITERAL ||
 		assign_expr->op.assign_expr.lvalue->op.lit_expr.type != D_IDENTIFIER) {
 		error_lexer(assign_expr->line,
@@ -194,7 +194,7 @@ static void codegen_expr_list_for_call_named(expr_list* list) {
 		data_value_str(assign_expr->op.assign_expr.lvalue->op.lit_expr.value.string)));
 }
 
-static void codegen_expr_list_for_call(expr_list* list) {
+static void codegen_expr_list_for_call(struct expr_list* list) {
 	// Let the recursion handle the reversing of the generation.
 	if (!list) {
 		// Write end marker first.
@@ -212,7 +212,7 @@ static void codegen_expr_list_for_call(expr_list* list) {
 
 static void codegen_statement(void* expre) {
 	if (!expre) return;
-	statement* state = (statement*) expre;
+	struct statement* state = (struct statement*) expre;
 
 	if (!get_settings_flag(SETTINGS_COMPILE)) {
 		write_opcode(OP_SRC);
@@ -239,7 +239,7 @@ static void codegen_statement(void* expre) {
 	}
 	else if (state->type == S_EXPR) {
 		codegen_expr(state->op.expr_statement);
-		// Only output if it's not an assignment statement.
+		// Only output if it's not an assignment struct statement.
 		if (state->op.expr_statement &&
 			state->op.expr_statement->type != E_ASSIGN) write_opcode(OP_OUT);
 	}
@@ -330,9 +330,9 @@ static void codegen_statement(void* expre) {
 
 		push_size += 2;
 
-		expr_list* curr = state->op.struct_statement.instance_members;
+		struct expr_list* curr = state->op.struct_statement.instance_members;
 		while (curr) {
-			expr* elem = curr->elem;
+			struct expr* elem = curr->elem;
 			if (elem->type != E_LITERAL
 				|| elem->op.lit_expr.type != D_IDENTIFIER) {
 				error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
@@ -345,7 +345,7 @@ static void codegen_statement(void* expre) {
 		}
 		curr = state->op.struct_statement.static_members;
 		while (curr) {
-			expr* elem = curr->elem;
+			struct expr* elem = curr->elem;
 			if (elem->type != E_LITERAL
 				|| elem->op.lit_expr.type != D_IDENTIFIER) {
 				error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
@@ -414,7 +414,7 @@ static void codegen_statement(void* expre) {
 			write_string(loop_index_name);
 			write_opcode(OP_WRITE);
 
-			// container = <expr>
+			// container = <struct expr>
 			codegen_expr(state->op.loop_statement.condition);
 			write_opcode(OP_DECL);
 			write_string(loop_container_name);
@@ -482,11 +482,11 @@ static void codegen_statement(void* expre) {
 }
 
 static void codegen_statement_list(void* expre) {
-	statement_list* list = (statement_list*) expre;
+	struct statement_list* list = (struct statement_list*) expre;
 	while (list) {
 		codegen_statement(list->elem);
 		if (bytecode[size - 1] == OP_RET) {
-			/* Stop generating if last statement was a return */
+			/* Stop generating if last struct statement was a return */
 			break;
 		}
 		list = list->next;
@@ -495,7 +495,7 @@ static void codegen_statement_list(void* expre) {
 
 static void codegen_expr(void* expre) {
 	if (!expre) return;
-	expr* expression = (expr*)expre;
+	struct expr* expression = (struct expr*)expre;
 	if (expression->type == E_LITERAL) {
 		// Literal Expression, we push to the stack.
 		write_opcode(OP_PUSH);
@@ -503,7 +503,7 @@ static void codegen_expr(void* expre) {
 	}
 	else if (expression->type == E_BINARY) {
 		if (expression->op.bin_expr.operator == O_MOD_EQUAL) {
-			/* Special operator just for Dhruvit, first we calculate the remainder */
+			/* Special enum operator just for Dhruvit, first we calculate the remainder */
 			codegen_expr(expression->op.bin_expr.right);
 			codegen_expr(expression->op.bin_expr.left);
 			write_opcode(OP_BIN);
@@ -595,7 +595,7 @@ static void codegen_expr(void* expre) {
 		int count = expression->op.list_expr.length;
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_LIST_HEADER, data_value_num(count)));
-		expr_list* param = expression->op.list_expr.contents;
+		struct expr_list* param = expression->op.list_expr.contents;
 		while (param) {
 			codegen_expr(param->elem);
 			param = param->next;
@@ -612,7 +612,7 @@ static void codegen_expr(void* expre) {
 
 		/* Count parameters */
 		int count = 0;
-		expr_list* param = expression->op.func_expr.parameters;
+		struct expr_list* param = expression->op.func_expr.parameters;
 		while (param) {
 			param = param->next;
 			count++;
@@ -625,7 +625,7 @@ static void codegen_expr(void* expre) {
 			write_string(expression->op.func_expr.native_name);
 			write_opcode(OP_RET);
 
-			expr_list* param = expression->op.func_expr.parameters;
+			struct expr_list* param = expression->op.func_expr.parameters;
 			int i = 0;
 			while (param) {
 				if (param->elem->type == E_LITERAL) {
@@ -640,7 +640,7 @@ static void codegen_expr(void* expre) {
 			}
 		}
 		else {
-			expr_list* param = expression->op.func_expr.parameters;
+			struct expr_list* param = expression->op.func_expr.parameters;
 			bool has_encountered_default = false;
 			int i = 0;
 			while (param) {
@@ -655,7 +655,7 @@ static void codegen_expr(void* expre) {
 							param->elem->col,
 							CODEGEN_UNEXPECTED_FUNCTION_PARAMETER);
 					}
-					data t = param->elem->op.lit_expr;
+					struct data t = param->elem->op.lit_expr;
 					write_opcode(OP_DECL);
 					write_string(t.value.string);
 					write_opcode(OP_WRITE);
@@ -666,7 +666,7 @@ static void codegen_expr(void* expre) {
 					// Bind Default Value First
 					codegen_expr(param->elem->op.assign_expr.rvalue);
 					write_opcode(OP_DECL);
-					// TODO: Check if assign expr is literal identifier.
+					// TODO: Check if assign struct expr is literal identifier.
 					write_string(param->elem->op.assign_expr.lvalue->
 						op.lit_expr.value.string);
 					// If the top of the stack is marker, this is no-op.
@@ -734,7 +734,7 @@ static void codegen_expr(void* expre) {
 	}
 }
 
-uint8_t* generate_code(statement_list* _ast, size_t* size_ptr) {
+uint8_t* generate_code(struct statement_list* _ast, size_t* size_ptr) {
 	capacity = CODEGEN_START_SIZE;
 	bytecode = safe_malloc(capacity * sizeof(uint8_t));
 	size = 0;
@@ -750,9 +750,9 @@ uint8_t* generate_code(statement_list* _ast, size_t* size_ptr) {
 }
 
 // CANNOT FREE OR DESTROY THIS ONE!
-data get_data(uint8_t* bytecode, unsigned int* end) {
+struct data get_data(uint8_t* bytecode, unsigned int* end) {
 	// Bytecode is already Offset!
-	data t;
+	struct data t;
 	int start = *end;
 	int i = 0;
 	t.type = bytecode[i++];
@@ -809,14 +809,14 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 	forever {
 		unsigned int start = i;
 		fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
-		opcode op = bytecode[i++];
+		enum opcode op = bytecode[i++];
 		unsigned int p = 0;
 		int printSourceLine = -1;
 		p += fprintf(buffer, YEL "%6s " RESET, opcode_string[op]);
 
 		switch (op) {
 			case OP_PUSH: {
-				data t = get_data(&bytecode[i], &i);
+				struct data t = get_data(&bytecode[i], &i);
 				if (t.type == D_STRING) {
 					p += fprintf(buffer, "%.*s ", max_len, t.value.string);
 					if (strlen(t.value.string) > (size_t) max_len) {
@@ -830,7 +830,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 			}
 			case OP_BIN:
 			case OP_UNA: {
-				operator o = bytecode[i++];
+				enum operator o = bytecode[i++];
 				p += fprintf(buffer, "%s", operator_string[o]);
 				break;
 			}
@@ -850,7 +850,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 				break;
 			}
 			case OP_MKREF: {
-				data_type t = bytecode[i++];
+				enum data_type t = bytecode[i++];
 				p += fprintf(buffer, "%s", data_string[t]);
 				address a = get_address(bytecode + i, &i);
 				p += fprintf(buffer, " %d", a);
@@ -909,7 +909,7 @@ static void write_address_at_buffer(address a, uint8_t* buffer, size_t loc) {
 	}
 }
 
-static void write_data_at_buffer(data t, uint8_t* buffer, size_t loc) {
+static void write_data_at_buffer(struct data t, uint8_t* buffer, size_t loc) {
 	buffer[loc++] = t.type;
 	if (t.type == D_INSTRUCTION_ADDRESS) {
 		if (!is_big_endian) loc += sizeof(double);
@@ -927,11 +927,11 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 		i += strlen(WENDY_VM_HEADER) + 1;
 	}
 	forever {
-		opcode op = buffer[i++];
+		enum opcode op = buffer[i++];
 		switch (op) {
 			case OP_PUSH: {
 				size_t tokLoc = i;
-				data t = get_data(buffer + i, &i);
+				struct data t = get_data(buffer + i, &i);
 				if (t.type == D_INSTRUCTION_ADDRESS) {
 					t.value.number += offset;
 					write_data_at_buffer(t, buffer, tokLoc);

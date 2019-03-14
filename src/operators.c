@@ -5,7 +5,7 @@ const char* operator_string[] = {
 	OPERATOR_STRING
 };
 
-enum operator token_operator_unary(token op) {
+enum operator token_operator_unary(struct token op) {
 	switch (op.t_type) {
 		case T_MINUS:
 			return O_NEG;
@@ -19,7 +19,7 @@ enum operator token_operator_unary(token op) {
 	return 0;
 }
 
-enum operator token_operator_binary(token op) {
+enum operator token_operator_binary(struct token op) {
 	switch (op.t_type) {
 		case T_PLUS: return O_ADD;
 		case T_MINUS: return O_SUB;

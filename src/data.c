@@ -11,12 +11,12 @@ const char* data_string[] = {
 	0 // Sentinal value used when traversing through this array; acts as a NULL
 };
 
-data make_data(data_type type, data_value value) {
-	data _data = { type, value };
+struct data make_data(enum data_type type, union data_value value) {
+	struct data _data = { type, value };
 	return _data;
 }
 
-data copy_data(data d) {
+struct data copy_data(struct data d) {
 	if (is_numeric(d)) {
 		return make_data(d.type, data_value_num(d.value.number));
 	}
@@ -29,7 +29,7 @@ data copy_data(data d) {
 	}
 }
 
-bool data_equal(data* a, data* b) {
+bool data_equal(struct data* a, struct data* b) {
 	if (a->type != b->type) {
 		return false;
 	}
@@ -43,7 +43,7 @@ bool data_equal(data* a, data* b) {
 	}
 }
 
-void destroy_data(data* d) {
+void destroy_data(struct data* d) {
 	if (is_reference(*d)) {
 		refcnt_free(d->value.reference);
 	}
@@ -53,31 +53,31 @@ void destroy_data(data* d) {
 	d->type = D_EMPTY;
 }
 
-data_value data_value_str_impl(char *duplicated) {
-	data_value r;
+union data_value data_value_str_impl(char *duplicated) {
+	union data_value r;
 	r.string = duplicated;
 	return r;
 }
 
-data_value data_value_ptr(data* ptr) {
-	data_value r;
+union data_value data_value_ptr(struct data* ptr) {
+	union data_value r;
 	r.reference = ptr;
 	return r;
 }
 
-data_value data_value_size(int size) {
-	data_value r;
+union data_value data_value_size(int size) {
+	union data_value r;
 	r.string = safe_calloc((size + 1), sizeof(char));
 	return r;
 }
 
-data_value data_value_num(double num) {
-	data_value r;
+union data_value data_value_num(double num) {
+	union data_value r;
 	r.number = num;
 	return r;
 }
 
-bool is_reference(data t) {
+bool is_reference(struct data t) {
 	return t.type == D_STRUCT ||
 		t.type == D_LIST ||
 		t.type == D_FUNCTION ||
@@ -88,7 +88,7 @@ bool is_reference(data t) {
 		t.type == D_STRUCT_FUNCTION;
 }
 
-bool is_numeric(data t) {
+bool is_numeric(struct data t) {
 	return t.type == D_NUMBER ||
 		t.type == D_INSTRUCTION_ADDRESS ||
 		t.type == D_LIST_HEADER ||
@@ -102,42 +102,42 @@ bool is_numeric(data t) {
 		t.type == D_INTERNAL_POINTER;
 }
 
-data range_data(int start, int end) {
-	data res = make_data(D_RANGE, data_value_str(""));
+struct data range_data(int start, int end) {
+	struct data res = make_data(D_RANGE, data_value_str(""));
 	size_t s = snprintf(NULL, 0, "%d|%d", start, end);
 	res.value.string = safe_realloc(res.value.string, s + 1);
 	sprintf(res.value.string, "%d|%d", start, end);
 	return res;
 }
 
-int range_start(data r) {
+int range_start(struct data r) {
 	int start = 0;
 	int end = 0;
 	sscanf(r.value.string, "%d|%d", &start, &end);
 	return start;
 }
 
-int range_end(data r) {
+int range_end(struct data r) {
 	int start = 0;
 	int end = 0;
 	sscanf(r.value.string, "%d|%d", &start, &end);
 	return end;
 }
 
-data list_header_data(int size) {
-	data res = make_data(D_LIST_HEADER, data_value_num(size));
+struct data list_header_data(int size) {
+	struct data res = make_data(D_LIST_HEADER, data_value_num(size));
 	return res;
 }
 
-void print_data(const data* t) {
+void print_data(const struct data* t) {
 	print_data_inline(t, stdout);
 	printf("\n");
 	last_printed_newline = true;
 	fflush(stdout);
 }
 
-unsigned int print_params_if_available(FILE* buf, const data* function_data) {
-	data list_ref = function_data->value.reference[3];
+unsigned int print_params_if_available(FILE* buf, const struct data* function_data) {
+	struct data list_ref = function_data->value.reference[3];
 	if (list_ref.type != D_LIST) return 0;
 	unsigned int p = 0;
 	unsigned int size = list_ref.value.reference->value.number;
@@ -152,7 +152,7 @@ unsigned int print_params_if_available(FILE* buf, const data* function_data) {
 	return p;
 }
 
-unsigned int print_data_inline(const data* t, FILE* buf) {
+unsigned int print_data_inline(const struct data* t, FILE* buf) {
 	unsigned int p = 0;
 	if (t->type == D_OBJ_TYPE) {
 		p += fprintf(buf, "<%s>", t->value.string);
@@ -225,7 +225,7 @@ unsigned int print_data_inline(const data* t, FILE* buf) {
 	return p;
 }
 
-static data_type literal_type_to_data_type(token_type t) {
+static enum data_type literal_type_to_data_type(enum token_type t) {
 	switch(t) {
 		case T_NUMBER:
 			return D_NUMBER;
@@ -248,7 +248,7 @@ static data_type literal_type_to_data_type(token_type t) {
 	return D_EMPTY;
 }
 
-data literal_to_data(token literal) {
+struct data literal_to_data(struct token literal) {
 	if (literal.t_type == T_NUMBER) {
 		return make_data(D_NUMBER, data_value_num(literal.t_data.number));
 	}

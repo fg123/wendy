@@ -11,8 +11,8 @@
 #define RA_START "#"
 #define CHAR(s) (*s)
 
-data* working_stack;
-stack_entry* call_stack;
+struct data* working_stack;
+struct stack_entry* call_stack;
 
 address frame_pointer = 0;
 address working_stack_pointer = 0;
@@ -62,7 +62,7 @@ void check_memory(void) {
 	}
 }
 
-data *refcnt_malloc_impl(data* allocated, size_t count) {
+struct data *refcnt_malloc_impl(struct data* allocated, size_t count) {
 	// We allocate:
 	// | refcnt_container | data         |
 	// |                  | count * data |
@@ -91,7 +91,7 @@ data *refcnt_malloc_impl(data* allocated, size_t count) {
 	return (void*)allocated + sizeof(struct refcnt_container);
 }
 
-void refcnt_free(data *ptr) {
+void refcnt_free(struct data *ptr) {
 	struct refcnt_container* container_info =
 		(void*)ptr - sizeof(struct refcnt_container);
 
@@ -126,7 +126,7 @@ void refcnt_free(data *ptr) {
 	}
 }
 
-data *refcnt_copy(data *ptr) {
+struct data *refcnt_copy(struct data *ptr) {
 	struct refcnt_container* container_info =
 		(void*)ptr - sizeof(struct refcnt_container);
 	container_info->refs += 1;
@@ -137,12 +137,12 @@ data *refcnt_copy(data *ptr) {
 	return ptr;
 }
 
-data* wendy_list_malloc_impl(data* allocated, size_t size) {
+struct data* wendy_list_malloc_impl(struct data* allocated, size_t size) {
 	allocated[0] = make_data(D_LIST_HEADER, data_value_num(size));
 	return allocated;
 }
 
-data *create_closure(void) {
+struct data *create_closure(void) {
 	size_t size = 0;
 	for (size_t i = main_end_pointer; i < call_stack_pointer; i++) {
 		if (is_identifier_entry(i)) {
@@ -150,7 +150,7 @@ data *create_closure(void) {
 		}
 	}
 	// We store a closure as a wendy-list of: identifier, value, identifier 2, value 2, etc
-	data *closure_list = wendy_list_malloc(size * 2);
+	struct data *closure_list = wendy_list_malloc(size * 2);
 	size_t index = 1;
 	for (size_t i = main_end_pointer; i < call_stack_pointer; i++) {
 		if (is_identifier_entry(i)) {
@@ -164,10 +164,10 @@ data *create_closure(void) {
 
 void init_memory(void) {
 	// Initialize Argument Stack
-	working_stack = safe_calloc(working_stack_size, sizeof(data));
+	working_stack = safe_calloc(working_stack_size, sizeof(struct data));
 
 	// Initialize Call Stack
-	call_stack = safe_calloc(call_stack_size, sizeof(stack_entry));
+	call_stack = safe_calloc(call_stack_size, sizeof(struct stack_entry));
 }
 
 void clear_working_stack(void) {
@@ -208,7 +208,7 @@ void push_frame(char* name, address ret, int line) {
 	address old_fp = frame_pointer;
 	frame_pointer = call_stack_pointer;
 
-	stack_entry* se = push_stack_entry(se_name, line);
+	struct stack_entry* se = push_stack_entry(se_name, line);
 	se->val = wrap_number(old_fp);
 
 	safe_free(se_name);
@@ -225,7 +225,7 @@ void push_auto_frame(address ret, char* type, int line) {
 	address old_fp = frame_pointer;
 	frame_pointer = call_stack_pointer;
 
-	stack_entry* se = push_stack_entry(se_name, line);
+	struct stack_entry* se = push_stack_entry(se_name, line);
 	se->val = wrap_number(old_fp);
 
 	safe_free(se_name);
@@ -290,12 +290,12 @@ void print_call_stack(FILE* file, int maxlines) {
 	fprintf(file, DIVIDER "\n");
 }
 
-void push_arg(data t) {
+void push_arg(struct data t) {
 	working_stack[working_stack_pointer++] = t;
 	check_memory();
 }
 
-data* top_arg(int line) {
+struct data* top_arg(int line) {
 	if (working_stack_pointer != 0) {
 		return &working_stack[working_stack_pointer - 1];
 	}
@@ -303,9 +303,9 @@ data* top_arg(int line) {
 	return 0;
 }
 
-data pop_arg(int line) {
+struct data pop_arg(int line) {
 	if (working_stack_pointer != 0) {
-		data ret = working_stack[--working_stack_pointer];
+		struct data ret = working_stack[--working_stack_pointer];
 		working_stack[working_stack_pointer] = make_data(D_EMPTY, data_value_num(0));
 		return ret;
 	}
@@ -313,10 +313,10 @@ data pop_arg(int line) {
 	return none_data();
 }
 
-stack_entry* push_stack_entry(char* id, int line) {
+struct stack_entry* push_stack_entry(char* id, int line) {
 	// TODO(felixguo): can probably remove line
 	UNUSED(line);
-	stack_entry new_entry;
+	struct stack_entry new_entry;
 	new_entry.is_closure = false;
 	new_entry.id = safe_strdup(id);
 
@@ -360,7 +360,7 @@ bool id_exist(char* id, bool search_main) {
 	return false;
 }
 
-data* get_address_of_id(char* id, int line) {
+struct data* get_address_of_id(char* id, int line) {
 	address stack_entry = get_stack_pos_of_id(id, line);
 	if (!stack_entry) {
 		/* Some error occured, nothing lies at 0 */
@@ -388,12 +388,12 @@ address get_stack_pos_of_id(char* id, int line) {
 	return 0;
 }
 
-data* get_value_of_id(char* id, int line) {
+struct data* get_value_of_id(char* id, int line) {
 	// return get_value_of_address(get_address_of_id(id, line), line);
 	return get_address_of_id(id, line);
 }
 
-data* get_value_of_address(data* a, int line) {
+struct data* get_value_of_address(struct data* a, int line) {
 	// TODO(felixguo): This is wrong
 	UNUSED(a);
 	UNUSED(line);

@@ -43,22 +43,22 @@ void error_compile(int line, int col, char* message, ...);
 #define AST_EXPECTED_IDENTIFIER_LOOP "Expected identifier in place of loop variable."
 #define AST_STRUCT_NAME_IDENTIFIER "Struct name must be an identifier!"
 #define AST_UNRECOGNIZED_IMPORT "Unrecognized import, expected an identifier!"
-#define AST_OPERATOR_OVERLOAD_NO_OPERATOR "Expected an operator!"
+#define AST_OPERATOR_OVERLOAD_NO_OPERATOR "Expected an enum operator!"
 
 // Optimizer Errors
-#define OPTIMIZER_NO_STATEMENT_BLOCK "Identifier declared outside of statement block!?"
+#define OPTIMIZER_NO_STATEMENT_BLOCK "Identifier declared outside of struct statement block!?"
 
 // CodeGen Messages:
 #define CODEGEN_LVALUE_EXPECTED_IDENTIFIER "Expected identifier in lvalue expression."
 #define CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL \
-	"Right parameter of member access binary operator must be a LITERAL expression."
+	"Right parameter of member access binary enum operator must be a LITERAL expression."
 #define CODEGEN_NAMED_ARGUMENT_NOT_LITERAL "Named arguments must be a valid LITERAL identifier."
 #define CODEGEN_UNEXPECTED_FUNCTION_PARAMETER \
 	"Unexpected function parameter declaration."
 #define CODEGEN_FUNCTION_DEFAULT_VALUES_AT_END \
 	"Unexpected parameter with no default value!"
 #define CODEGEN_INVALID_LVALUE_BINOP \
-	"Invalid binary operator in lvalue expression."
+	"Invalid binary enum operator in lvalue expression."
 #define CODEGEN_INVALID_LVALUE \
 	"Invalid lvalue expression!"
 #define CODEGEN_NAMED_ARGUMENT_MUST_COME_AFTER_POSITIONAL \
@@ -66,14 +66,14 @@ void error_compile(int line, int col, char* message, ...);
 #define CODEGEN_EXPECTED_IDENTIFIER AST_EXPECTED_IDENTIFIER
 #define CODEGEN_REQ_FILE_READ_ERR SCAN_REQ_FILE_READ_ERR
 
-#define CODEGEN_BYTECODE_INVALID_OPCODE "Inline Bytecode: Invalid Opcode '%s'"
-#define CODEGEN_BYTECODE_UNEXPECTED_OPERATOR "Inline Bytecode: Unexpected Operator '%s'. Operators must follow BIN or UNA opcode."
+#define CODEGEN_BYTECODE_INVALID_OPCODE "Inline Bytecode: Invalid enum opcode '%s'"
+#define CODEGEN_BYTECODE_UNEXPECTED_OPERATOR "Inline Bytecode: Unexpected enum operator '%s'. Operators must follow BIN or UNA enum opcode."
 #define CODEGEN_BYTECODE_UNEXPECTED_DATA_NO_CONTENT "Inline Bytecode: Found a data_type specifier but no content!"
 #define CODEGEN_BYTECODE_UNEXPECTED_RAW_BYTE "Inline Bytecode: Found raw byte specifier '$' but no content!"
 
 // Operators Messages
-#define OPERATORS_INVALID_UNARY "Invalid unary operator!"
-#define OPERATORS_INVALID_BINARY "Invalid binary operator!"
+#define OPERATORS_INVALID_UNARY "Invalid unary enum operator!"
+#define OPERATORS_INVALID_BINARY "Invalid binary enum operator!"
 
 // Debugger Messages:
 #define OUT_OF_BREAKPOINTS "Breakpoint limit reached! You cannot create more breakpoints!"
@@ -88,8 +88,8 @@ void error_compile(int line, int col, char* message, ...);
 #define MEMORY_REGISTER_STACK_OVERFLOW "Internal memory stack overflowed."
 
 // VM Errors:
-#define VM_RET_FROM_MAIN "Illegal return statement called at the top level."
-#define VM_INVALID_OPCODE "Invalid opcode encountered (0x%X at 0x%X)."
+#define VM_RET_FROM_MAIN "Illegal return struct statement called at the top level."
+#define VM_INVALID_OPCODE "Invalid enum opcode encountered (0x%X at 0x%X)."
 #define VM_VAR_DECLARED_ALREADY "Identifier '%s' was already declared!"
 #define VM_NOT_A_LIST "Setting nth item of identifier must be List."
 #define VM_INVALID_LVALUE_LIST_SUBSCRIPT "List index must be a number!"
@@ -102,12 +102,12 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_INVALID_LIST_SUBSCRIPT "List index must be a number or a range!"
 #define VM_MEMBER_NOT_IDEN "Tried to access invalid member!"
 #define VM_MATH_DISASTER "Division by 0!"
-#define VM_TYPE_ERROR "Type error on operator '%s'!"
-#define VM_NUM_NUM_INVALID_OPERATOR "Invalid operator '%s' between two numbers."
-#define VM_LIST_LIST_INVALID_OPERATOR "Invalid operator '%s' between two lists."
-#define VM_INVALID_APPEND "Invalid operator '%s' between list and element."
-#define VM_STRING_NUM_INVALID_OPERATOR "Invalid operator '%s' between string and number."
-#define VM_STRING_STRING_INVALID_OPERATOR "Invalid operator '%s' between string and string."
+#define VM_TYPE_ERROR "Type error on enum operator '%s'!"
+#define VM_NUM_NUM_INVALID_OPERATOR "Invalid enum operator '%s' between two numbers."
+#define VM_LIST_LIST_INVALID_OPERATOR "Invalid enum operator '%s' between two lists."
+#define VM_INVALID_APPEND "Invalid enum operator '%s' between list and element."
+#define VM_STRING_NUM_INVALID_OPERATOR "Invalid enum operator '%s' between string and number."
+#define VM_STRING_STRING_INVALID_OPERATOR "Invalid enum operator '%s' between string and string."
 #define VM_INVALID_NEGATE "Negation operand must be a number."
 #define VM_INVALID_NATIVE_CALL "Natively linked function '%s' not found!"
 #define VM_INVALID_NATIVE_NUMBER_OF_ARGS "Natively linked function call '%s' does not match expected number of arguments!"
