@@ -13,8 +13,6 @@
 #include <limits.h>
 #include <stdarg.h>
 
-static address memory_register = 0;
-static address memory_register_A = 0;
 static int line;
 static address i = 0;
 static uint8_t* bytecode = 0;
@@ -143,70 +141,35 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			// This branch could slow down the VM but the CPU should branch
 			// predict after one or two iterations.
 			printf(BLU "<+%04X>: " RESET "%s\n", i, opcode_string[op]);
+			// print_call_stack(stdout, 20);
 		}
 		i += 1;
 		switch (op) {
 			case OP_PUSH: {
 				data t = get_data(bytecode + i, &i);
+				// t will never be a reference type
 				data d;
 				if (t.type == D_IDENTIFIER) {
 					if (streq(t.value.string, "time")) {
 						d = time_data();
 					}
 					else {
-						d = copy_data(*get_value_of_id(t.value.string, line));
+						data* value = get_value_of_id(t.value.string, line);
+						if (!value) {
+							break;
+						}
+						d = copy_data(*value);
 					}
 				}
 				else {
 					d = copy_data(t);
 				}
 				last_pushed_identifier = t.value.string;
-				push_arg(d, line);
-				break;
-			}
-			case OP_SRC: {
-				void* ad = &bytecode[i];
-				line = get_address(ad, &i);
-				break;
-			}
-			case OP_POP: {
-				data r = pop_arg(line);
-				destroy_data(&r);
+				push_arg(d);
 				break;
 			}
 			case OP_BIN: {
 				operator op = bytecode[i++];
-				data b = pop_arg(line);
-				data a = pop_arg(line);
-				data any_d = any_data();
-				char* a_and_b = get_binary_overload_name(op, a, b);
-				char* any_a = get_binary_overload_name(op, any_d, b);
-				char* any_b = get_binary_overload_name(op, a, any_d);
-				destroy_data(&any_d);
-				char* fn_name = first_that(_id_exist, a_and_b, any_a, any_b);
-				if (fn_name) {
-					push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)),
-						line);
-					push_arg(b, line);
-					push_arg(a, line);
-					push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
-					safe_free(a_and_b);
-					safe_free(any_a);
-					safe_free(any_b);
-					goto wendy_vm_call;
-				}
-				else {
-					push_arg(eval_binop(op, a, b), line);
-					destroy_data(&a);
-					destroy_data(&b);
-				}
-				safe_free(a_and_b);
-				safe_free(any_a);
-				safe_free(any_b);
-				break;
-			}
-			case OP_RBIN: {
-				operator op = bytecode[i++];
 				data a = pop_arg(line);
 				data b = pop_arg(line);
 				data any_d = any_data();
@@ -216,18 +179,17 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				destroy_data(&any_d);
 				char* fn_name = first_that(_id_exist, a_and_b, any_a, any_b);
 				if (fn_name) {
-					push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)),
-						line);
-					push_arg(a, line);
-					push_arg(b, line);
-					push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
+					push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+					push_arg(b);
+					push_arg(a);
+					push_arg(copy_data(*get_value_of_id(fn_name, line)));
 					safe_free(a_and_b);
 					safe_free(any_a);
 					safe_free(any_b);
 					goto wendy_vm_call;
 				}
 				else {
-					push_arg(eval_binop(op, a, b), line);
+					push_arg(eval_binop(op, a, b));
 					destroy_data(&a);
 					destroy_data(&b);
 				}
@@ -241,18 +203,22 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				data a = pop_arg(line);
 				char* fn_name = get_unary_overload_name(op, a);
 				if (id_exist(fn_name, true)) {
-					push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)),
-						line);
-					push_arg(a, line);
-					push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
+					push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+					push_arg(a);
+					push_arg(copy_data(*get_value_of_id(fn_name, line)));
 					safe_free(fn_name);
 					goto wendy_vm_call;
 				}
 				else {
-					push_arg(eval_uniop(op, a), line);
+					push_arg(eval_uniop(op, a));
 					destroy_data(&a);
 				}
 				safe_free(fn_name);
+				break;
+			}
+			case OP_SRC: {
+				void* ad = &bytecode[i];
+				line = get_address(ad, &i);
 				break;
 			}
 			case OP_NATIVE: {
@@ -262,21 +228,26 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				native_call(name, args, line);
 				break;
 			}
-			case OP_BIND: {
+			case OP_DECL: {
 				char *id = get_string(bytecode + i, &i);
 				if (id_exist(id, false)) {
-					error_runtime(line, VM_VAR_DECLARED_ALREADY, id);
+					address a = get_stack_pos_of_id(id, line);
+					if (!call_stack[a].is_closure) {
+						error_runtime(line, VM_VAR_DECLARED_ALREADY, id);
+						continue;
+					}
 				}
-				else {
-					push_stack_entry(id, memory_register, line);
-				}
+				stack_entry* result = push_stack_entry(id, line);
+				push_arg(make_data(D_INTERNAL_POINTER, data_value_ptr(&result->val)));
+				last_pushed_identifier = id;
 				break;
 			}
 			case OP_WHERE: {
 				char* id = get_string(bytecode + i, &i);
 				last_pushed_identifier = id;
-				memory_register = get_address_of_id(id, line);
-				memory_register_A = memory_register;
+				push_arg(make_data(D_INTERNAL_POINTER,
+					data_value_ptr(get_address_of_id(id, line))
+				));
 				break;
 			}
 			case OP_IMPORT: {
@@ -291,197 +262,126 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_ARGCLN: {
-				// TODO: This instruction can be modified to support
-				//   variable arguments.
-				data* extra_args = safe_malloc(INITIAL_ARGSTACK_SIZE *
-											   sizeof(data));
+				// TODO: 128 limit here seems a bit arbitrary and we
+				data* extra_args = wendy_list_malloc(128);
 				size_t count = 0;
 				while (top_arg(line)->type != D_END_OF_ARGUMENTS) {
 					if (top_arg(line)->type == D_NAMED_ARGUMENT_NAME) {
 						data identifier = pop_arg(line);
-						address loc =
-							get_address_of_id(identifier.value.string, line);
-						write_memory(loc, pop_arg(line), line);
+						data* loc = get_address_of_id(identifier.value.string, line);
+						destroy_data(loc);
+						*loc = pop_arg(line);
 						destroy_data(&identifier);
 					}
 					else {
-						data r = pop_arg(line);
-						extra_args[count++] = r;
+						extra_args[count + 1] = pop_arg(line);
+						count += 1;
 					}
 				}
+				// We need to re-write the list counter
+				extra_args[0].value.number = count;
 				// Assign "arguments" variable with rest of the arguments.
-				address ladr = push_memory_wendy_list(extra_args, count, line);
-				address adr = push_memory(make_data(D_LIST, data_value_num(ladr)), line);
-				push_stack_entry("arguments", adr, line);
-				safe_free(extra_args);
+				push_stack_entry("arguments", line)->val =
+					make_data(D_LIST, data_value_ptr(extra_args));
 				// Pop End of Arguments
-				pop_arg(line);
+				data eoargs = pop_arg(line);
+				destroy_data(&eoargs);
 				break;
 			}
 			case OP_RET: {
+				if (frame_pointer == 0) {
+					// We tried to return from the main function!
+					error_runtime(line, VM_RET_FROM_MAIN);
+					continue;
+				}
 				pop_frame(true, &i);
-				memory_register = pop_mem_reg();
-				break;
-			}
-			case OP_LJMP: {
-				// L_JMP Address LoopIndexString
-				address end_of_loop = get_address(bytecode + i, &i);
-				char* loop_index_string = get_string(bytecode + i, &i);
-				data* loop_index_data = get_value_of_id(loop_index_string, line);
-				int index = loop_index_data->value.number;
-				data condition = *top_arg(line);
-				bool jump = false;
-				if (condition.type == D_TRUE) {
-					// Do Nothing
-				}
-				else if (condition.type == D_LIST) {
-					address lst = condition.value.number;
-					int lst_size = memory[lst].value.number;
-					if (index >= lst_size) jump = true;
-				}
-				else if (condition.type == D_RANGE) {
-					int end = range_end(condition);
-					int start = range_start(condition);
-					if (start < end) {
-						if (start + index >= end) jump = true;
-					}
-					else {
-						if (start - index <= end) jump = true;
-					}
-				}
-				else if (condition.type == D_STRING) {
-					int size = strlen(condition.value.string);
-					if (index >= size) jump = true;
-				}
-				else {
-					jump = true;
-				}
-				if (jump)  {
-					// Pop Condition too!
-					data res = pop_arg(line);
-					destroy_data(&res);
-					i = end_of_loop;
-				}
-				break;
-			}
-			case OP_LBIND: {
-				char* user_index = get_string(bytecode + i, &i);
-				char* loop_index_string = get_string(bytecode + i, &i);
-				data* loop_index_data = get_value_of_id(loop_index_string, line);
-				int index = loop_index_data->value.number;
-				data condition = pop_arg(line);
-				data res;
-				if (condition.type == D_LIST) {
-					address lst = condition.value.number;
-					res = copy_data(memory[lst + 1 + index]);
-				}
-				else if (condition.type == D_RANGE) {
-					int end = range_end(condition);
-					int start = range_start(condition);
-					if (start < end) {
-						res = make_data(D_NUMBER, data_value_num(start + index));
-					}
-					else {
-						res = make_data(D_NUMBER, data_value_num(start - index));
-					}
-				}
-				else if (condition.type == D_STRING) {
-					data r = make_data(D_STRING, data_value_str(" "));
-					r.value.string[0] = condition.value.string[index];
-					r.value.string[1] = 0;
-					res = r;
-				}
-				else {
-					res = copy_data(*loop_index_data);
-				}
-				address mem_to_mod = get_address_of_id(user_index, line);
-				write_memory(mem_to_mod, res, -1);
-				destroy_data(&condition);
 				break;
 			}
 			case OP_INC: {
-				if (memory[memory_register].type != D_NUMBER) {
+				data ptr = pop_arg(line);
+				if (ptr.type != D_INTERNAL_POINTER) {
+					error_runtime(line, VM_INTERNAL_ERROR, "INC on non-pointer");
+					continue;
+				}
+				data* arg = ptr.value.reference;
+				if (arg->type != D_NUMBER) {
 					error_runtime(line, VM_TYPE_ERROR, "INC");
 					continue;
 				}
-				memory[memory_register].value.number++;
+				arg->value.number += 1;
 				break;
 			}
 			case OP_DEC: {
-				if (memory[memory_register].type != D_NUMBER) {
+				data ptr = pop_arg(line);
+				if (ptr.type != D_INTERNAL_POINTER) {
+					error_runtime(line, VM_INTERNAL_ERROR, "DEC on non-pointer");
+					continue;
+				}
+				data* arg = ptr.value.reference;
+				if (arg->type != D_NUMBER) {
 					error_runtime(line, VM_TYPE_ERROR, "DEC");
 					continue;
 				}
-				memory[memory_register].value.number--;
+				arg->value.number -= 1;
 				break;
 			}
 			case OP_FRM: {
 				push_auto_frame(i, "automatic", line);
-				push_mem_reg(memory_register, line);
 				break;
 			}
 			case OP_END: {
 				pop_frame(false, &i);
-				memory_register = pop_mem_reg();
 				break;
 			}
-			case OP_REQ: {
-				memory_register = pls_give_memory(bytecode[i++], line);
-				break;
-			}
-			case OP_RBW: {
-				// REQUEST BIND AND WRITE
-				char* bind_name = get_string(bytecode + i, &i);
-				memory_register = pls_give_memory(1, line);
-				if (id_exist(bind_name, false)) {
-					address a = get_stack_pos_of_id(bind_name, line);
-					if (!call_stack[a].is_closure) {
-						error_runtime(line, VM_VAR_DECLARED_ALREADY, bind_name);
-					}
+			case OP_MKREF: {
+				data_type type = bytecode[i++];
+				size_t size = get_address(&bytecode[i], &i);
+				data* storage = refcnt_malloc(size);
+				data reference = make_data(type, data_value_ptr(storage));
+				while (size > 0) {
+					storage[size - 1] = pop_arg(line);
+					size -= 1;
 				}
-				push_stack_entry(bind_name, memory_register, line);
-				if (top_arg(line)->type == D_END_OF_ARGUMENTS ||
-					top_arg(line)->type == D_NAMED_ARGUMENT_NAME)
-					break;
-				data value = pop_arg(line);
-				if (value.type == D_FUNCTION) {
-					// Modify Name to be the base_name
-					address fn_adr = value.value.number;
-					memory[fn_adr + 2].value.string =
-						safe_realloc(memory[fn_adr + 2].value.string,
-							strlen(bind_name) + 1);
-					strcpy(memory[fn_adr + 2].value.string, bind_name);
+				if (!is_reference(reference)) {
+					error_runtime(line, VM_INTERNAL_ERROR,
+						"MKREF called on non-reference type");
+					continue;
 				}
-				write_memory(memory_register, value, line);
-				break;
-			}
-			case OP_MKPTR: {
-				push_arg(make_data((data_type) bytecode[i++],
-					data_value_num(memory_register)), line);
+				push_arg(reference);
 				break;
 			}
 			case OP_NTHPTR: {
-				// Should be a list at the memory register.
-				data lst = memory[memory_register];
-				if (lst.type != D_LIST) {
-					error_runtime(line, VM_NOT_A_LIST);
-				}
-				address lst_start = lst.value.number;
-				data in = pop_arg(line);
-				if (in.type != D_NUMBER) {
+				data number = pop_arg(line);
+				if (number.type != D_NUMBER) {
 					error_runtime(line, VM_INVALID_LVALUE_LIST_SUBSCRIPT);
+					continue;
 				}
-				int lst_size = memory[lst_start].value.number;
-				int index = in.value.number;
-				if (index >= lst_size) {
+				data list = pop_arg(line);
+				if (list.type != D_LIST) {
+					error_runtime(line, VM_NOT_A_LIST);
+					goto nthptr_cleanup;
+				}
+				data* list_data = list.value.reference;
+				if (list_data->type != D_LIST_HEADER) {
+					error_runtime(line, VM_INTERNAL_ERROR, "List doesn't point to list header!");
+					goto nthptr_cleanup;
+				}
+				size_t list_size = list_data->value.number;
+				if (number.value.number >= list_size) {
 					error_runtime(line, VM_LIST_REF_OUT_RANGE);
+					goto nthptr_cleanup;
 				}
-				memory_register = lst_start + index + 1;
-				destroy_data(&in);
+				push_arg(make_data(D_INTERNAL_POINTER,
+					data_value_ptr(&list_data[(int)number.value.number + 1])));
+
+				nthptr_cleanup:
+					destroy_data(&list);
 				break;
 			}
-			case OP_CLOSUR: {
-				push_arg(make_data(D_CLOSURE, data_value_num(create_closure())), line);
+			case OP_CLOSURE: {
+				// create_closure() could return NULL when there's no closure, so the
+				//   refcnt code is structured to ignore null pointer references
+				push_arg(make_data(D_CLOSURE, data_value_ptr(create_closure())));
 				break;
 			}
 			case OP_MEMPTR: {
@@ -489,71 +389,65 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				// Structs can only modify Static members, instances modify instance
 				//   members.
 				// Either will be allowed to look through static parameters.
-				data t = memory[memory_register];
+				data instance = pop_arg(line);
 				char* member = get_string(bytecode + i, &i);
-				if (t.type != D_STRUCT && t.type != D_STRUCT_INSTANCE) {
-					if (t.type == D_NONERET) {
+				if (instance.type != D_STRUCT && instance.type != D_STRUCT_INSTANCE) {
+					if (instance.type == D_NONERET) {
 						error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
 					} else {
 						error_runtime(line, VM_NOT_A_STRUCT);
 					}
+					destroy_data(&instance);
 					break;
 				}
-				address metadata = (int)(t.value.number);
-				if (t.type == D_STRUCT_INSTANCE) {
+				data* metadata = instance.value.reference;
+				if (instance.type == D_STRUCT_INSTANCE) {
 					// metadata actually points to the STRUCT_INSTANCE_HEAD
 					//   right now.
-					metadata = (address)(memory[metadata].value.number);
+					metadata = metadata[1].value.reference;
+					// TODO: assert metadata is a metadata
 				}
-				data_type struct_type = t.type;
-				address struct_header = t.value.number;
+				data_type struct_type = instance.type;
 				bool found = false;
-				while(!found) {
-					int params_passed = 0;
-					int size = (int)(memory[metadata].value.number);
-					for (int i = 0; i < size; i++) {
-						data mdata = memory[metadata + i];
-						if (mdata.type == D_STRUCT_SHARED &&
+				int params_passed = 0;
+				int size = metadata[0].value.number;
+				for (int i = 0; i < size; i++) {
+					data mdata = metadata[i + 1];
+					if (mdata.type == D_STRUCT_SHARED &&
+						streq(mdata.value.string, member)) {
+						// Found the static member we were looking for.
+						push_arg(make_data(D_INTERNAL_POINTER, data_value_ptr(&metadata[i + 2])));
+						found = true;
+						break;
+					}
+					else if (mdata.type == D_STRUCT_PARAM) {
+						if (struct_type == D_STRUCT_INSTANCE &&
 							streq(mdata.value.string, member)) {
-							// Found the static member we were looking for.
-							memory_register = metadata + i + 1;
+							// Found the instance member we were looking for.
+							// Address of the STRUCT_INSTANCE_HEADER offset by
+							//   params_passed + 1;
+							push_arg(make_data(D_INTERNAL_POINTER, data_value_ptr(&instance.value.reference[params_passed + 2])));
 							found = true;
-							if (memory[memory_register].type == D_FUNCTION) {
-								memory[memory_register].type = D_STRUCT_FUNCTION;
-							}
 							break;
 						}
-						else if (mdata.type == D_STRUCT_PARAM) {
-							if (struct_type == D_STRUCT_INSTANCE &&
-								streq(mdata.value.string, member)) {
-								// Found the instance member we were looking for.
-								// Address of the STRUCT_INSTANCE_HEADER offset by
-								//   params_passed + 1;
-								address loc = struct_header + params_passed + 1;
-								memory_register = loc;
-								found = true;
-								if (memory[memory_register].type == D_FUNCTION) {
-									memory[memory_register].type = D_STRUCT_FUNCTION;
-								}
-								break;
-							}
-							params_passed++;
-						}
+						params_passed++;
 					}
-					if (found) break;
+				}
+				if (!found) {
 					error_runtime(line, VM_MEMBER_NOT_EXIST, member);
 				}
+				destroy_data(&instance);
 				break;
 			}
 			case OP_JMP: {
-				address addr = get_address(bytecode + i, &i);
+				address addr = get_address(&bytecode[i], &i);
 				i = addr;
 				break;
 			}
 			case OP_JIF: {
 				// Jump IF False Instruction
 				data top = pop_arg(line);
-				address addr = get_address(bytecode + i, &i);
+				address addr = get_address(&bytecode[i], &i);
 				if (top.type != D_TRUE && top.type != D_FALSE) {
 					error_runtime(line, VM_COND_EVAL_NOT_BOOL);
 				}
@@ -566,9 +460,13 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			case OP_CALL:
 			wendy_vm_call: {
 				data top = pop_arg(line);
-				int loc = top.value.number;
-				data boundName = memory[loc + 2];
-				char* function_disp = safe_malloc(128 * sizeof(char));
+				if (top.type != D_FUNCTION && top.type != D_STRUCT && top.type != D_STRUCT_FUNCTION) {
+					error_runtime(line, VM_FN_CALL_NOT_FN);
+					destroy_data(&top);
+					break;
+				}
+				data boundName = top.value.reference[2];
+				char* function_disp = safe_malloc((128 + strlen(boundName.value.string)) * sizeof(char));
 				function_disp[0] = 0;
 				if (boundName.value.string && streq(boundName.value.string, "self")) {
 					sprintf(function_disp, "annonymous:0x%X", i);
@@ -578,93 +476,107 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				}
 				push_frame(function_disp, i, line);
 				safe_free(function_disp);
-				push_mem_reg(memory_register, line);
+
 				if (top.type == D_STRUCT) {
-					address j = top.value.number;
-					top = memory[j + 3];
+					// Calling Struct Constructor
+					data* metadata = top.value.reference;
+
+					destroy_data(&top);
+					// Select `init` function.
+					top = copy_data(metadata[3]);
 					top.type = D_STRUCT_FUNCTION;
-					// grab the size of the metadata chain also check if there's an
-					//   overloaded init.
-					int m_size = memory[j].value.number;
-					int params = 0;
-					for (int i = 0; i < m_size; i++) {
-						if (memory[j + i].type == D_STRUCT_PARAM) {
+
+					// Find how many STRUCT_PARAMs there are
+					size_t params = 0;
+					size_t metadata_size = metadata[0].value.number;
+					for (size_t i = 0; i < metadata_size; i++) {
+						if (metadata[i + 1].type == D_STRUCT_PARAM) {
 							params++;
 						}
 					}
 
-					int si_size = 0;
-					data* struct_instance =
-						safe_malloc(MAX_STRUCT_META_LEN * sizeof(data));
+					// +1 for the header, +1 for the metadata pointer
+					data* struct_instance = refcnt_malloc(params + 2);
+					struct_instance[0] = make_data(D_STRUCT_INSTANCE_HEADER, data_value_num(params + 1));
+					struct_instance[1] = make_data(D_STRUCT_METADATA, data_value_ptr(refcnt_copy(metadata)));
 
-					si_size = params + 1; // + 1 for the header
-					struct_instance[0] = make_data(D_STRUCT_INSTANCE_HEAD,
-							data_value_num(j));
-					int offset = params;
-					for (int i = 0; i < params; i++) {
-						struct_instance[offset - i] = none_data();
+					for (size_t i = 0; i < params; i++) {
+						struct_instance[i + 2] = none_data();
 					}
-					// Struct instance is done.
-					address a = push_memory_array(struct_instance, si_size, line);
-					safe_free(struct_instance);
-					memory_register_A = a;
+
+					push_arg(make_data(D_STRUCT_INSTANCE, data_value_ptr(struct_instance)));
 				}
 
-				if (top.type != D_FUNCTION && top.type != D_STRUCT_FUNCTION) {
-					error_runtime(line, VM_FN_CALL_NOT_FN);
+				data addr = top.value.reference[0];
+				if (addr.type != D_INSTRUCTION_ADDRESS) {
+					error_runtime(line, VM_INTERNAL_ERROR, "Address of function is not D_INSTRUCTION_ADDRESS");
+					destroy_data(&top);
+					break;
 				}
+				i = (address) addr.value.number;
+
 				if (top.type == D_STRUCT_FUNCTION) {
-					data_type t;
-					if (memory[memory_register_A].type == D_STRUCT_INSTANCE_HEAD) {
-						t = D_STRUCT_INSTANCE;
+					// Either we pushed the new instance on the stack on top, or
+					//   codegen generated the instance on the top.
+					data instance = pop_arg(line);
+					if (instance.type != D_STRUCT_INSTANCE && instance.type != D_STRUCT) {
+						error_runtime(line, VM_INTERNAL_ERROR, "D_STRUCT_FUNCTION encountered but top of stack is not a instance nor a struct.");
+						destroy_data(&top);
+						destroy_data(&instance);
+						break;
 					}
-					else {
-						t = D_STRUCT;
-					}
-					push_stack_entry("this", push_memory(make_data(
-						t, data_value_num(memory_register_A)), line), line);
+					push_stack_entry("this", line)->val = instance;
 				}
-				// Top might have changed, reload
-				loc = top.value.number;
-				address addr = memory[loc].value.number;
-				i = addr;
-				// push closure variables
-				address cloc = memory[loc + 1].value.number;
-				if (cloc != NO_CLOSURE) {
-					size_t size = closure_list_sizes[cloc];
-					for (size_t i = 0; i < size; i++) {
-						copy_stack_entry(closure_list[cloc][i], line);
+
+				// Push closure variables
+				data *list_data = top.value.reference[1].value.reference;
+				size_t size = list_data[0].value.number;
+
+				// Move the pointer to the "first" item, because the 0th item is the list-header
+				list_data += 1;
+				for (size_t i = 0; i < size; i += 2) {
+					if (list_data[i].type != D_IDENTIFIER) {
+						error_runtime(line, VM_INTERNAL_ERROR, "Did not find a D_IDENTIFIER in function closure");
+						destroy_data(&top);
+						break;
 					}
+					stack_entry *entry = push_stack_entry(list_data[i].value.string, line);
+					entry->val = copy_data(list_data[i + 1]);
+					entry->is_closure = true;
 				}
-				address adr = push_memory(top, line);
+
+				// At this point, we put `top` back into the stack, so no need to destroy it
 				if (strcmp(boundName.value.string, "self") != 0) {
-					push_stack_entry("self", adr, line);
+					push_stack_entry("self", line)->val = copy_data(top);
 				}
-				push_stack_entry(boundName.value.string, adr, line);
-				break;
-			}
-			case OP_READ: {
-				push_arg(copy_data(memory[memory_register]), line);
+				push_stack_entry(boundName.value.string, line)->val = top;
 				break;
 			}
 			case OP_WRITE: {
-				size_t size = bytecode[i++];
+				data ptr = pop_arg(line);
+				if (ptr.type != D_INTERNAL_POINTER) {
+					error_runtime(line, VM_INTERNAL_ERROR, "WRITE on non-pointer");
+					destroy_data(&ptr);
+					continue;
+				}
+
 				if (top_arg(line)->type == D_END_OF_ARGUMENTS ||
 					top_arg(line)->type == D_NAMED_ARGUMENT_NAME)
 					break;
 
-				for (address j = memory_register + size - 1;
-						j >= memory_register; j--) {
-					write_memory(j, pop_arg(line), line);
-					if (memory[j].type == D_FUNCTION) {
-						// Write Name to Function
-						char* bind_name = last_pushed_identifier;
-						address fn_adr = memory[j].value.number;
-						data_value* fn_name_data = &memory[fn_adr + 2].value;
-						fn_name_data->string = safe_realloc(
-							fn_name_data->string, strlen(bind_name) + 1);
-						strcpy(fn_name_data->string, bind_name);
-					}
+				data value = pop_arg(line);
+				destroy_data(&ptr.value.reference[0]);
+
+				// Since value is written back, we don't need to destroy it
+				*(ptr.value.reference) = value;
+
+				if (ptr.value.reference->type == D_FUNCTION) {
+					// Write Name to Function
+					char* bind_name = last_pushed_identifier;
+					data* fn_data = ptr.value.reference->value.reference;
+					fn_data[2].value.string = safe_realloc(
+						fn_data[2].value.string, strlen(bind_name) + 1);
+					strcpy(fn_data[2].value.string, bind_name);
 				}
 				break;
 			}
@@ -673,12 +585,10 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				if (t.type != D_NONERET) {
 					char* fn_name = get_print_overload_name(t);
 					if (id_exist(fn_name, true)) {
-						push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)),
-							line);
-						push_arg(t, line);
-						push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
+						push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+						push_arg(t);
+						push_arg(copy_data(*get_value_of_id(fn_name, line)));
 						safe_free(fn_name);
-						destroy_data(&t);
 						/* This i-- allows the overloaded function to return
 						 * a string / object and have that be the printed
 						 * output, i.e. it will call function and execute
@@ -697,10 +607,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				if (t.type != D_NONERET) {
 					char* fn_name = get_print_overload_name(t);
 					if (id_exist(fn_name, true)) {
-						push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)),
-							line);
-						push_arg(t, line);
-						push_arg(copy_data(*get_value_of_id(fn_name, line)), line);
+						push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+						push_arg(t);
+						push_arg(copy_data(*get_value_of_id(fn_name, line)));
 						safe_free(fn_name);
 						destroy_data(&t);
 						/* This i-- allows the overloaded function to return
@@ -719,32 +628,31 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			// DEPRECATED
 			case OP_IN: {
 				// Scan one line from the input.
-				char buffer[INPUT_BUFFER_SIZE];
-				while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
+				// char buffer[INPUT_BUFFER_SIZE];
+				// while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
 
-				char* end_ptr = buffer;
-				errno = 0;
-				double d = strtod(buffer, &end_ptr);
-				// null terminator or newline character
-				if (errno != 0 || (*end_ptr != 0 && *end_ptr != 10)) {
-					size_t len = strlen(buffer);
-					// remove last newline
-					buffer[len - 1] = 0;
-					write_memory(memory_register, make_data(D_STRING, data_value_str(buffer)), line);
-				}
-				else {
-					// conversion successful
-					write_memory(memory_register, make_data(D_NUMBER, data_value_num(d)), line);
-				}
+				// char* end_ptr = buffer;
+				// errno = 0;
+				// double d = strtod(buffer, &end_ptr);
+				// // null terminator or newline character
+				// if (errno != 0 || (*end_ptr != 0 && *end_ptr != 10)) {
+				// 	size_t len = strlen(buffer);
+				// 	// remove last newline
+				// 	buffer[len - 1] = 0;
+				// 	write_memory(memory_register, make_data(D_STRING, data_value_str(buffer)), line);
+				// }
+				// else {
+				// 	// conversion successful
+				// 	write_memory(memory_register, make_data(D_NUMBER, data_value_num(d)), line);
+				// }
 				break;
 			}
 			case OP_HALT:
 				return;
-			default:
-				error_runtime(line, VM_INVALID_OPCODE, bytecode[i], i);
+			// No default: here because we want compiler to catch missing cases.
 		}
 		if (get_error_flag()) {
-			clear_arg_stack();
+			clear_working_stack();
 			break;
 		}
 	}
@@ -767,7 +675,7 @@ static data eval_binop(operator op, data a, data b) {
 			list_size = abs(range_end(a) - range_start(a));
 		}
 		else {
-			list_size = memory[(int)a.value.number].value.number;
+			list_size = a.value.reference->value.number;
 		}
 
 		if (b.type != D_NUMBER && b.type != D_RANGE) {
@@ -801,9 +709,8 @@ static data eval_binop(operator op, data a, data b) {
 			}
 			// Add 1 to offset because of the header.
 			int offset = floor(b.value.number) + 1;
-			address list_address = a.value.number;
-			data* c = get_value_of_address(list_address + offset, line);
-			return copy_data(*c);
+			data* list_data = a.value.reference;
+			return copy_data(list_data[offset]);
 		}
 		else {
 			int start = range_start(b);
@@ -834,17 +741,14 @@ static data eval_binop(operator op, data a, data b) {
 				return range_data(a_start + b_start, a_start + b_end);
 			}
 
-			address array_start = (int)(a.value.number);
-			data* new_a = safe_malloc(subarray_size * sizeof(data));
-			int n = 0;
+			data* new_subarray = wendy_list_malloc(subarray_size);
+			// First belongs to the header.
+			int n = 1;
 			for (int i = start; i != end;
 				start < end ? i++ : i--) {
-				new_a[n++] = copy_data(memory[array_start + i + 1]);
+				new_subarray[n++] = copy_data(a.value.reference[i + 1]);
 			}
-			address new_aa = push_memory_wendy_list(new_a, subarray_size, line);
-			safe_free(new_a);
-			data c = make_data(D_LIST, data_value_num(new_aa));
-			return c;
+			return make_data(D_LIST, data_value_ptr(new_subarray));
 		}
 	}
 	if (op == O_MEMBER) {
@@ -858,24 +762,22 @@ static data eval_binop(operator op, data a, data b) {
 		}
 		if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
 			// Either will be allowed to look through static parameters.
-			address metadata = (int)(a.value.number);
-			memory_register_A = metadata;
+			data* metadata = a.value.reference;
 			if (a.type == D_STRUCT_INSTANCE) {
-				// metadata actually points to the STRUCT_INSTANE_HEADER
-				//   right now.
-				metadata = (address)(memory[metadata].value.number);
+				// metadata actually points to the STRUCT_INSTANCE_HEADER
+				//   right now, we need one below that for the metadata
+				metadata = metadata[1].value.reference;
 			}
 			data_type struct_type = a.type;
-			address struct_header = a.value.number;
 
 			int params_passed = 0;
-			int size = (int)(memory[metadata].value.number);
+			int size = metadata[0].value.number;
 			for (int i = 0; i < size; i++) {
-				data mdata = memory[metadata + i];
+				data mdata = metadata[i + 1];
 				if (mdata.type == D_STRUCT_SHARED &&
 					streq(mdata.value.string, b.value.string)) {
 					// Found the static member we were looking for
-					data result = copy_data(memory[metadata + i + 1]);
+					data result = copy_data(metadata[i + 2]);
 					if (result.type == D_FUNCTION) {
 						result.type = D_STRUCT_FUNCTION;
 					}
@@ -887,8 +789,9 @@ static data eval_binop(operator op, data a, data b) {
 						// Found the instance member we were looking for.
 						// Address of the STRUCT_INSTANCE_HEADER offset by
 						//   params_passed + 1;
-						address loc = struct_header + params_passed + 1;
-						data result = copy_data(memory[loc]);
+						// + 1 for header, + 1 to get to next entry where the value
+						//   is stored
+						data result = copy_data(a.value.reference[params_passed + 2]);
 						if (result.type == D_FUNCTION) {
 							result.type = D_STRUCT_FUNCTION;
 						}
@@ -910,8 +813,11 @@ static data eval_binop(operator op, data a, data b) {
 		else if (streq("char", b.value.string)) {
 			return char_of(a);
 		}
+		else if (a.type == D_FUNCTION && streq("closure", b.value.string)) {
+			return copy_data(a.value.reference[1]);
+		}
 		else if (a.type == D_FUNCTION && streq("params", b.value.string)) {
-			return memory[(int)a.value.number + 3];
+			return copy_data(a.value.reference[3]);
 		}
 		else if (a.type == D_NONERET) {
 			error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
@@ -1019,10 +925,8 @@ static data eval_binop(operator op, data a, data b) {
 
 	if (a.type == D_LIST || b.type == D_LIST) {
 		if (a.type == D_LIST && b.type == D_LIST) {
-			address start_a = a.value.number;
-			address start_b = b.value.number;
-			int size_a = memory[start_a].value.number;
-			int size_b = memory[start_b].value.number;
+			int size_a = a.value.reference->value.number;
+			int size_b = b.value.reference->value.number;
 
 			switch (op) {
 				case O_EQ: {
@@ -1030,8 +934,8 @@ static data eval_binop(operator op, data a, data b) {
 						return false_data();
 					}
 					for (int i = 0; i < size_a; i++) {
-						if (!data_equal(&memory[start_a + i + 1],
-										&memory[start_b + i + 1])) {
+						if (!data_equal(&a.value.reference[i + 1],
+										&b.value.reference[i + 1])) {
 							return false_data();
 						}
 					}
@@ -1042,8 +946,8 @@ static data eval_binop(operator op, data a, data b) {
 						return true_data();
 					}
 					for (int i = 0; i < size_a; i++) {
-						if (data_equal(&memory[start_a + i + 1],
-										&memory[start_b + i + 1])) {
+						if (data_equal(&a.value.reference[i + 1],
+										&b.value.reference[i + 1])) {
 							return false_data();
 						}
 					}
@@ -1051,17 +955,15 @@ static data eval_binop(operator op, data a, data b) {
 				}
 				case O_ADD: {
 					int new_size = size_a + size_b;
-					data* new_list = safe_malloc(new_size * sizeof(data));
-					int n = 0;
+					data* new_list = wendy_list_malloc(new_size);
+					int n = 1; // first is the header
 					for (int i = 0; i < size_a; i++) {
-						new_list[n++] = copy_data(memory[start_a + i + 1]);
+						new_list[n++] = copy_data(a.value.reference[i + 1]);
 					}
 					for (int i = 0; i < size_b; i++) {
-						new_list[n++] = copy_data(memory[start_b + i + 1]);
+						new_list[n++] = copy_data(b.value.reference[i + 1]);
 					}
-					address new_adr = push_memory_wendy_list(new_list, new_size, line);
-					safe_free(new_list);
-					return make_data(D_LIST, data_value_num(new_adr));
+					return make_data(D_LIST, data_value_ptr(new_list));
 				}
 				default: error_runtime(line, VM_LIST_LIST_INVALID_OPERATOR,
 					operator_string[op]); break;
@@ -1070,77 +972,63 @@ static data eval_binop(operator op, data a, data b) {
 		else if (a.type == D_LIST) {
 			if (op == O_ADD) {
 				// list + element
-				address start_a = a.value.number;
-				int size_a = memory[start_a].value.number;
+				int size_a = a.value.reference->value.number;
 
-				data* new_list = safe_malloc((size_a + 1) * sizeof(data));
-				int n = 0;
+				data* new_list = wendy_list_malloc(size_a + 1);
+				int n = 1;
 				for (int i = 0; i < size_a; i++) {
-					new_list[n++] = copy_data(memory[start_a + i + 1]);
+					new_list[n++] = copy_data(a.value.reference[i + 1]);
 				}
 				new_list[n++] = copy_data(b);
-				address new_adr = push_memory_wendy_list(new_list, size_a + 1, line);
-				safe_free(new_list);
-				return make_data(D_LIST, data_value_num(new_adr));
+				return make_data(D_LIST, data_value_ptr(new_list));
 			}
 			else if (op == O_MUL && b.type == D_NUMBER) {
 				// list * number
-				address start_a = a.value.number;
-				int size_a = memory[start_a].value.number;
+				int size_a = a.value.reference->value.number;
 				// Size expansion
 				int new_size = size_a * (int)b.value.number;
-				data* new_list = safe_malloc(new_size * sizeof(data));
+				data* new_list = wendy_list_malloc(new_size);
 				// Copy all Elements n times
-				int n = 0;
+				int n = 1;
 				for (int i = 0; i < new_size; i++) {
-					new_list[n++] = copy_data(memory[(start_a + (i % size_a)) + 1]);
+					new_list[n++] = copy_data(a.value.reference[(i % size_a) + 1]);
 				}
-				address new_adr = push_memory_wendy_list(new_list, new_size, line);
-				safe_free(new_list);
-				return make_data(D_LIST, data_value_num(new_adr));
+				return make_data(D_LIST, data_value_ptr(new_list));
 			}
 			else {
 				error_runtime(line, VM_INVALID_APPEND);
 			}
 		}
 		else if (b.type == D_LIST) {
-			address start_b = b.value.number;
-			int size_b = memory[start_b].value.number;
+			int size_b = b.value.reference->value.number;
 
 			if (op == O_ADD) {
 				// element + list
-				data* new_list = safe_malloc((size_b + 1) * sizeof(data));
-				int n = 0;
+				data* new_list = wendy_list_malloc(size_b + 1);
+				int n = 1;
 				new_list[n++] = copy_data(a);
 				for (int i = 0; i < size_b; i++) {
-					new_list[n++] = copy_data(memory[start_b + i + 1]);
+					new_list[n++] = copy_data(b.value.reference[i + 1]);
 				}
-				address new_adr = push_memory_wendy_list(new_list, size_b + 1, line);
-				safe_free(new_list);
-				return make_data(D_LIST, data_value_num(new_adr));
+				return make_data(D_LIST, data_value_ptr(new_list));
 			}
 			else if (op == O_MUL && a.type == D_NUMBER) {
 				// number * list
-				address start_b = b.value.number;
-				int size_b = memory[start_b].value.number;
+				int size_b = b.value.reference->value.number;
 				// Size expansion
 				int new_size = size_b * (int)a.value.number;
-				data* new_list = safe_malloc(new_size * sizeof(data));
+				data* new_list = wendy_list_malloc(new_size);
 				// Copy all Elements n times
-				int n = 0;
+				int n = 1;
 				for (int i = 0; i < new_size; i++) {
-					new_list[n++] = copy_data(memory[(start_b + (i % size_b)) + 1]);
+					new_list[n++] = copy_data(b.value.reference[(i % size_b) + 1]);
 				}
-				address new_adr = push_memory_wendy_list(new_list, new_size, line);
-				safe_free(new_list);
-				return make_data(D_LIST, data_value_num(new_adr));
+				return make_data(D_LIST, data_value_ptr(new_list));
 			}
 			else if (op == O_IN) {
 				// element in list
 				for (int i = 0; i < size_b; i++) {
-//                  print_token(&a);
-					//print_token(&memory[start_b + i + 1]);
-					if (data_equal(&a, &memory[start_b + i + 1])) {
+					if (data_equal(&a, &b.value.reference[i + 1])) {
 						return true_data();
 					}
 				}
@@ -1264,8 +1152,10 @@ static data size_of(data a) {
 		size = strlen(a.value.string);
 	}
 	else if (a.type == D_LIST) {
-		address h = a.value.number;
-		size = memory[h].value.number;
+		size = a.value.reference->value.number;
+	}
+	else if (a.type == D_RANGE) {
+		size = abs(range_end(a) - range_start(a));
 	}
 	return make_data(D_NUMBER, data_value_num(size));
 }
@@ -1289,17 +1179,17 @@ static data type_of(data a) {
 			return make_data(D_OBJ_TYPE, data_value_str("range"));
 		case D_LIST:
 			return make_data(D_OBJ_TYPE, data_value_str("list"));
+		case D_CLOSURE:
+			return make_data(D_OBJ_TYPE, data_value_str("closure"));
 		case D_STRUCT:
 			return make_data(D_OBJ_TYPE, data_value_str("struct"));
 		case D_OBJ_TYPE:
 			return make_data(D_OBJ_TYPE, data_value_str("type"));
 		case D_ANY:
 			return make_data(D_OBJ_TYPE, data_value_str("any"));
-		case D_STRUCT_INSTANCE: {
-			data instance_loc = memory[(int)(a.value.number)];
+		case D_STRUCT_INSTANCE:
 			return make_data(D_OBJ_TYPE, data_value_str(
-				memory[(int)instance_loc.value.number + 1].value.string));
-		}
+				a.value.reference[1].value.reference[1].value.string));
 		default:
 			return make_data(D_OBJ_TYPE, data_value_str("unknown"));
 	}
@@ -1311,46 +1201,43 @@ static data eval_uniop(operator op, data a) {
 		// struct or struct instances
 		if (a.type == D_LIST) {
 			// We make a copy of the list as pointed to A.
-			data list_header = memory[(int)a.value.number];
-			int list_size = list_header.value.number;
-			data* new_a = safe_malloc((list_size) * sizeof(data));
-			int n = 0;
-			address array_start = a.value.number;
+			int list_size = a.value.reference->value.number;
+			data* new_a = wendy_list_malloc(list_size);
+			int n = 1;
 			for (int i = 0; i < list_size; i++) {
-				new_a[n++] = copy_data(memory[array_start + i + 1]);
+				new_a[n++] = copy_data(a.value.reference[i + 1]);
 			}
-			address new_l_loc = push_memory_wendy_list(new_a, list_size, line);
-			safe_free(new_a);
-			return make_data(D_LIST, data_value_num(new_l_loc));
+			return make_data(D_LIST, data_value_ptr(new_a));
 		}
-		else if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
-			// We make a copy of the STRUCT
-			address copy_start = a.value.number;
-			address metadata = (int)(a.value.number);
-			if (a.type == D_STRUCT_INSTANCE) {
-				metadata = memory[metadata].value.number;
-			}
-			int size = memory[metadata].value.number + 1;
-			if (a.type == D_STRUCT_INSTANCE) {
-				// find size of instance by counting instance members
-				int actual_size = 0;
-				for (int i = 0; i < size; i++) {
-					if (memory[metadata + i + 1].type == D_STRUCT_PARAM) {
-						actual_size++;
-					}
-				}
-				size = actual_size;
-			}
-			size++; // for the header itself
-			data* copy = safe_malloc(size * sizeof(data));
-			for (int i = 0; i < size; i++) {
-				copy[i] = copy_data(memory[copy_start + i]);
-			}
-			address addr = push_memory_array(copy, size, line);
-			safe_free(copy);
-			return a.type == D_STRUCT ? make_data(D_STRUCT, data_value_num(addr))
-				: make_data(D_STRUCT_INSTANCE, data_value_num(addr));
-		}
+		// TODO(felixguo): is copying structs even in the specs???
+		// else if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
+		// 	// We make a copy of the STRUCT
+		// 	address copy_start = a.value.number;
+		// 	address metadata = (int)(a.value.number);
+		// 	if (a.type == D_STRUCT_INSTANCE) {
+		// 		metadata = memory[metadata].value.number;
+		// 	}
+		// 	int size = memory[metadata].value.number + 1;
+		// 	if (a.type == D_STRUCT_INSTANCE) {
+		// 		// find size of instance by counting instance members
+		// 		int actual_size = 0;
+		// 		for (int i = 0; i < size; i++) {
+		// 			if (memory[metadata + i + 1].type == D_STRUCT_PARAM) {
+		// 				actual_size++;
+		// 			}
+		// 		}
+		// 		size = actual_size;
+		// 	}
+		// 	size++; // for the header itself
+		// 	data* copy = safe_malloc(size * sizeof(data));
+		// 	for (int i = 0; i < size; i++) {
+		// 		copy[i] = copy_data(memory[copy_start + i]);
+		// 	}
+		// 	address addr = push_memory_array(copy, size, line);
+		// 	safe_free(copy);
+		// 	return a.type == D_STRUCT ? make_data(D_STRUCT, data_value_num(addr))
+		// 		: make_data(D_STRUCT_INSTANCE, data_value_num(addr));
+		// }
 		else {
 			// No copy needs to be made
 			return a;

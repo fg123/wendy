@@ -3,3 +3,11 @@ for (x >= 0) {
 	x;
 	dec x;
 };
+
+for i in "Hello" {
+	i;
+}
+
+for i in [10, 20, 30] {
+	i;
+}

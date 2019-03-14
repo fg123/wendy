@@ -58,10 +58,8 @@ token_data make_data_num(double i) {
 }
 
 token_data make_data_str(char* s) {
-	size_t len = strlen(s);
 	token_data d;
-	d.string = safe_malloc(len + 1);
-	strcpy(d.string, s);
+	d.string = safe_strdup(s);
 	return d;
 }
 

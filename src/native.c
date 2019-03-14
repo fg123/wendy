@@ -22,13 +22,10 @@ typedef struct native_function {
 static data native_printCallStack(data* args, int line);
 static data native_reverseString(data* args, int line);
 static data native_stringToInteger(data* args, int line);
-static data native_examineMemory(data* args, int line);
 static data native_exec(data* args, int line);
 static data native_getc(data* args, int line);
 static data native_printBytecode(data* args, int line);
 static data native_getImportedLibraries(data* args, int line);
-static data native_garbageCollect(data* args, int line);
-static data native_printFreeMemory(data* args, int line);
 static data native_getProgramArgs(data* args, int line);
 static data native_read(data* args, int line);
 static data native_readRaw(data* args, int line);
@@ -44,13 +41,10 @@ static native_function native_functions[] = {
 	{ "printCallStack", 1, native_printCallStack },
 	{ "reverseString", 1, native_reverseString },
 	{ "stringToInteger", 1, native_stringToInteger },
-	{ "examineMemory", 2, native_examineMemory },
 	{ "exec", 1, native_exec },
 	{ "getc", 0, native_getc },
 	{ "printBytecode", 0, native_printBytecode },
 	{ "getImportedLibraries", 0, native_getImportedLibraries },
-	{ "garbageCollect", 0, native_garbageCollect },
-	{ "printFreeMemory", 0, native_printFreeMemory },
 	{ "pow", 2, native_pow },
 	{ "ln", 1, native_ln },
 	{ "log", 1, native_log },
@@ -82,29 +76,13 @@ static char* native_to_string(data* t, int line) {
 static data native_getProgramArgs(data* args, int line) {
 	UNUSED(args);
 	UNUSED(line);
-	data* array = safe_malloc(sizeof(data) * program_arguments_count);
-	int size = 0;
+	data* array = wendy_list_malloc(program_arguments_count);
+	int size = 1; // 1st is the header
 	for (int i = 0; i < program_arguments_count; i++) {
 		array[size++] = make_data(D_STRING,
 			data_value_str(program_arguments[i]));
 	}
-	data final = make_data(D_LIST, data_value_num(push_memory_wendy_list(array, size, -1)));
-	safe_free(array);
-	return final;
-}
-
-static data native_garbageCollect(data* args, int line) {
-	UNUSED(args);
-	UNUSED(line);
-	garbage_collect(0);
-	return noneret_data();
-}
-
-static data native_printFreeMemory(data* args, int line) {
-	UNUSED(args);
-	UNUSED(line);
-	print_free_memory();
-	return noneret_data();
+	return make_data(D_LIST, data_value_ptr(array));
 }
 
 static data native_getImportedLibraries(data* args, int line) {
@@ -117,17 +95,15 @@ static data native_getImportedLibraries(data* args, int line) {
 		length++;
 		node = node->next;
 	}
-	data* library_list = safe_malloc(length * sizeof(data));
+	data* library_list = wendy_list_malloc(length);
 	node = imported_libraries;
-	length = 0;
+	length = 1;
 	while (node) {
 		library_list[length++] =
 			make_data(D_STRING, data_value_str(node->name));
 		node = node->next;
 	}
-	address list_adr = push_memory_wendy_list(library_list, length, -1);
-	safe_free(library_list);
-	return make_data(D_LIST, data_value_num(list_adr));
+	return make_data(D_LIST, data_value_ptr(library_list));
 }
 
 static data native_getc(data* args, int line) {
@@ -200,25 +176,6 @@ static data native_stringToInteger(data* args, int line) {
 	}
 	if (neg) integer *= -1;
 	return make_data(D_NUMBER, data_value_num(integer));
-}
-
-static data native_examineMemory(data* args, int line) {
-	double arg1_from = native_to_numeric(args, line);
-	double arg2_to = native_to_numeric(args + 1, line);
-	printf("Memory Contents: \n");
-	for (int i = arg1_from; i < arg2_to; i++) {
-		data t = memory[i];
-		printf("[0x%08X] [%s] ", i, data_string[t.type]);
-		if (is_numeric(t)) {
-			printf("[%f][%d][0x%X]", t.value.number, (int)t.value.number,
-				(int)t.value.number);
-		}
-		else {
-			printf("[%s]", t.value.string);
-		}
-		printf("\n");
-	}
-	return noneret_data();
 }
 
 static data native_read(data* args, int line) {
@@ -296,7 +253,7 @@ void native_call(char* function_name, int expected_args, int line) {
 			if (end_marker.type != D_END_OF_ARGUMENTS) {
 				error_runtime(line, VM_INVALID_NATIVE_NUMBER_OF_ARGS, function_name);
 			}
-			push_arg(native_functions[i].function(arg_list, line), line);
+			push_arg(native_functions[i].function(arg_list, line));
 			for (int i = 0; i < argc; i++) {
 				destroy_data(&arg_list[i]);
 			}

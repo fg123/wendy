@@ -23,7 +23,7 @@ const char* opcode_string[] = {
 static uint8_t* bytecode = 0;
 static size_t capacity = 0;
 static size_t size = 0;
-static int global_loop_id = 0;
+static size_t global_loop_id = 0;
 
 int verify_header(uint8_t* bytecode) {
 	char* start = (char*)bytecode;
@@ -132,7 +132,7 @@ static void codegen_lvalue_expr(expr* expression) {
 	}
 	else if (expression->type == E_BINARY) {
 		// Left side in memory reg
-		codegen_lvalue_expr(expression->op.bin_expr.left);
+		codegen_expr(expression->op.bin_expr.left);
 
 		if (expression->op.bin_expr.operator == O_MEMBER) {
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
@@ -221,8 +221,9 @@ static void codegen_statement(void* expre) {
 	if (state->type == S_LET) {
 		codegen_expr(state->op.let_statement.rvalue);
 		// Request Memory
-		write_opcode(OP_RBW);
+		write_opcode(OP_DECL);
 		write_string(state->op.let_statement.lvalue);
+		write_opcode(OP_WRITE);
 	}
 	else if (state->type == S_OPERATION) {
 		if (state->op.operation_statement.operator == OP_RET) {
@@ -319,7 +320,7 @@ static void codegen_statement(void* expre) {
 		// Push Header and Name
 		write_opcode(OP_PUSH);
 		int metaHeaderLoc = size;
-		write_data(make_data(D_STRUCT_METADATA, data_value_num(1)));
+		write_data(make_data(D_STRUCT_HEADER, data_value_num(1)));
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_STRUCT_NAME, data_value_str(struct_name)));
 		write_opcode(OP_PUSH);
@@ -357,16 +358,13 @@ static void codegen_statement(void* expre) {
 			push_size += 2;
 			curr = curr->next;
 		}
-		// Request Memory to Store MetaData
-		write_opcode(OP_REQ);
-		write_byte(push_size);
-		write_opcode(OP_WRITE);
-		write_byte(push_size);
-		write_opcode(OP_MKPTR);
+		write_opcode(OP_MKREF);
 		write_byte(D_STRUCT);
+		write_integer(push_size);
 
-		write_opcode(OP_RBW);
+		write_opcode(OP_DECL);
 		write_string(struct_name);
+		write_opcode(OP_WRITE);
 		write_double_at(push_size, metaHeaderLoc + 1);
 	}
 	else if (state->type == S_IF) {
@@ -395,63 +393,90 @@ static void codegen_statement(void* expre) {
 			// Don't generate if empty loop body
 			return;
 		}
-		// Setup Loop Index
-		write_opcode(OP_FRM); // Start Local Variable Frame OUTER
-		write_opcode(OP_PUSH);
-		write_data(make_data(D_NUMBER, data_value_num(0)));
-		write_opcode(OP_RBW);
-		char loopIndexName[30];
-		sprintf(loopIndexName, LOOP_COUNTER_PREFIX "%d", global_loop_id++);
-		write_string(loopIndexName);
+		write_opcode(OP_FRM);
 
-		if (state->op.loop_statement.index_var) {
-			// User has a custom variable, also declare that.
+		bool is_iterating_loop = state->op.loop_statement.index_var;
+
+		char loop_index_name[30];
+		char loop_container_name[30];
+		char loop_size_name[30];
+
+		if (is_iterating_loop) {
+			size_t loop_id = global_loop_id++;
+			sprintf(loop_index_name, LOOP_COUNTER_PREFIX "index_%zd", loop_id);
+			sprintf(loop_container_name, LOOP_COUNTER_PREFIX "container_%zd", loop_id);
+			sprintf(loop_size_name, LOOP_COUNTER_PREFIX "size_%zd", loop_id);
+
+			// index = 0
 			write_opcode(OP_PUSH);
 			write_data(make_data(D_NUMBER, data_value_num(0)));
-			write_opcode(OP_RBW);
+			write_opcode(OP_DECL);
+			write_string(loop_index_name);
+			write_opcode(OP_WRITE);
+
+			// container = <expr>
+			codegen_expr(state->op.loop_statement.condition);
+			write_opcode(OP_DECL);
+			write_string(loop_container_name);
+			write_opcode(OP_WRITE);
+
+			// size = container.size
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_MEMBER_IDENTIFIER, data_value_str("size")));
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(loop_container_name)));
+			write_opcode(OP_BIN);
+			write_byte(O_MEMBER);
+			write_opcode(OP_DECL);
+			write_string(loop_size_name);
+			write_opcode(OP_WRITE);
+
+			// <ident> = none
+			write_opcode(OP_PUSH);
+			write_data(none_data());
+			write_opcode(OP_DECL);
 			write_string(state->op.loop_statement.index_var);
+			write_opcode(OP_WRITE);
 		}
 
-		// Start of Loop, Push Condition to Stack
-		int loop_start_addr = size;
-		codegen_expr(state->op.loop_statement.condition);
-
-		// Check Condition and Jump if Needed
-		write_opcode(OP_LJMP);
-		int loop_skip_loc = size;
-		size += sizeof(address);
-		write_string(loopIndexName);
-
-		write_opcode(OP_FRM); // Start Local Variable Frame
-
-		// Write Custom Var and Bind
-		if (state->op.loop_statement.index_var) {
-			write_opcode(OP_LBIND);
-			write_string(state->op.loop_statement.index_var);
-			write_string(loopIndexName);
+		address loop_start_addr = size;
+		if (is_iterating_loop) {
+			// internalCounter < size
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(loop_size_name)));
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(loop_index_name)));
+			write_opcode(OP_BIN);
+			write_byte(O_LT);
 		}
 		else {
-			write_opcode(OP_POP);
+			codegen_expr(state->op.loop_statement.condition);
 		}
-
-		codegen_statement(state->op.loop_statement.statement_true);
-		write_opcode(OP_END);
-
-		write_opcode(OP_WHERE);
-		write_string(loopIndexName);
-		write_opcode(OP_INC);
-		if (state->op.loop_statement.index_var) {
-			write_opcode(OP_READ);
+		write_opcode(OP_JIF);
+		int loop_skip_loc = size;
+		size += sizeof(address);
+		if (is_iterating_loop) {
+			// <ident> = container[internalCounter]
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(loop_index_name)));
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(loop_container_name)));
+			write_opcode(OP_BIN);
+			write_byte(O_SUBSCRIPT);
 			write_opcode(OP_WHERE);
 			write_string(state->op.loop_statement.index_var);
 			write_opcode(OP_WRITE);
-			write_byte(1);
+		}
+		codegen_statement(state->op.loop_statement.statement_true);
+		if (is_iterating_loop) {
+			write_opcode(OP_WHERE);
+			write_string(loop_index_name);
+			write_opcode(OP_INC);
 		}
 		write_opcode(OP_JMP);
 		write_address(loop_start_addr);
-
-		// Write End of Loop
 		write_address_at(size, loop_skip_loc);
+
 		write_opcode(OP_END);
 	}
 }
@@ -479,24 +504,23 @@ static void codegen_expr(void* expre) {
 	else if (expression->type == E_BINARY) {
 		if (expression->op.bin_expr.operator == O_MOD_EQUAL) {
 			/* Special operator just for Dhruvit, first we calculate the remainder */
-			codegen_expr(expression->op.bin_expr.left);
 			codegen_expr(expression->op.bin_expr.right);
+			codegen_expr(expression->op.bin_expr.left);
 			write_opcode(OP_BIN);
 			write_byte(O_REM);
 
 			/* Then we simulate a div_equals operation */
 			codegen_expr(expression->op.bin_expr.right);
-			codegen_lvalue_expr(expression->op.bin_expr.left);
-			write_opcode(OP_READ);
-			write_opcode(OP_RBIN);
+			codegen_expr(expression->op.bin_expr.left);
+			write_opcode(OP_BIN);
 			write_byte(O_IDIV);
+
+			codegen_lvalue_expr(expression->op.bin_expr.left);
 			write_opcode(OP_WRITE);
-			write_byte(1);
 			/* Skip the default OP_BIN */
 			return;
 		}
 		else if (expression->op.bin_expr.operator == O_MEMBER) {
-			codegen_expr(expression->op.bin_expr.left);
 			if (expression->op.bin_expr.right->type != E_LITERAL) {
 				error_lexer(expression->line, expression->col,
 					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
@@ -505,10 +529,11 @@ static void codegen_expr(void* expre) {
 			write_opcode(OP_PUSH);
 			write_data(copy_data(
                 expression->op.bin_expr.right->op.lit_expr));
+			codegen_expr(expression->op.bin_expr.left);
 		}
 		else {
-			codegen_expr(expression->op.bin_expr.left);
 			codegen_expr(expression->op.bin_expr.right);
+			codegen_expr(expression->op.bin_expr.left);
 		}
 		write_opcode(OP_BIN);
 		write_byte(expression->op.bin_expr.operator);
@@ -534,18 +559,21 @@ static void codegen_expr(void* expre) {
 	}
 	else if (expression->type == E_ASSIGN) {
         enum operator op = expression->op.assign_expr.operator;
+
 		codegen_expr(expression->op.assign_expr.rvalue);
 
-		codegen_lvalue_expr(expression->op.assign_expr.lvalue);
+		if (op != O_ASSIGN) {
+			codegen_expr(expression->op.assign_expr.lvalue);
+		}
+
         // O_ASSIGN is the default =
 		if (op != O_ASSIGN) {
-			write_opcode(OP_READ);
-			write_opcode(OP_RBIN);
+			write_opcode(OP_BIN);
 			write_byte(op);
 		}
-		// Memory Register should still be where lvalue is
+
+		codegen_lvalue_expr(expression->op.assign_expr.lvalue);
 		write_opcode(OP_WRITE);
-		write_byte(1);
 	}
 	else if (expression->type == E_UNARY) {
 		codegen_expr(expression->op.una_expr.operand);
@@ -554,6 +582,12 @@ static void codegen_expr(void* expre) {
 	}
 	else if (expression->type == E_CALL) {
 		codegen_expr_list_for_call(expression->op.call_expr.arguments);
+		if (expression->op.call_expr.function->type == E_BINARY &&
+			expression->op.call_expr.function->op.bin_expr.operator == O_MEMBER) {
+			// Struct Member Call, we will generate an extra "argument" that is the
+			//   reference to the LHS
+			codegen_expr(expression->op.call_expr.function->op.bin_expr.left);
+		}
 		codegen_expr(expression->op.call_expr.function);
 		write_opcode(OP_CALL);
 	}
@@ -566,13 +600,9 @@ static void codegen_expr(void* expre) {
 			codegen_expr(param->elem);
 			param = param->next;
 		}
-		write_opcode(OP_REQ);
-		// For the Header
-		write_byte(count + 1);
-		write_opcode(OP_WRITE);
-		write_byte(count + 1);
-		write_opcode(OP_MKPTR);
+		write_opcode(OP_MKREF);
 		write_byte(D_LIST);
+		write_integer(count + 1);
 	}
 	else if (expression->type == E_FUNCTION) {
 		write_opcode(OP_JMP);
@@ -626,21 +656,26 @@ static void codegen_expr(void* expre) {
 							CODEGEN_UNEXPECTED_FUNCTION_PARAMETER);
 					}
 					data t = param->elem->op.lit_expr;
-					write_opcode(OP_RBW);
+					write_opcode(OP_DECL);
 					write_string(t.value.string);
+					write_opcode(OP_WRITE);
 					param_names[i++] = t.value.string;
 				}
 				else if (param->elem->type == E_ASSIGN) {
 					has_encountered_default = true;
 					// Bind Default Value First
 					codegen_expr(param->elem->op.assign_expr.rvalue);
-					write_opcode(OP_RBW);
+					write_opcode(OP_DECL);
 					// TODO: Check if assign expr is literal identifier.
 					write_string(param->elem->op.assign_expr.lvalue->
 						op.lit_expr.value.string);
 					// If the top of the stack is marker, this is no-op.
 					write_opcode(OP_WRITE);
-					write_byte(1);
+
+					write_opcode(OP_WHERE);
+					write_string(param->elem->op.assign_expr.lvalue->
+						op.lit_expr.value.string);
+					write_opcode(OP_WRITE);
 					param_names[i++] = param->elem->op.assign_expr.lvalue->
 						op.lit_expr.value.string;
 				}
@@ -670,8 +705,8 @@ static void codegen_expr(void* expre) {
 		}
 		write_address_at(size, writeSizeLoc);
 		write_opcode(OP_PUSH);
-		write_data(make_data(D_ADDRESS, data_value_num(startAddr)));
-		write_opcode(OP_CLOSUR);
+		write_data(make_data(D_INSTRUCTION_ADDRESS, data_value_num(startAddr)));
+		write_opcode(OP_CLOSURE);
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_STRING, data_value_str("self")));
 
@@ -683,13 +718,9 @@ static void codegen_expr(void* expre) {
 				write_opcode(OP_PUSH);
 				write_data(make_data(D_STRING, data_value_str(param_names[i])));
 			}
-			write_opcode(OP_REQ);
-			// For the Header
-			write_byte(count + 1);
-			write_opcode(OP_WRITE);
-			write_byte(count + 1);
-			write_opcode(OP_MKPTR);
+			write_opcode(OP_MKREF);
 			write_byte(D_LIST);
+			write_integer(count + 1);
 		}
 		else {
 			write_opcode(OP_PUSH);
@@ -697,12 +728,9 @@ static void codegen_expr(void* expre) {
 		}
 
 		safe_free(param_names);
-		write_opcode(OP_REQ);
-		write_byte(4);
-		write_opcode(OP_WRITE);
-		write_byte(4);
-		write_opcode(OP_MKPTR);
+		write_opcode(OP_MKREF);
 		write_byte(D_FUNCTION);
+		write_integer(4);
 	}
 }
 
@@ -773,6 +801,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 	fprintf(buffer, GRN "\n.code\n");
 	int max_len = 12;
 	int baseaddr = 0;
+	UNUSED(baseaddr);
 	unsigned int i = 0;
 	if (!get_settings_flag(SETTINGS_REPL)) {
 		i = verify_header(bytecode);
@@ -785,68 +814,66 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 		int printSourceLine = -1;
 		p += fprintf(buffer, YEL "%6s " RESET, opcode_string[op]);
 
-		if (op == OP_PUSH) {
-			data t = get_data(&bytecode[i], &i);
-			if (t.type == D_STRING) {
-				p += fprintf(buffer, "%.*s ", max_len, t.value.string);
-				if (strlen(t.value.string) > (size_t) max_len) {
+		switch (op) {
+			case OP_PUSH: {
+				data t = get_data(&bytecode[i], &i);
+				if (t.type == D_STRING) {
+					p += fprintf(buffer, "%.*s ", max_len, t.value.string);
+					if (strlen(t.value.string) > (size_t) max_len) {
+						p += fprintf(buffer, ">");
+					}
+				}
+				else {
+					p += print_data_inline(&t, buffer);
+				}
+				break;
+			}
+			case OP_BIN:
+			case OP_UNA: {
+				operator o = bytecode[i++];
+				p += fprintf(buffer, "%s", operator_string[o]);
+				break;
+			}
+			case OP_DECL:
+			case OP_WHERE:
+			case OP_IMPORT:
+			case OP_MEMPTR: {
+				char* c = get_string(bytecode + i, &i);
+				p += fprintf(buffer, "%.*s ", max_len, c);
+				if (strlen(c) > (size_t) max_len) {
 					p += fprintf(buffer, ">");
 				}
+				if (op == OP_IMPORT) {
+					// i is at null term
+					p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
+				}
+				break;
 			}
-			else {
-				p += print_data_inline(&t, buffer);
+			case OP_MKREF: {
+				data_type t = bytecode[i++];
+				p += fprintf(buffer, "%s", data_string[t]);
+				address a = get_address(bytecode + i, &i);
+				p += fprintf(buffer, " %d", a);
+				break;
 			}
-		}
-		else if (op == OP_BIN || op == OP_UNA || op == OP_RBIN) {
-			operator o = bytecode[i++];
-			p += fprintf(buffer, "%s", operator_string[o]);
-		}
-		else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW ||
-				 op == OP_IMPORT || op == OP_MEMPTR) {
-			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", max_len, c);
-			if (strlen(c) > (size_t) max_len) {
-				p += fprintf(buffer, ">");
+			case OP_SRC: {
+				address a = get_address(bytecode + i, &i);
+				p += fprintf(buffer, "%d", a);
+				printSourceLine = a;
+				break;
 			}
-			if (op == OP_IMPORT) {
-				// i is at null term
+			case OP_JMP:
+			case OP_JIF: {
 				p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
+				break;
 			}
-		}
-		else if (op == OP_MKPTR) {
-			data_type t = bytecode[i++];
-			p += fprintf(buffer, "%s", data_string[t]);
-		}
-		else if (op == OP_REQ || op == OP_WRITE) {
-			p += fprintf(buffer, "0x%X", bytecode[i++]);
-		}
-		else if (op == OP_SRC) {
-			address a = get_address(bytecode + i, &i);
-			p += fprintf(buffer, "%d", a);
-			printSourceLine = a;
-		}
-		else if (op == OP_JMP || op == OP_JIF) {
-			p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
-		}
-		else if (op == OP_LJMP) {
-			p += fprintf(buffer, "0x%X ",
-				get_address(bytecode + i + baseaddr, &i));
-			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", max_len, c);
-			if (strlen(c) > (size_t) max_len) {
-				p += fprintf(buffer, ">");
+			case OP_NATIVE: {
+				p += fprintf(buffer, "%d ", get_address(bytecode + i, &i));
+				char* c = get_string(bytecode + i, &i);
+				p += fprintf(buffer, "%.*s", max_len, c);
+				break;
 			}
-		}
-		else if (op == OP_LBIND) {
-			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", max_len, c);
-			c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s ", max_len, c);
-		}
-		else if (op == OP_NATIVE) {
-			p += fprintf(buffer, "%d ", get_address(bytecode + i, &i));
-			char* c = get_string(bytecode + i, &i);
-			p += fprintf(buffer, "%.*s", max_len, c);
+			default: break;
 		}
 		while (p++ < 30) {
 			fprintf(buffer, " ");
@@ -884,7 +911,7 @@ static void write_address_at_buffer(address a, uint8_t* buffer, size_t loc) {
 
 static void write_data_at_buffer(data t, uint8_t* buffer, size_t loc) {
 	buffer[loc++] = t.type;
-	if (t.type == D_ADDRESS) {
+	if (t.type == D_INSTRUCTION_ADDRESS) {
 		if (!is_big_endian) loc += sizeof(double);
 		unsigned char * p = (void*)&t.value.number;
 		for (size_t i = 0; i < sizeof(double); i++) {
@@ -895,63 +922,78 @@ static void write_data_at_buffer(data t, uint8_t* buffer, size_t loc) {
 
 void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 	UNUSED(length);
-	// TODO: This is a little sketchy because of the difference in
-	// headers between REPL mode and not.
 	unsigned int i = 0;
 	if (streq(WENDY_VM_HEADER, (char*)buffer)) {
 		i += strlen(WENDY_VM_HEADER) + 1;
 	}
 	forever {
 		opcode op = buffer[i++];
-		if (op == OP_PUSH) {
-			size_t tokLoc = i;
-			data t = get_data(buffer + i, &i);
-			if (t.type == D_ADDRESS) {
-				t.value.number += offset;
-				write_data_at_buffer(t, buffer, tokLoc);
+		switch (op) {
+			case OP_PUSH: {
+				size_t tokLoc = i;
+				data t = get_data(buffer + i, &i);
+				if (t.type == D_INSTRUCTION_ADDRESS) {
+					t.value.number += offset;
+					write_data_at_buffer(t, buffer, tokLoc);
+				}
+				break;
 			}
-		}
-		else if (op == OP_BIND || op == OP_WHERE || op == OP_RBW || op == OP_MEMPTR) {
-			get_string(buffer + i, &i);
-		}
-		else if (op == OP_IMPORT) {
-			get_string(buffer + i, &i);
-			unsigned int bi = i;
-			address loc = get_address(buffer + i, &i);
-			loc += offset;
-			write_address_at_buffer(loc, buffer, bi);
-		}
-		else if (op == OP_SRC) {
-			get_address(buffer + i, &i);
-		}
-		else if (op == OP_JMP || op == OP_JIF) {
-			unsigned int bi = i;
-			address loc = get_address(buffer + i, &i);
-			loc += offset;
-			write_address_at_buffer(loc, buffer, bi);
-		}
-		else if (op == OP_LJMP) {
-			unsigned int bi = i;
-			address loc = get_address(buffer + i, &i);
-			loc += offset;
-			write_address_at_buffer(loc, buffer, bi);
-			get_string(buffer + i, &i);
-		}
-		else if (op == OP_LBIND) {
-			get_string(buffer + i, &i);
-			get_string(buffer + i, &i);
-		}
-		else if (op == OP_NATIVE) {
-			get_address(buffer + i, &i);
-			get_string(buffer + i, &i);
-		}
-		else if (op == OP_REQ || op == OP_MKPTR ||
-				 op == OP_BIN || op == OP_UNA || op == OP_RBIN ||
-				 op == OP_WRITE) {
-			i++;
-		}
-		if (op == OP_HALT) {
-			break;
+			case OP_DECL:
+			case OP_WHERE:
+			case OP_MEMPTR: {
+				get_string(buffer + i, &i);
+				break;
+			}
+			case OP_IMPORT: {
+				get_string(buffer + i, &i);
+				unsigned int bi = i;
+				address loc = get_address(buffer + i, &i);
+				loc += offset;
+				write_address_at_buffer(loc, buffer, bi);
+				break;
+			}
+			case OP_SRC: {
+				get_address(buffer + i, &i);
+				break;
+			}
+			case OP_JMP:
+			case OP_JIF: {
+				unsigned int bi = i;
+				address loc = get_address(buffer + i, &i);
+				loc += offset;
+				write_address_at_buffer(loc, buffer, bi);
+				break;
+			}
+			// else if (op == OP_LJMP) {
+			// 	unsigned int bi = i;
+			// 	address loc = get_address(buffer + i, &i);
+			// 	loc += offset;
+			// 	write_address_at_buffer(loc, buffer, bi);
+			// 	get_string(buffer + i, &i);
+			// }
+			// else if (op == OP_LBIND) {
+			// 	get_string(buffer + i, &i);
+			// 	get_string(buffer + i, &i);
+			// }
+			case OP_NATIVE: {
+				get_address(buffer + i, &i);
+				get_string(buffer + i, &i);
+				break;
+			}
+			case OP_MKREF: {
+				i++; // for the type
+				get_address(buffer + i, &i);
+				break;
+			}
+			case OP_BIN:
+			case OP_UNA: {
+				i++;
+				break;
+			}
+			case OP_HALT: {
+				return;
+			}
+			default: break;
 		}
 	}
 }

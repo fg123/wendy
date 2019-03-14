@@ -1,0 +1,18 @@
+let mkstruct => (x) {
+    struct s => (a, b);
+    s.init => () {
+        this.a = x;
+        this.b = x;
+        ret this;
+    };
+    ret s;
+};
+
+let c = mkstruct(10);
+let d = mkstruct(20);
+
+c().a;
+c().b;
+
+d().a;
+d().b;

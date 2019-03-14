@@ -88,6 +88,7 @@ void error_compile(int line, int col, char* message, ...);
 #define MEMORY_REGISTER_STACK_OVERFLOW "Internal memory stack overflowed."
 
 // VM Errors:
+#define VM_RET_FROM_MAIN "Illegal return statement called at the top level."
 #define VM_INVALID_OPCODE "Invalid opcode encountered (0x%X at 0x%X)."
 #define VM_VAR_DECLARED_ALREADY "Identifier '%s' was already declared!"
 #define VM_NOT_A_LIST "Setting nth item of identifier must be List."
@@ -112,6 +113,8 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_INVALID_NATIVE_NUMBER_OF_ARGS "Natively linked function call '%s' does not match expected number of arguments!"
 #define VM_INVALID_NATIVE_NUMERICAL_TYPE_ERROR "Type error in native function call. Expected numerical value."
 #define VM_INVALID_NATIVE_STRING_TYPE_ERROR "Type error in native function call. Expected string value."
+
+#define VM_INTERNAL_ERROR "An internal VM error occured: %s"
 
 // Colors
 #if defined(_WIN32) || defined(NO_COLOR)

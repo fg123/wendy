@@ -26,20 +26,9 @@
 #define CODEGEN_PAD_SIZE 256
 #define CODEGEN_START_SIZE 1024
 
-// Stack Entry Sizes
-#define MAX_IDENTIFIER_LEN 59
-
-// VM Memory Limits
-#define MEMORY_SIZE 129061
-#define INITIAL_STACK_SIZE 1024
-#define INITIAL_ARGSTACK_SIZE 512
-#define RESERVED_MEMORY 2
-#define INITIAL_CLOSURES_SIZE 128
-#define INITIAL_MEMREGSTACK_SIZE 1024
-
 // Compiler/VM Settings
 #define OPERATOR_OVERLOAD_PREFIX "#@"
-#define LOOP_COUNTER_PREFIX ":\")"
+#define LOOP_COUNTER_PREFIX ":"
 
 #define DIVIDER "===================="
 
@@ -59,6 +48,7 @@ typedef enum {
 	SETTINGS_OUTPUT_DEPENDENCIES,
 	SETTINGS_SANDBOXED,
 	SETTINGS_TRACE_VM,
+	SETTINGS_TRACE_REFCNT,
     SETTINGS_DRY_RUN,
 	SETTINGS_COUNT } settings_flags;
 
@@ -77,6 +67,10 @@ char* safe_strdup_impl(const char* s, char* allocated);
 #define safe_strdup(x) safe_strdup_impl(x, safe_malloc(strlen(x) + 1))
 #define UNUSED(var) (void)(var)
 #define forever for(;;)
+
+char* safe_concat_impl(char* first, ...);
+
+#define safe_concat(...) safe_concat_impl(__VA_ARGS__, NULL)
 
 // Safe Malloc Implementation
 #ifndef RELEASE
