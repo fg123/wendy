@@ -1107,6 +1107,14 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 				break;
 		}
 	}
+	else if (is_reference(a) && is_reference(b)) {
+		// TODO(felixguo): Maybe check for type here?
+		if (op == O_EQ) {
+			return (a.value.reference == b.value.reference) ?
+				true_data() : false_data();
+		}
+		error_runtime(line, VM_TYPE_ERROR, operator_string[op]);
+	}
 	else {
 		error_runtime(line, VM_TYPE_ERROR, operator_string[op]);
 	}

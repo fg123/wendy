@@ -503,7 +503,7 @@ static void codegen_expr(void* expre) {
 	}
 	else if (expression->type == E_BINARY) {
 		if (expression->op.bin_expr.operator == O_MOD_EQUAL) {
-			/* Special enum operator just for Dhruvit, first we calculate the remainder */
+			/* Special operator just for Dhruvit, first we calculate the remainder */
 			codegen_expr(expression->op.bin_expr.right);
 			codegen_expr(expression->op.bin_expr.left);
 			write_opcode(OP_BIN);
