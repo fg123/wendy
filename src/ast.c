@@ -524,7 +524,7 @@ static struct statement* parse_statement(void) {
 				}
 				else {
 					if (match(T_RIGHT_BRACK)) continue;
-					static_members = identifier_list();
+					static_members = expression_list(T_RIGHT_BRACK);
 					consume(T_RIGHT_BRACK);
 				}
 			}
@@ -817,41 +817,41 @@ static void print_s(struct statement* state, struct traversal_algorithm* algo) {
 	print_indent(algo);
 	printf("%s", BLU);
 	if (state->type == S_LET) {
-		printf("Let struct statement " GRN "(%s)\n" RESET,
+		printf("Let statement " GRN "(%s)\n" RESET,
 			state->op.let_statement.lvalue);
 	}
 	else if (state->type == S_OPERATION) {
-		printf("Operation struct statement " GRN "%s\n" RESET,
+		printf("Operation statement " GRN "%s\n" RESET,
             operator_string[state->op.operation_statement.operator]);
 	}
 	else if (state->type == S_EXPR) {
-		printf("Expression struct statement \n");
+		printf("Expression statement \n");
 	}
 	else if (state->type == S_BLOCK) {
-		printf("Block struct statement \n");
+		printf("Block statement \n");
 	}
 	else if (state->type == S_STRUCT) {
-		printf("Struct struct statement " GRN "%s\n" RESET,
+		printf("Struct statement " GRN "%s\n" RESET,
             state->op.struct_statement.name);
 	}
 	else if (state->type == S_IF) {
-		printf("If struct statement\n");
+		printf("If statement\n");
 	}
 	else if (state->type == S_LOOP) {
-		printf("Loop struct statement\n");
+		printf("Loop statement\n");
 	}
 	else if (state->type == S_IMPORT) {
-		printf("Import struct statement\n");
+		printf("Import statement\n");
 	}
 	else if (state->type == S_EMPTY) {
-		printf("Empty struct statement\n");
+		printf("Empty statement\n");
 	}
 	printf("%s", RESET);
 }
 static void print_sl(struct statement_list* sl, struct traversal_algorithm* algo) {
 	UNUSED(sl);
 	print_indent(algo);
-	printf(MAG "<struct statement List Item %p>\n" RESET, sl);
+	printf(MAG "<Statement List Item %p>\n" RESET, sl);
 }
 
 void traverse_ast(struct statement_list* list, struct traversal_algorithm* algo) {

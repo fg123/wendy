@@ -1,0 +1,2 @@
+struct test => [hello = 10];
+test.hello;

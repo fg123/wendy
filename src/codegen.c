@@ -346,6 +346,14 @@ static void codegen_statement(void* expre) {
 		curr = state->op.struct_statement.static_members;
 		while (curr) {
 			struct expr* elem = curr->elem;
+			struct expr* rvalue = NULL;
+
+			// Either a literal identifier or assignment statement.
+			if (elem->type == E_ASSIGN && elem->op.assign_expr.operator == O_ASSIGN) {
+				rvalue = elem->op.assign_expr.rvalue;
+				elem = elem->op.assign_expr.lvalue;
+			}
+
 			if (elem->type != E_LITERAL
 				|| elem->op.lit_expr.type != D_IDENTIFIER) {
 				error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
@@ -353,8 +361,13 @@ static void codegen_statement(void* expre) {
 			write_opcode(OP_PUSH);
 			write_data(make_data(D_STRUCT_SHARED,
 				data_value_str(elem->op.lit_expr.value.string)));
-			write_opcode(OP_PUSH);
-			write_data(none_data());
+			if (rvalue) {
+				codegen_expr(rvalue);
+			}
+			else {
+				write_opcode(OP_PUSH);
+				write_data(none_data());
+			}
 			push_size += 2;
 			curr = curr->next;
 		}
