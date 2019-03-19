@@ -94,11 +94,16 @@ static struct traversal_algorithm print_ast_impl =
 	HANDLE_BEFORE_CHILDREN, 0
 };
 
+static bool is_at_end(void) {
+	return curr_index == length;
+}
+
 struct statement_list* generate_ast(struct token* _tokens, size_t _length) {
 	error_thrown = false;
 	tokens = _tokens;
 	length = _length;
 	curr_index = 0;
+	if (is_at_end()) return 0;
 	return parse_statement_list();
 }
 
@@ -112,11 +117,6 @@ void free_ast(struct statement_list* ast) {
 
 bool ast_error_flag(void) {
 	return error_thrown;
-}
-
-// Private Methods
-static bool is_at_end(void) {
-	return curr_index == length;
 }
 
 static bool fnmatch(int count, ...) {
