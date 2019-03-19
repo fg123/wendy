@@ -229,9 +229,25 @@ static struct data native_readFile(struct data* args, int line) {
 static struct data native_writeFile(struct data* args, int line) {
 	if (!get_settings_flag(SETTINGS_SANDBOXED)) {
 		char* file = native_to_string(args, line);
-		char* content = native_to_string(args + 1, line);
+		/* Either the content is a string, or it's a array of
+		 * integers that represent the bytes */
+		struct data content = args[1];
 		FILE *f = fopen(file, "wb");
-		fwrite(content, 1, strlen(content), f);
+		if (content.type == D_STRING) {
+			char* content_string = native_to_string(args + 1, line);
+			fwrite(content_string, 1, strlen(content_string), f);
+		}
+		else if (content.type == D_LIST) {
+			struct data *result = content.value.reference;
+			size_t list_size = result[0].value.number;
+			for (size_t i = 0; i < list_size; i++) {
+				fputc((int)native_to_numeric(result + i + 1, line), f);
+			}
+		}
+		else {
+			error_runtime(line, "Expected string or list to write to file.");
+		}
+		fclose(f);
 	}
 	return noneret_data();
 }
