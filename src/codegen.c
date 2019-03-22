@@ -218,279 +218,290 @@ static void codegen_statement(void* expre) {
 		write_opcode(OP_SRC);
 		write_integer(state->src_line);
 	}
-	if (state->type == S_LET) {
-		codegen_expr(state->op.let_statement.rvalue);
-		// Request Memory
-		write_opcode(OP_DECL);
-		write_string(state->op.let_statement.lvalue);
-		write_opcode(OP_WRITE);
-	}
-	else if (state->type == S_OPERATION) {
-		if (state->op.operation_statement.operator == OP_RET) {
-			codegen_expr(state->op.operation_statement.operand);
+	switch (state->type) {
+		case S_LET: {
+			codegen_expr(state->op.let_statement.rvalue);
+			// Request Memory
+			write_opcode(OP_DECL);
+			write_string(state->op.let_statement.lvalue);
+			write_opcode(OP_WRITE);
+			break;
 		}
-		else if (state->op.operation_statement.operator == OP_OUTL) {
-			codegen_expr(state->op.operation_statement.operand);
-		}
-		else {
-			codegen_lvalue_expr(state->op.operation_statement.operand);
-		}
-		write_opcode(state->op.operation_statement.operator);
-	}
-	else if (state->type == S_EXPR) {
-		codegen_expr(state->op.expr_statement);
-		// Only output if it's not an assignment struct statement.
-		if (state->op.expr_statement &&
-			state->op.expr_statement->type != E_ASSIGN) write_opcode(OP_OUT);
-	}
-	else if (state->type == S_BLOCK) {
-		if (state->op.block_statement) {
-			write_opcode(OP_FRM);
-			codegen_statement_list(state->op.block_statement);
-			if (bytecode[size - 1] != OP_RET) {
-				/* Don't need to end the block if we immediately RET */
-				write_opcode(OP_END);
+		case S_OPERATION: {
+			if (state->op.operation_statement.operator == OP_RET) {
+				codegen_expr(state->op.operation_statement.operand);
 			}
+			else if (state->op.operation_statement.operator == OP_OUTL) {
+				codegen_expr(state->op.operation_statement.operand);
+			}
+			else {
+				codegen_lvalue_expr(state->op.operation_statement.operand);
+			}
+			write_opcode(state->op.operation_statement.operator);
+			break;
 		}
-	}
-	else if (state->type == S_IMPORT) {
-		if (!state->op.import_statement) {
-			// Already handled by the scanner class.
-			return;
+		case S_EXPR: {
+			codegen_expr(state->op.expr_statement);
+			// Only output if it's not an assignment struct statement.
+			if (state->op.expr_statement &&
+				state->op.expr_statement->type != E_ASSIGN)
+				write_opcode(OP_OUT);
+			break;
 		}
-		char* library_name = state->op.import_statement;
-		// Has to be identifier now.
-		if (!has_already_imported_library(library_name)) {
-			add_imported_library(library_name);
-			write_opcode(OP_IMPORT);
-			write_string(library_name);
-			int jumpLoc = size;
+		case S_BLOCK: {
+			if (state->op.block_statement) {
+				write_opcode(OP_FRM);
+				codegen_statement_list(state->op.block_statement);
+				if (bytecode[size - 1] != OP_RET) {
+					/* Don't need to end the block if we immediately RET */
+					write_opcode(OP_END);
+				}
+			}
+			break;
+		}
+		case S_IMPORT: {
+			if (!state->op.import_statement) {
+				// Already handled by the scanner class.
+				return;
+			}
+			char* library_name = state->op.import_statement;
+			// Has to be identifier now.
+			if (!has_already_imported_library(library_name)) {
+				add_imported_library(library_name);
+				write_opcode(OP_IMPORT);
+				write_string(library_name);
+				int jumpLoc = size;
+				size += sizeof(address);
+
+				// Could either be in local directory or in standard
+				// library location. Local directory prevails.
+				static char *extension = ".wc";
+				char *local_path = safe_malloc(strlen(library_name) +
+								strlen(extension) + 1);
+				local_path[0] = 0;
+				strcat(local_path, library_name);
+				strcat(local_path, extension);
+				FILE *f = fopen(local_path, "r");
+				safe_free(local_path);
+				if (f) {
+					goto file_found;
+				}
+				// Not found, try standard library.
+				char* path = get_path();
+				long length = 0;
+				uint8_t* buffer;
+				strcat(path, "wendy-lib/");
+				strcat(path, library_name);
+				strcat(path, extension);
+				f = fopen(path, "r");
+				safe_free(path);
+				if (f) {
+				file_found:
+					fseek (f, 0, SEEK_END);
+					length = ftell(f);
+					fseek (f, 0, SEEK_SET);
+					buffer = safe_malloc(length);
+					fread (buffer, sizeof(uint8_t), length, f);
+					int offset = size - strlen(WENDY_VM_HEADER) - 1;
+					offset_addresses(buffer, length, offset);
+					guarantee_size(length);
+					for (long i = verify_header(buffer); i < length; i++) {
+						if (i == length - 1 && buffer[i] == OP_HALT) break;
+						write_byte(buffer[i]);
+					}
+					safe_free(buffer);
+					fclose (f);
+				}
+				else {
+					error_lexer(state->src_line, 0,
+								CODEGEN_REQ_FILE_READ_ERR);
+				}
+				write_address_at(size, jumpLoc);
+			}
+			break;
+		}
+		case S_STRUCT: {
+			int push_size = 2; // For Header and Name
+			char* struct_name = state->op.struct_statement.name;
+
+			// Push Header and Name
+			write_opcode(OP_PUSH);
+			int metaHeaderLoc = size;
+			write_data(make_data(D_STRUCT_HEADER, data_value_num(1)));
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_STRUCT_NAME, data_value_str(struct_name)));
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_STRUCT_SHARED, data_value_str("init")));
+			// Push Init Function
+			codegen_expr(state->op.struct_statement.init_fn);
+
+			push_size += 2;
+
+			struct expr_list* curr = state->op.struct_statement.instance_members;
+			while (curr) {
+				struct expr* elem = curr->elem;
+				if (elem->type != E_LITERAL
+					|| elem->op.lit_expr.type != D_IDENTIFIER) {
+					error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
+				}
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_STRUCT_PARAM,
+					data_value_str(elem->op.lit_expr.value.string)));
+				push_size++;
+				curr = curr->next;
+			}
+			curr = state->op.struct_statement.static_members;
+			while (curr) {
+				struct expr* elem = curr->elem;
+				struct expr* rvalue = NULL;
+
+				// Either a literal identifier or assignment statement.
+				if (elem->type == E_ASSIGN && elem->op.assign_expr.operator == O_ASSIGN) {
+					rvalue = elem->op.assign_expr.rvalue;
+					elem = elem->op.assign_expr.lvalue;
+				}
+
+				if (elem->type != E_LITERAL
+					|| elem->op.lit_expr.type != D_IDENTIFIER) {
+					error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
+				}
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_STRUCT_SHARED,
+					data_value_str(elem->op.lit_expr.value.string)));
+				if (rvalue) {
+					codegen_expr(rvalue);
+				}
+				else {
+					write_opcode(OP_PUSH);
+					write_data(none_data());
+				}
+				push_size += 2;
+				curr = curr->next;
+			}
+			write_opcode(OP_MKREF);
+			write_byte(D_STRUCT);
+			write_integer(push_size);
+
+			write_opcode(OP_DECL);
+			write_string(struct_name);
+			write_opcode(OP_WRITE);
+			write_double_at(push_size, metaHeaderLoc + 1);
+			break;
+		}
+		case S_IF: {
+			codegen_expr(state->op.if_statement.condition);
+			write_opcode(OP_JIF);
+			int falseJumpLoc = size;
 			size += sizeof(address);
 
-			// Could either be in local directory or in standard
-			// library location. Local directory prevails.
-			static char *extension = ".wc";
-			char *local_path = safe_malloc(strlen(library_name) +
-							   strlen(extension) + 1);
-			local_path[0] = 0;
-			strcat(local_path, library_name);
-			strcat(local_path, extension);
-			FILE *f = fopen(local_path, "r");
-			safe_free(local_path);
-			if (f) {
-				goto file_found;
-			}
-			// Not found, try standard library.
-			char* path = get_path();
-			long length = 0;
-			uint8_t* buffer;
-			strcat(path, "wendy-lib/");
-			strcat(path, library_name);
-			strcat(path, extension);
-			f = fopen(path, "r");
-			safe_free(path);
-			if (f) {
-			file_found:
-				fseek (f, 0, SEEK_END);
-				length = ftell(f);
-				fseek (f, 0, SEEK_SET);
-				buffer = safe_malloc(length);
-				fread (buffer, sizeof(uint8_t), length, f);
-				int offset = size - strlen(WENDY_VM_HEADER) - 1;
-				offset_addresses(buffer, length, offset);
-				guarantee_size(length);
-				for (long i = verify_header(buffer); i < length; i++) {
-					if (i == length - 1 && buffer[i] == OP_HALT) break;
-					write_byte(buffer[i]);
-				}
-				safe_free(buffer);
-				fclose (f);
-			}
-			else {
-				error_lexer(state->src_line, 0,
-							CODEGEN_REQ_FILE_READ_ERR);
-			}
-			write_address_at(size, jumpLoc);
+			write_opcode(OP_FRM);
+			codegen_statement(state->op.if_statement.statement_true);
+			write_opcode(OP_END);
+
+			write_opcode(OP_JMP);
+			int doneJumpLoc = size;
+			size += sizeof(address);
+			write_address_at(size, falseJumpLoc);
+
+			write_opcode(OP_FRM);
+			codegen_statement(state->op.if_statement.statement_false);
+			write_opcode(OP_END);
+
+			write_address_at(size, doneJumpLoc);
+			break;
 		}
-	}
-	else if (state->type == S_STRUCT) {
-		int push_size = 2; // For Header and Name
-		char* struct_name = state->op.struct_statement.name;
-
-		// Push Header and Name
-		write_opcode(OP_PUSH);
-		int metaHeaderLoc = size;
-		write_data(make_data(D_STRUCT_HEADER, data_value_num(1)));
-		write_opcode(OP_PUSH);
-		write_data(make_data(D_STRUCT_NAME, data_value_str(struct_name)));
-		write_opcode(OP_PUSH);
-		write_data(make_data(D_STRUCT_SHARED, data_value_str("init")));
-		// Push Init Function
-		codegen_expr(state->op.struct_statement.init_fn);
-
-		push_size += 2;
-
-		struct expr_list* curr = state->op.struct_statement.instance_members;
-		while (curr) {
-			struct expr* elem = curr->elem;
-			if (elem->type != E_LITERAL
-				|| elem->op.lit_expr.type != D_IDENTIFIER) {
-				error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
+		case S_LOOP: {
+			if (!state->op.loop_statement.statement_true) {
+				// Don't generate if empty loop body
+				return;
 			}
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_STRUCT_PARAM,
-				data_value_str(elem->op.lit_expr.value.string)));
-			push_size++;
-			curr = curr->next;
-		}
-		curr = state->op.struct_statement.static_members;
-		while (curr) {
-			struct expr* elem = curr->elem;
-			struct expr* rvalue = NULL;
+			write_opcode(OP_FRM);
 
-			// Either a literal identifier or assignment statement.
-			if (elem->type == E_ASSIGN && elem->op.assign_expr.operator == O_ASSIGN) {
-				rvalue = elem->op.assign_expr.rvalue;
-				elem = elem->op.assign_expr.lvalue;
-			}
+			bool is_iterating_loop = state->op.loop_statement.index_var;
 
-			if (elem->type != E_LITERAL
-				|| elem->op.lit_expr.type != D_IDENTIFIER) {
-				error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
-			}
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_STRUCT_SHARED,
-				data_value_str(elem->op.lit_expr.value.string)));
-			if (rvalue) {
-				codegen_expr(rvalue);
-			}
-			else {
+			char loop_index_name[30];
+			char loop_container_name[30];
+			char loop_size_name[30];
+
+			if (is_iterating_loop) {
+				size_t loop_id = global_loop_id++;
+				sprintf(loop_index_name, LOOP_COUNTER_PREFIX "index_%zd", loop_id);
+				sprintf(loop_container_name, LOOP_COUNTER_PREFIX "container_%zd", loop_id);
+				sprintf(loop_size_name, LOOP_COUNTER_PREFIX "size_%zd", loop_id);
+
+				// index = 0
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_NUMBER, data_value_num(0)));
+				write_opcode(OP_DECL);
+				write_string(loop_index_name);
+				write_opcode(OP_WRITE);
+
+				// container = <struct expr>
+				codegen_expr(state->op.loop_statement.condition);
+				write_opcode(OP_DECL);
+				write_string(loop_container_name);
+				write_opcode(OP_WRITE);
+
+				// size = container.size
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_MEMBER_IDENTIFIER, data_value_str("size")));
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_IDENTIFIER, data_value_str(loop_container_name)));
+				write_opcode(OP_BIN);
+				write_byte(O_MEMBER);
+				write_opcode(OP_DECL);
+				write_string(loop_size_name);
+				write_opcode(OP_WRITE);
+
+				// <ident> = none
 				write_opcode(OP_PUSH);
 				write_data(none_data());
+				write_opcode(OP_DECL);
+				write_string(state->op.loop_statement.index_var);
+				write_opcode(OP_WRITE);
 			}
-			push_size += 2;
-			curr = curr->next;
+
+			address loop_start_addr = size;
+			if (is_iterating_loop) {
+				// internalCounter < size
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_IDENTIFIER, data_value_str(loop_size_name)));
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_IDENTIFIER, data_value_str(loop_index_name)));
+				write_opcode(OP_BIN);
+				write_byte(O_LT);
+			}
+			else {
+				codegen_expr(state->op.loop_statement.condition);
+			}
+			write_opcode(OP_JIF);
+			int loop_skip_loc = size;
+			size += sizeof(address);
+			if (is_iterating_loop) {
+				// <ident> = container[internalCounter]
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_IDENTIFIER, data_value_str(loop_index_name)));
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_IDENTIFIER, data_value_str(loop_container_name)));
+				write_opcode(OP_BIN);
+				write_byte(O_SUBSCRIPT);
+				write_opcode(OP_WHERE);
+				write_string(state->op.loop_statement.index_var);
+				write_opcode(OP_WRITE);
+			}
+			codegen_statement(state->op.loop_statement.statement_true);
+			if (is_iterating_loop) {
+				write_opcode(OP_WHERE);
+				write_string(loop_index_name);
+				write_opcode(OP_INC);
+			}
+			write_opcode(OP_JMP);
+			write_address(loop_start_addr);
+			write_address_at(size, loop_skip_loc);
+
+			write_opcode(OP_END);
+			break;
 		}
-		write_opcode(OP_MKREF);
-		write_byte(D_STRUCT);
-		write_integer(push_size);
-
-		write_opcode(OP_DECL);
-		write_string(struct_name);
-		write_opcode(OP_WRITE);
-		write_double_at(push_size, metaHeaderLoc + 1);
-	}
-	else if (state->type == S_IF) {
-		codegen_expr(state->op.if_statement.condition);
-		write_opcode(OP_JIF);
-		int falseJumpLoc = size;
-		size += sizeof(address);
-
-		write_opcode(OP_FRM);
-		codegen_statement(state->op.if_statement.statement_true);
-		write_opcode(OP_END);
-
-		write_opcode(OP_JMP);
-		int doneJumpLoc = size;
-		size += sizeof(address);
-		write_address_at(size, falseJumpLoc);
-
-		write_opcode(OP_FRM);
-		codegen_statement(state->op.if_statement.statement_false);
-		write_opcode(OP_END);
-
-		write_address_at(size, doneJumpLoc);
-	}
-	else if (state->type == S_LOOP) {
-		if (!state->op.loop_statement.statement_true) {
-			// Don't generate if empty loop body
-			return;
-		}
-		write_opcode(OP_FRM);
-
-		bool is_iterating_loop = state->op.loop_statement.index_var;
-
-		char loop_index_name[30];
-		char loop_container_name[30];
-		char loop_size_name[30];
-
-		if (is_iterating_loop) {
-			size_t loop_id = global_loop_id++;
-			sprintf(loop_index_name, LOOP_COUNTER_PREFIX "index_%zd", loop_id);
-			sprintf(loop_container_name, LOOP_COUNTER_PREFIX "container_%zd", loop_id);
-			sprintf(loop_size_name, LOOP_COUNTER_PREFIX "size_%zd", loop_id);
-
-			// index = 0
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_NUMBER, data_value_num(0)));
-			write_opcode(OP_DECL);
-			write_string(loop_index_name);
-			write_opcode(OP_WRITE);
-
-			// container = <struct expr>
-			codegen_expr(state->op.loop_statement.condition);
-			write_opcode(OP_DECL);
-			write_string(loop_container_name);
-			write_opcode(OP_WRITE);
-
-			// size = container.size
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_MEMBER_IDENTIFIER, data_value_str("size")));
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_IDENTIFIER, data_value_str(loop_container_name)));
-			write_opcode(OP_BIN);
-			write_byte(O_MEMBER);
-			write_opcode(OP_DECL);
-			write_string(loop_size_name);
-			write_opcode(OP_WRITE);
-
-			// <ident> = none
-			write_opcode(OP_PUSH);
-			write_data(none_data());
-			write_opcode(OP_DECL);
-			write_string(state->op.loop_statement.index_var);
-			write_opcode(OP_WRITE);
-		}
-
-		address loop_start_addr = size;
-		if (is_iterating_loop) {
-			// internalCounter < size
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_IDENTIFIER, data_value_str(loop_size_name)));
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_IDENTIFIER, data_value_str(loop_index_name)));
-			write_opcode(OP_BIN);
-			write_byte(O_LT);
-		}
-		else {
-			codegen_expr(state->op.loop_statement.condition);
-		}
-		write_opcode(OP_JIF);
-		int loop_skip_loc = size;
-		size += sizeof(address);
-		if (is_iterating_loop) {
-			// <ident> = container[internalCounter]
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_IDENTIFIER, data_value_str(loop_index_name)));
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_IDENTIFIER, data_value_str(loop_container_name)));
-			write_opcode(OP_BIN);
-			write_byte(O_SUBSCRIPT);
-			write_opcode(OP_WHERE);
-			write_string(state->op.loop_statement.index_var);
-			write_opcode(OP_WRITE);
-		}
-		codegen_statement(state->op.loop_statement.statement_true);
-		if (is_iterating_loop) {
-			write_opcode(OP_WHERE);
-			write_string(loop_index_name);
-			write_opcode(OP_INC);
-		}
-		write_opcode(OP_JMP);
-		write_address(loop_start_addr);
-		write_address_at(size, loop_skip_loc);
-
-		write_opcode(OP_END);
 	}
 }
 

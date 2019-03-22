@@ -55,15 +55,38 @@ void ast_safe_free_el(struct expr_list* ptr, struct traversal_algorithm* algo) {
 
 void ast_safe_free_s(struct statement* ptr, struct traversal_algorithm* algo) {
     UNUSED(algo);
-    if (ptr->type == S_IMPORT && ptr->op.import_statement) {
-        safe_free(ptr->op.import_statement);
-    } else if (ptr->type == S_LET && ptr->op.let_statement.lvalue) {
-        safe_free(ptr->op.let_statement.lvalue);
-    } else if (ptr->type == S_STRUCT && ptr->op.struct_statement.name) {
-        safe_free(ptr->op.struct_statement.name);
-    } else if (ptr->type == S_LOOP && ptr->op.loop_statement.index_var) {
-        safe_free(ptr->op.loop_statement.index_var);
-    }
+	switch(ptr->type) {
+		case S_IMPORT:
+			if (ptr->op.import_statement) {
+				safe_free(ptr->op.import_statement);
+			}
+			break;
+		case S_LET:
+			if (ptr->op.let_statement.lvalue) {
+				safe_free(ptr->op.let_statement.lvalue);
+			}
+			break;
+		case S_STRUCT:
+			if (ptr->op.struct_statement.name) {
+				safe_free(ptr->op.struct_statement.name);
+			}
+			break;
+		case S_LOOP:
+			if (ptr->op.loop_statement.index_var) {
+				safe_free(ptr->op.loop_statement.index_var);
+			}
+			break;
+		// // case S_ENUM:
+		// 	if (ptr->op.enum_statement.values) {
+		// 		safe_free(ptr->op.enum_statement.values);
+		// 	}
+		// 	break;
+		case S_BLOCK:
+		case S_EXPR:
+		case S_IF:
+		case S_OPERATION:
+			break;
+	}
     safe_free(ptr);
 }
 
@@ -693,31 +716,41 @@ void traverse_statement(struct statement* state, struct traversal_algorithm* alg
 	if (!state) return;
 	if (algo->type == HANDLE_BEFORE_CHILDREN) algo->handle_statement(state, algo);
 	algo->level++;
-	if (state->type == S_LET) {
-		traverse_expr(state->op.let_statement.rvalue, algo);
-	}
-	else if (state->type == S_OPERATION) {
-		traverse_expr(state->op.operation_statement.operand, algo);
-	}
-	else if (state->type == S_EXPR) {
-		traverse_expr(state->op.expr_statement, algo);
-	}
-	else if (state->type == S_BLOCK) {
-		traverse_statement_list(state->op.block_statement, algo);
-	}
-	else if (state->type == S_STRUCT) {
-		traverse_expr(state->op.struct_statement.init_fn, algo);
-		traverse_expr_list(state->op.struct_statement.instance_members, algo);
-		traverse_expr_list(state->op.struct_statement.static_members, algo);
-	}
-	else if (state->type == S_IF) {
-		traverse_expr(state->op.if_statement.condition, algo);
-		traverse_statement(state->op.if_statement.statement_true, algo);
-		traverse_statement(state->op.if_statement.statement_false, algo);
-	}
-	else if (state->type == S_LOOP) {
-		traverse_expr(state->op.loop_statement.condition, algo);
-		traverse_statement(state->op.loop_statement.statement_true, algo);
+	switch(state->type) {
+		case S_LET: {
+			traverse_expr(state->op.let_statement.rvalue, algo);
+			break;
+		}
+		case S_OPERATION: {
+			traverse_expr(state->op.operation_statement.operand, algo);
+			break;
+		}
+		case S_EXPR: {
+			traverse_expr(state->op.expr_statement, algo);
+			break;
+		}
+		case S_BLOCK: {
+			traverse_statement_list(state->op.block_statement, algo);
+			break;
+		}
+		case S_STRUCT: {
+			traverse_expr(state->op.struct_statement.init_fn, algo);
+			traverse_expr_list(state->op.struct_statement.instance_members, algo);
+			traverse_expr_list(state->op.struct_statement.static_members, algo);
+			break;
+		}
+		case S_IF: {
+			traverse_expr(state->op.if_statement.condition, algo);
+			traverse_statement(state->op.if_statement.statement_true, algo);
+			traverse_statement(state->op.if_statement.statement_false, algo);
+			break;
+		}
+		case S_LOOP: {
+			traverse_expr(state->op.loop_statement.condition, algo);
+			traverse_statement(state->op.loop_statement.statement_true, algo);
+			break;
+		}
+		case S_IMPORT: break;
 	}
 	algo->level--;
 	if (algo->type == HANDLE_AFTER_CHILDREN) algo->handle_statement(state, algo);
@@ -727,35 +760,44 @@ void traverse_expr(struct expr* expression, struct traversal_algorithm* algo) {
 	if (!expression) return;
 	if (algo->type == HANDLE_BEFORE_CHILDREN) algo->handle_expr(expression, algo);
 	algo->level++;
-	if (expression->type == E_LITERAL) {
-
-	}
-	else if (expression->type == E_BINARY) {
-		traverse_expr(expression->op.bin_expr.left, algo);
-		traverse_expr(expression->op.bin_expr.right, algo);
-	}
-	else if (expression->type == E_IF) {
-		traverse_expr(expression->op.if_expr.condition, algo);
-		traverse_expr(expression->op.if_expr.expr_true, algo);
-		traverse_expr(expression->op.if_expr.expr_false, algo);
-	}
-	else if (expression->type == E_UNARY) {
-		traverse_expr(expression->op.una_expr.operand, algo);
-	}
-	else if (expression->type == E_CALL) {
-		traverse_expr(expression->op.call_expr.function, algo);
-		traverse_expr_list(expression->op.call_expr.arguments, algo);
-	}
-	else if (expression->type == E_LIST) {
-		traverse_expr_list(expression->op.list_expr.contents, algo);
-	}
-	else if (expression->type == E_FUNCTION) {
-		traverse_expr_list(expression->op.func_expr.parameters, algo);
-		traverse_statement(expression->op.func_expr.body, algo);
-	}
-	else if (expression->type == E_ASSIGN) {
-		traverse_expr(expression->op.assign_expr.lvalue, algo);
-		traverse_expr(expression->op.assign_expr.rvalue, algo);
+	switch (expression->type) {
+		case E_LITERAL: {
+			break;
+		}
+		case E_BINARY: {
+			traverse_expr(expression->op.bin_expr.left, algo);
+			traverse_expr(expression->op.bin_expr.right, algo);
+			break;
+		}
+		case E_IF: {
+			traverse_expr(expression->op.if_expr.condition, algo);
+			traverse_expr(expression->op.if_expr.expr_true, algo);
+			traverse_expr(expression->op.if_expr.expr_false, algo);
+			break;
+		}
+		case E_UNARY: {
+			traverse_expr(expression->op.una_expr.operand, algo);
+			break;
+		}
+		case E_CALL: {
+			traverse_expr(expression->op.call_expr.function, algo);
+			traverse_expr_list(expression->op.call_expr.arguments, algo);
+			break;
+		}
+		case E_LIST: {
+			traverse_expr_list(expression->op.list_expr.contents, algo);
+			break;
+		}
+		case E_FUNCTION: {
+			traverse_expr_list(expression->op.func_expr.parameters, algo);
+			traverse_statement(expression->op.func_expr.body, algo);
+			break;
+		}
+		case E_ASSIGN: {
+			traverse_expr(expression->op.assign_expr.lvalue, algo);
+			traverse_expr(expression->op.assign_expr.rvalue, algo);
+			break;
+		}
 	}
 	algo->level--;
 	if (algo->type == HANDLE_AFTER_CHILDREN) algo->handle_expr(expression, algo);
@@ -779,32 +821,42 @@ static void print_indent(struct traversal_algorithm* algo) {
 static void print_e(struct expr* expression, struct traversal_algorithm* algo) {
 	print_indent(algo);
 	printf("%s", YEL);
-	if (expression->type == E_LITERAL) {
-		printf("Literal Expression " GRN);
-		print_data(&expression->op.lit_expr);
-		printf("%s", RESET);
-	}
-	else if (expression->type == E_BINARY) {
-		printf("Binary Expression " GRN "%s\n" RESET,
-            operator_string[expression->op.bin_expr.operator]);
-	}
-	else if (expression->type == E_IF) {
-		printf("Conditional Expression\n");
-	}
-	else if (expression->type == E_UNARY) {
-		printf("Unary Expression\n");
-	}
-	else if (expression->type == E_CALL) {
-		printf("Call Expression\n");
-	}
-	else if (expression->type == E_LIST) {
-		printf("List Expression\n");
-	}
-	else if (expression->type == E_FUNCTION) {
-		printf("Function Expression\n");
-	}
-	else if (expression->type == E_ASSIGN) {
-		printf("Assignment Expression \n");
+	switch (expression->type) {
+		case E_LITERAL: {
+			printf("Literal Expression " GRN);
+			print_data(&expression->op.lit_expr);
+			printf("%s", RESET);
+			break;
+		}
+		case E_BINARY: {
+			printf("Binary Expression " GRN "%s\n" RESET,
+				operator_string[expression->op.bin_expr.operator]);
+			break;
+		}
+		case E_IF: {
+			printf("Conditional Expression\n");
+			break;
+		}
+		case E_UNARY: {
+			printf("Unary Expression\n");
+			break;
+		}
+		case E_CALL: {
+			printf("Call Expression\n");
+			break;
+		}
+		case E_LIST: {
+			printf("List Expression\n");
+			break;
+		}
+		case E_FUNCTION: {
+			printf("Function Expression\n");
+			break;
+		}
+		case E_ASSIGN: {
+			printf("Assignment Expression \n");
+			break;
+		}
 	}
 	printf("%s", RESET);
 }
@@ -816,35 +868,42 @@ static void print_el(struct expr_list* el, struct traversal_algorithm* algo) {
 static void print_s(struct statement* state, struct traversal_algorithm* algo) {
 	print_indent(algo);
 	printf("%s", BLU);
-	if (state->type == S_LET) {
-		printf("Let statement " GRN "(%s)\n" RESET,
-			state->op.let_statement.lvalue);
-	}
-	else if (state->type == S_OPERATION) {
-		printf("Operation statement " GRN "%s\n" RESET,
-            operator_string[state->op.operation_statement.operator]);
-	}
-	else if (state->type == S_EXPR) {
-		printf("Expression statement \n");
-	}
-	else if (state->type == S_BLOCK) {
-		printf("Block statement \n");
-	}
-	else if (state->type == S_STRUCT) {
-		printf("Struct statement " GRN "%s\n" RESET,
-            state->op.struct_statement.name);
-	}
-	else if (state->type == S_IF) {
-		printf("If statement\n");
-	}
-	else if (state->type == S_LOOP) {
-		printf("Loop statement\n");
-	}
-	else if (state->type == S_IMPORT) {
-		printf("Import statement\n");
-	}
-	else if (state->type == S_EMPTY) {
-		printf("Empty statement\n");
+	switch (state->type) {
+		case S_LET: {
+			printf("Let statement " GRN "(%s)\n" RESET,
+				state->op.let_statement.lvalue);
+			break;
+		}
+		case S_OPERATION: {
+			printf("Operation statement " GRN "%s\n" RESET,
+				operator_string[state->op.operation_statement.operator]);
+			break;
+		}
+		case S_EXPR: {
+			printf("Expression statement \n");
+			break;
+		}
+		case S_BLOCK: {
+			printf("Block statement \n");
+			break;
+		}
+		case S_STRUCT: {
+			printf("Struct statement " GRN "%s\n" RESET,
+				state->op.struct_statement.name);
+			break;
+		}
+		case S_IF: {
+			printf("If statement\n");
+			break;
+		}
+		case S_LOOP: {
+			printf("Loop statement\n");
+			break;
+		}
+		case S_IMPORT: {
+			printf("Import statement\n");
+			break;
+		}
 	}
 	printf("%s", RESET);
 }

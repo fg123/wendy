@@ -71,26 +71,27 @@ struct expr_list {
 };
 
 struct statement {
-	enum { S_EXPR, S_OPERATION, S_LET, S_STRUCT, S_IF, S_BLOCK, S_LOOP, S_SET,
-		S_IMPORT, S_EMPTY }
+	enum { S_EXPR, S_OPERATION, S_LET, S_STRUCT, S_IF, S_BLOCK, S_LOOP,
+		S_IMPORT }
 		type;
 	union { struct expr*                                       expr_statement;
-			struct {    enum opcode      operator;
+			struct {    enum opcode        operator;
 						struct expr*       operand; }          operation_statement;
-			struct {    char*       lvalue;
+			struct {    char*              lvalue;
 						struct expr*       rvalue; }           let_statement;
-			struct {    char*       name;
+			struct {    char*              name;
 						struct expr_list*  instance_members;
 						struct expr_list*  static_members;
-						struct expr* init_fn; }                struct_statement;
+						struct expr*       init_fn; }          struct_statement;
 			struct {    struct expr*       condition;
-						struct statement*   statement_true;
-						struct statement*   statement_false; }  if_statement;
-			struct {    char*       index_var;
+						struct statement*  statement_true;
+						struct statement*  statement_false; }  if_statement;
+			struct {    char*              index_var;
 						struct expr*       condition;
-						struct statement*   statement_true; } loop_statement;
-			struct statement_list*                      block_statement;
-			char*                                       import_statement;
+						struct statement*  statement_true; }   loop_statement;
+			struct {    struct expr_list*  values;         }   enum_statement;
+			struct statement_list*                             block_statement;
+			char*                                              import_statement;
 	} op;
 	int src_line;
 };
