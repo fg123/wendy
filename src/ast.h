@@ -72,7 +72,7 @@ struct expr_list {
 
 struct statement {
 	enum { S_EXPR, S_OPERATION, S_LET, S_STRUCT, S_IF, S_BLOCK, S_LOOP,
-		S_IMPORT }
+		S_IMPORT, S_ENUM }
 		type;
 	union { struct expr*                                       expr_statement;
 			struct {    enum opcode        operator;
@@ -89,7 +89,9 @@ struct statement {
 			struct {    char*              index_var;
 						struct expr*       condition;
 						struct statement*  statement_true; }   loop_statement;
-			struct {    struct expr_list*  values;         }   enum_statement;
+			struct {    char*              name;
+						struct expr_list*  values;
+						struct expr*       init_fn;        }   enum_statement;
 			struct statement_list*                             block_statement;
 			char*                                              import_statement;
 	} op;

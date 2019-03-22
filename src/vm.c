@@ -464,6 +464,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					destroy_data(&top);
 					// Select `init` function.
 					top = copy_data(metadata[3]);
+					if (top.type != D_FUNCTION) {
+						error_runtime(line, VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION);
+						destroy_data(&top);
+						break;
+					}
 					top.type = D_STRUCT_FUNCTION;
 
 					// Find how many STRUCT_PARAMs there are
@@ -1111,6 +1116,10 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 		// TODO(felixguo): Maybe check for type here?
 		if (op == O_EQ) {
 			return (a.value.reference == b.value.reference) ?
+				true_data() : false_data();
+		}
+		else if (op == O_NEQ) {
+			return (a.value.reference != b.value.reference) ?
 				true_data() : false_data();
 		}
 		error_runtime(line, VM_TYPE_ERROR, operator_string[op]);

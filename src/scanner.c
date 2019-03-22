@@ -204,9 +204,11 @@ static void identifier(void) {
 	else if (streq(text, "inc"))  { add_token(T_INC); }
 	else if (streq(text, "dec"))  { add_token(T_DEC); }
 	else if (streq(text, "input"))    { add_token(T_INPUT); }
-	else if (streq(text, "struct")){
+	else if (streq(text, "struct")) {
 		add_token(T_STRUCT);
-
+	}
+	else if (streq(text, "enum")) {
+		add_token(T_ENUM);
 	}
 	else { add_token(T_IDENTIFIER); }
 }

@@ -1,0 +1,4 @@
+enum Test => { A, B }
+
+Test.A == Test.A;
+Test.B != Test.B;

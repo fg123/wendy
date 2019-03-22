@@ -69,6 +69,7 @@
 	OP(T_INC) \
 	OP(T_DEC) \
 	OP(T_STRUCT) \
+	OP(T_ENUM) \
 	OP(T_REQ) \
 	OP(T_NATIVE) \
 	OP(T_NONE) \

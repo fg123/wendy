@@ -257,6 +257,11 @@ static struct statement* optimize_statement(struct statement* state) {
 				optimize_expr_list(state->op.struct_statement.static_members);
 			break;
 		}
+		case S_ENUM: {
+			state->op.enum_statement.values =
+				optimize_expr_list(state->op.enum_statement.values);
+			break;
+		}
 		case S_IF: {
 			state->op.if_statement.condition =
 				optimize_expr(state->op.if_statement.condition);
@@ -559,6 +564,10 @@ static void scan_statement(struct statement* state) {
 			scan_expr(state->op.struct_statement.init_fn);
 			scan_expr_list(state->op.struct_statement.instance_members);
 			scan_expr_list(state->op.struct_statement.static_members);
+			break;
+		}
+		case S_ENUM: {
+			scan_expr_list(state->op.enum_statement.values);
 			break;
 		}
 		case S_IF: {

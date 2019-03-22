@@ -76,11 +76,11 @@ void ast_safe_free_s(struct statement* ptr, struct traversal_algorithm* algo) {
 				safe_free(ptr->op.loop_statement.index_var);
 			}
 			break;
-		// // case S_ENUM:
-		// 	if (ptr->op.enum_statement.values) {
-		// 		safe_free(ptr->op.enum_statement.values);
-		// 	}
-		// 	break;
+		case S_ENUM:
+			if (ptr->op.enum_statement.name) {
+				safe_free(ptr->op.enum_statement.name);
+			}
+			break;
 		case S_BLOCK:
 		case S_EXPR:
 		case S_IF:
@@ -528,6 +528,44 @@ static struct statement* parse_statement(void) {
 			sm->op.loop_statement.statement_true = run_if_true;
 			break;
 		}
+		case T_ENUM: {
+			if (!match(T_IDENTIFIER)) {
+				error_lexer(first.t_line, first.t_col,
+					AST_ENUM_NAME_IDENTIFIER);
+			}
+			struct token name = previous();
+			consume(T_DEFFN);
+			struct expr_list* values = 0;
+			match(T_LEFT_BRACE);
+			if (!match(T_RIGHT_BRACE)) {
+				values = identifier_list();
+				consume(T_RIGHT_BRACE);
+			}
+
+			// Default Initiation Function, which is just "ret this"
+			struct statement_list* init_fn = safe_malloc(sizeof(struct statement_list));
+			struct statement_list* curr = init_fn;
+
+			curr->elem = safe_malloc(sizeof(struct statement));
+			curr->next = 0;
+			curr->elem->type = S_OPERATION;
+			curr->elem->op.operation_statement.operator = OP_RET;
+			curr->elem->op.operation_statement.operand =
+                lit_expr_from_data(make_data(D_IDENTIFIER,
+								data_value_str("this")));
+
+			struct statement* function_body = safe_malloc(sizeof(struct statement));
+			function_body->type = S_BLOCK;
+			function_body->op.block_statement = init_fn;
+			// init_fn is now the list of statements, to make it a function
+			struct expr* function_const = make_func_expr(0, function_body);
+
+			sm->type = S_ENUM;
+			sm->op.enum_statement.name = safe_strdup(name.t_data.string);
+			sm->op.enum_statement.values = values;
+			sm->op.enum_statement.init_fn = function_const;
+			break;
+		}
 		case T_STRUCT: {
 			if (!match(T_IDENTIFIER)) {
 				error_lexer(first.t_line, first.t_col,
@@ -739,6 +777,11 @@ void traverse_statement(struct statement* state, struct traversal_algorithm* alg
 			traverse_expr_list(state->op.struct_statement.static_members, algo);
 			break;
 		}
+		case S_ENUM: {
+			traverse_expr(state->op.enum_statement.init_fn, algo);
+			traverse_expr_list(state->op.enum_statement.values, algo);
+			break;
+		}
 		case S_IF: {
 			traverse_expr(state->op.if_statement.condition, algo);
 			traverse_statement(state->op.if_statement.statement_true, algo);
@@ -890,6 +933,11 @@ static void print_s(struct statement* state, struct traversal_algorithm* algo) {
 		case S_STRUCT: {
 			printf("Struct statement " GRN "%s\n" RESET,
 				state->op.struct_statement.name);
+			break;
+		}
+		case S_ENUM: {
+			printf("Enum statement " GRN "%s\n" RESET,
+				state->op.enum_statement.name);
 			break;
 		}
 		case S_IF: {

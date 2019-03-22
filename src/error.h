@@ -42,6 +42,7 @@ void error_compile(int line, int col, char* message, ...);
 #define AST_EXPECTED_PRIMARY "Expected primary expression!"
 #define AST_EXPECTED_IDENTIFIER_LOOP "Expected identifier in place of loop variable."
 #define AST_STRUCT_NAME_IDENTIFIER "Struct name must be an identifier!"
+#define AST_ENUM_NAME_IDENTIFIER "Enum name must be an identifier!"
 #define AST_UNRECOGNIZED_IMPORT "Unrecognized import, expected an identifier!"
 #define AST_OPERATOR_OVERLOAD_NO_OPERATOR "Expected an operator!"
 
@@ -113,6 +114,7 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_INVALID_NATIVE_NUMBER_OF_ARGS "Natively linked function call '%s' does not match expected number of arguments!"
 #define VM_INVALID_NATIVE_NUMERICAL_TYPE_ERROR "Type error in native function call. Expected numerical value."
 #define VM_INVALID_NATIVE_STRING_TYPE_ERROR "Type error in native function call. Expected string value."
+#define VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION "Struct's init constructor is not a function!"
 
 #define VM_INTERNAL_ERROR "An internal VM error occured: %s"
 

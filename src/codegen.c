@@ -320,13 +320,88 @@ static void codegen_statement(void* expre) {
 			}
 			break;
 		}
+		case S_ENUM: {
+			// We implement enums as a struct type. Each enum value
+			// corresponds to a static instance of the type.
+
+			// First, we make the struct prototype.
+			size_t push_size = 4;
+			char* enum_name = state->op.enum_statement.name;
+
+			write_opcode(OP_PUSH);
+			address meta_header_loc = size;
+			write_data(make_data(D_STRUCT_HEADER, data_value_num(1)));
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_STRUCT_NAME, data_value_str(enum_name)));
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_STRUCT_SHARED, data_value_str("init")));
+			codegen_expr(state->op.enum_statement.init_fn);
+
+			struct expr_list* curr = state->op.enum_statement.values;
+			while (curr) {
+				struct expr* elem = curr->elem;
+
+				if (elem->type != E_LITERAL
+					|| elem->op.lit_expr.type != D_IDENTIFIER) {
+					error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
+				}
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_STRUCT_SHARED,
+					data_value_str(elem->op.lit_expr.value.string)));
+
+				// The value of it is an instance of the struct.
+				write_opcode(OP_PUSH);
+				write_data(none_data());
+
+				push_size += 2;
+				curr = curr->next;
+			}
+
+			write_opcode(OP_MKREF);
+			write_byte(D_STRUCT);
+			write_integer(push_size);
+
+			write_opcode(OP_DECL);
+			write_string(enum_name);
+			write_opcode(OP_WRITE);
+			write_double_at(push_size, meta_header_loc + 1);
+
+			// Now we assign each one.
+			curr = state->op.enum_statement.values;
+			while (curr) {
+				// Call Constructor
+				codegen_end_marker();
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_IDENTIFIER, data_value_str(enum_name)));
+				write_opcode(OP_CALL);
+
+				// Get LValue of Enum
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_IDENTIFIER, data_value_str(enum_name)));
+				write_opcode(OP_MEMPTR);
+				write_string(curr->elem->op.lit_expr.value.string);
+				write_opcode(OP_WRITE);
+				curr = curr->next;
+			}
+
+			// Reset Constructor to be None
+			write_opcode(OP_PUSH);
+			write_data(none_data());
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(enum_name)));
+			write_opcode(OP_MEMPTR);
+			write_string("init");
+			write_opcode(OP_WRITE);
+			break;
+		}
 		case S_STRUCT: {
-			int push_size = 2; // For Header and Name
+			// Header, name, init function.
+			size_t push_size = 4;
 			char* struct_name = state->op.struct_statement.name;
 
 			// Push Header and Name
 			write_opcode(OP_PUSH);
-			int metaHeaderLoc = size;
+			address metaHeaderLoc = size;
 			write_data(make_data(D_STRUCT_HEADER, data_value_num(1)));
 			write_opcode(OP_PUSH);
 			write_data(make_data(D_STRUCT_NAME, data_value_str(struct_name)));
@@ -334,8 +409,6 @@ static void codegen_statement(void* expre) {
 			write_data(make_data(D_STRUCT_SHARED, data_value_str("init")));
 			// Push Init Function
 			codegen_expr(state->op.struct_statement.init_fn);
-
-			push_size += 2;
 
 			struct expr_list* curr = state->op.struct_statement.instance_members;
 			while (curr) {
