@@ -325,7 +325,7 @@ static void codegen_statement(void* expre) {
 			// corresponds to a static instance of the type.
 
 			// First, we make the struct prototype.
-			size_t push_size = 4;
+			size_t push_size = 5;
 			char* enum_name = state->op.enum_statement.name;
 
 			write_opcode(OP_PUSH);
@@ -336,6 +336,9 @@ static void codegen_statement(void* expre) {
 			write_opcode(OP_PUSH);
 			write_data(make_data(D_STRUCT_SHARED, data_value_str("init")));
 			codegen_expr(state->op.enum_statement.init_fn);
+
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_STRUCT_PARAM, data_value_str("_num")));
 
 			struct expr_list* curr = state->op.enum_statement.values;
 			while (curr) {
@@ -368,9 +371,15 @@ static void codegen_statement(void* expre) {
 
 			// Now we assign each one.
 			curr = state->op.enum_statement.values;
+			size_t internal_num = 0;
+
 			while (curr) {
 				// Call Constructor
 				codegen_end_marker();
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_NUMBER, data_value_num(internal_num)));
+				internal_num += 1;
+
 				write_opcode(OP_PUSH);
 				write_data(make_data(D_IDENTIFIER, data_value_str(enum_name)));
 				write_opcode(OP_CALL);

@@ -57,9 +57,9 @@ union token_data make_data_num(double i) {
 	return d;
 }
 
-union token_data make_data_str(char* s) {
+union token_data make_data_str_impl(char* s) {
 	union token_data d;
-	d.string = safe_strdup(s);
+	d.string = s;
 	return d;
 }
 

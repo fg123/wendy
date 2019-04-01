@@ -2,3 +2,18 @@ enum Test => { A, B }
 
 Test.A == Test.A;
 Test.B != Test.B;
+
+Test.A._num;
+Test.B._num;
+
+
+import wendy
+
+let a_val = Enum.serialize(Test.A);
+let b_val = Enum.serialize(Test.B);
+
+let a = Enum.deserialize(Test, a_val);
+let b = Enum.deserialize(Test, b_val);
+
+a == a;
+b != b;

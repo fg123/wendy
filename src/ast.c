@@ -545,8 +545,33 @@ static struct statement* parse_statement(void) {
 			// Default Initiation Function, which is just "ret this"
 			struct statement_list* init_fn = safe_malloc(sizeof(struct statement_list));
 			struct statement_list* curr = init_fn;
+			struct statement_list* prev = 0;
+
+			// Simulate this._num = _num;
+			curr->elem = safe_malloc(sizeof(struct statement));
+			curr->elem->type = S_EXPR;
+			curr->elem->op.expr_statement = safe_malloc(sizeof(struct expr));
+			curr->elem->op.expr_statement->type = E_ASSIGN;
+			struct expr* ass_expr = curr->elem->op.expr_statement;
+			ass_expr->op.assign_expr.operator = O_ASSIGN;
+			struct token num_token = make_token(T_IDENTIFIER, make_data_str("_num"));
+			ass_expr->op.assign_expr.rvalue = make_lit_expr(num_token);
+			// Binary Dot struct expr
+			struct expr* left = lit_expr_from_data(make_data(D_IDENTIFIER,
+							data_value_str("this")));
+			struct expr* right = make_lit_expr(num_token);
+
+			struct token op = make_token(T_DOT, make_data_str("."));
+			// This isn't very clean, having to make a fake token to
+			// construct the expression.
+			ass_expr->op.assign_expr.lvalue = make_bin_expr(left, op, right);
+			destroy_token(op);
+
+			prev = curr;
+			curr = safe_malloc(sizeof(struct statement_list));
 
 			curr->elem = safe_malloc(sizeof(struct statement));
+			prev->next = curr;
 			curr->next = 0;
 			curr->elem->type = S_OPERATION;
 			curr->elem->op.operation_statement.operator = OP_RET;
@@ -558,12 +583,16 @@ static struct statement* parse_statement(void) {
 			function_body->type = S_BLOCK;
 			function_body->op.block_statement = init_fn;
 			// init_fn is now the list of statements, to make it a function
-			struct expr* function_const = make_func_expr(0, function_body);
+			struct expr_list* param_list = safe_malloc(sizeof(struct expr_list));
+			param_list->next = 0;
+			param_list->elem = make_lit_expr(num_token);
+			struct expr* function_const = make_func_expr(param_list, function_body);
 
 			sm->type = S_ENUM;
 			sm->op.enum_statement.name = safe_strdup(name.t_data.string);
 			sm->op.enum_statement.values = values;
 			sm->op.enum_statement.init_fn = function_const;
+			destroy_token(num_token);
 			break;
 		}
 		case T_STRUCT: {

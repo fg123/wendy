@@ -101,7 +101,8 @@ struct token make_token(enum token_type t, union token_data d);
 union token_data make_data_num(double i);
 
 // makeDataStr(s) makes a data union with the string provided
-union token_data make_data_str(char* s);
+#define make_data_str(s) make_data_str_impl(safe_strdup((s)))
+union token_data make_data_str_impl(char* s);
 
 // none_token() returns a none token
 struct token none_token(void);
