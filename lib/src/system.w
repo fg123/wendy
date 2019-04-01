@@ -1,4 +1,5 @@
-/* system.w: WendyScript 2.0
+/*
+ * system.w: WendyScript 2.0
  * Created by Felix Guo
  * Provides system functions
  */
