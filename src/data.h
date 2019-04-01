@@ -16,7 +16,6 @@
 	OP(D_NUMBER) \
 	OP(D_INSTRUCTION_ADDRESS) \
 	OP(D_INTERNAL_POINTER) \
-	OP(D_MEMBER) \
 	OP(D_FUNCTION) \
 	OP(D_CLOSURE) \
 	OP(D_LIST) \
@@ -37,7 +36,7 @@
 	OP(D_TRUE) \
 	OP(D_FALSE) \
 	OP(D_MEMBER_IDENTIFIER) \
-	OP(D_NAMED_ARGUMENT_NAME) /* For named arguments */ \
+	OP(D_NAMED_ARGUMENT_NAME) \
 	OP(D_END_OF_ARGUMENTS) \
 	OP(D_ANY) // No way for client to construct this, can only have a type <any>
 
@@ -73,6 +72,7 @@ union data_value data_value_ptr(struct data* ptr);
 union data_value data_value_size(int size);
 bool is_numeric(struct data t);
 bool is_reference(struct data t);
+bool is_vm_internal_type(struct data t);
 
 #define time_data() make_data(D_NUMBER, data_value_num(time(NULL)))
 #define noneret_data() make_data(D_NONERET, data_value_str("<noneret>"))

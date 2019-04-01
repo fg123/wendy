@@ -102,6 +102,20 @@ bool is_numeric(struct data t) {
 		t.type == D_INTERNAL_POINTER;
 }
 
+bool is_vm_internal_type(struct data t) {
+	return t.type != D_STRING &&
+		t.type != D_NUMBER &&
+		t.type != D_FUNCTION &&
+		t.type != D_LIST &&
+		t.type != D_RANGE &&
+		t.type != D_STRUCT &&
+		t.type != D_STRUCT_INSTANCE &&
+		t.type != D_OBJ_TYPE &&
+		t.type != D_NONE &&
+		t.type != D_TRUE &&
+		t.type != D_FALSE;
+}
+
 struct data range_data(int start, int end) {
 	struct data res = make_data(D_RANGE, data_value_str(""));
 	size_t s = snprintf(NULL, 0, "%d|%d", start, end);

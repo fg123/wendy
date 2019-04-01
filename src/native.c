@@ -276,9 +276,20 @@ static struct data native_vm_getAt(struct data* args, int line) {
 		error_runtime(line, "Passed argument is not a reference type!");
 		return none_data();
 	}
+	size_t max = ref.value.reference[0].value.number;
+	if (index > max) {
+		error_runtime(line, "Index is out of bounds!");
+		return none_data();
+	}
+
 	struct data result = copy_data(ref.value.reference[(int) index]);
 	if (is_numeric(result)) {
 		result.type = D_NUMBER;
+	}
+	else if (is_vm_internal_type(result)) {
+		if (!is_reference(result)) {
+			result.type = D_STRING;
+		}
 	}
 	return result;
 }
