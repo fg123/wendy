@@ -4,6 +4,7 @@
  * Provides internal WendyVM functions
  */
 
-struct Wendy => [getRefs];
+struct Wendy => [getRefs, getAt];
 
 Wendy.getRefs => (ref) native vm_getRefs;
+Wendy.getAt => (ref, index) native vm_getAt;

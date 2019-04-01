@@ -33,6 +33,7 @@ static struct data native_readFile(struct data* args, int line);
 static struct data native_writeFile(struct data* args, int line);
 
 static struct data native_vm_getRefs(struct data* args, int line);
+static struct data native_vm_getAt(struct data* args, int line);
 
 // Math Functions
 static struct data native_pow(struct data* args, int line);
@@ -55,7 +56,8 @@ static struct native_function native_functions[] = {
 	{ "io_readRaw", 0, native_readRaw },
 	{ "io_readFile", 1, native_readFile },
 	{ "io_writeFile", 2, native_writeFile },
-	{ "vm_getRefs", 1, native_vm_getRefs }
+	{ "vm_getRefs", 1, native_vm_getRefs },
+	{ "vm_getAt", 2, native_vm_getAt }
 };
 
 static double native_to_numeric(struct data* t, int line) {
@@ -265,6 +267,20 @@ static struct data native_vm_getRefs(struct data* args, int line) {
 		(void*) arg.value.reference - sizeof(struct refcnt_container);
 
 	return make_data(D_NUMBER, data_value_num(container_info->refs));
+}
+
+static struct data native_vm_getAt(struct data* args, int line) {
+	struct data ref = args[0];
+	double index = native_to_numeric(&args[1], line);
+	if (!is_reference(ref)) {
+		error_runtime(line, "Passed argument is not a reference type!");
+		return none_data();
+	}
+	struct data result = copy_data(ref.value.reference[(int) index]);
+	if (is_numeric(result)) {
+		result.type = D_NUMBER;
+	}
+	return result;
 }
 
 void native_call(char* function_name, int expected_args, int line) {
