@@ -115,6 +115,7 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_INVALID_NATIVE_NUMERICAL_TYPE_ERROR "Type error in native function call. Expected numerical value."
 #define VM_INVALID_NATIVE_STRING_TYPE_ERROR "Type error in native function call. Expected string value."
 #define VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION "Struct's init constructor is not a function!"
+#define VM_ASSIGNING_NONERET "Attempted to use result from function that does not return a value!"
 
 #define VM_INTERNAL_ERROR "An internal VM error occured: %s"
 

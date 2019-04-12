@@ -550,9 +550,15 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					break;
 
 				struct data value = pop_arg(line);
-				destroy_data(&ptr.value.reference[0]);
 
 				// Since value is written back, we don't need to destroy it
+				if (value.type == D_NONERET) {
+					error_runtime(line, VM_ASSIGNING_NONERET);
+					destroy_data(&value);
+					break;
+				}
+
+				destroy_data(&ptr.value.reference[0]);
 				*(ptr.value.reference) = value;
 
 				if (ptr.value.reference->type == D_FUNCTION) {
