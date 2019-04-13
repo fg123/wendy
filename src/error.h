@@ -116,6 +116,7 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_INVALID_NATIVE_STRING_TYPE_ERROR "Type error in native function call. Expected string value."
 #define VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION "Struct's init constructor is not a function!"
 #define VM_ASSIGNING_NONERET "Attempted to use result from function that does not return a value!"
+#define VM_SPREAD_NOT_ITERABLE "Spread operator can only be called on List or Range."
 
 #define VM_INTERNAL_ERROR "An internal VM error occured: %s"
 

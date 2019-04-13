@@ -13,6 +13,8 @@ enum operator token_operator_unary(struct token op) {
 			return O_NOT;
 		case T_TILDE:
 			return O_COPY;
+		case T_DOT_DOT_DOT:
+			return O_SPREAD;
 		default:;
 	}
 	error_compile(op.t_line, op.t_col, OPERATORS_INVALID_UNARY);

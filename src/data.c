@@ -84,6 +84,7 @@ bool is_reference(struct data t) {
 		t.type == D_STRUCT_FUNCTION ||
 		t.type == D_STRUCT_METADATA ||
 		t.type == D_CLOSURE ||
+		t.type == D_SPREAD ||
 		t.type == D_STRUCT_INSTANCE ||
 		t.type == D_STRUCT_FUNCTION;
 }
@@ -173,6 +174,11 @@ unsigned int print_data_inline(const struct data* t, FILE* buf) {
 	}
 	else if (t->type == D_STRUCT) {
 		p += fprintf(buf, "<struct>");
+	}
+	else if (t->type == D_SPREAD) {
+		p += fprintf(buf, "<spread: ");
+		p += print_data_inline(t->value.reference, buf);
+		p += fprintf(buf, ">");
 	}
 	else if (t->type == D_FUNCTION) {
 		p += fprintf(buf, "<function");

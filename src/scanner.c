@@ -246,7 +246,15 @@ static bool scan_token(void) {
 		case '?': add_token(T_IF); break;
 		case '~': add_token(T_TILDE); break;
 		case ',': add_token(T_COMMA); break;
-		case '.': add_token(T_DOT); break;
+		case '.':
+			/* Match two dots to get ... */
+			if (match('.') && match('.')) {
+				add_token(T_DOT_DOT_DOT);
+			}
+			else {
+				add_token(T_DOT);
+			}
+			break;
 		case '-':
 			if (match('=')) {
 				add_token(T_ASSIGN_MINUS);

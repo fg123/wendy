@@ -74,7 +74,8 @@
 	OP(T_NATIVE) \
 	OP(T_NONE) \
 	OP(T_MEMBER) \
-	OP(T_DOLLAR_SIGN)
+	OP(T_DOLLAR_SIGN) \
+	OP(T_DOT_DOT_DOT)
 
 enum token_type {
 	FOREACH_TOKEN(ENUM)

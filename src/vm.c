@@ -32,7 +32,8 @@ address get_instruction_pointer() {
 }
 
 void vm_cleanup_if_repl() {
-	safe_free(bytecode);
+	// bytecode could be null if codegen didn't generate anything
+	if (bytecode) safe_free(bytecode);
 }
 
 #define num_args(...) (sizeof((char*[]){__VA_ARGS__})/sizeof(char*))
@@ -190,7 +191,14 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					goto wendy_vm_call;
 				}
 				else {
-					push_arg(eval_uniop(op, a));
+					// Uni-op has a special spread operator that returns noneret
+					struct data result = eval_uniop(op, a);
+					if (result.type != D_NONERET) {
+						push_arg(result);
+					}
+					else {
+						destroy_data(&result);
+					}
 					destroy_data(&a);
 				}
 				safe_free(fn_name);
@@ -316,17 +324,68 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			case OP_MKREF: {
 				enum data_type type = bytecode[i++];
 				size_t size = get_address(&bytecode[i], &i);
-				struct data* storage = refcnt_malloc(size);
-				struct data reference = make_data(type, data_value_ptr(storage));
-				while (size > 0) {
-					storage[size - 1] = pop_arg(line);
-					size -= 1;
-				}
+				struct data reference = make_data(type, data_value_ptr(NULL));
+
 				if (!is_reference(reference)) {
 					error_runtime(line, VM_INTERNAL_ERROR,
 						"MKREF called on non-reference type");
 					continue;
 				}
+
+				struct data* storage = refcnt_malloc(size);
+
+				// can't simply check additional_space because spread could
+				//   expand to 1 element too
+				bool has_spread = false;
+				size_t additional_space = 0;
+
+				size_t i = size;
+				while (i > 0) {
+					struct data next = pop_arg(line);
+					storage[i - 1] = next;
+					i -= 1;
+					if (next.type == D_SPREAD) {
+						additional_space += size_of(*next.value.reference).value.number - 1;
+						has_spread = true;
+					}
+				}
+
+				if (has_spread) {
+					struct data* new_storage =
+						refcnt_malloc(size + additional_space);
+					size_t j = 0;
+					for (size_t i = 0; i < size; i++) {
+						if (storage[i].type == D_SPREAD) {
+							struct data spread = storage[i].value.reference[0];
+							if (spread.type == D_LIST) {
+								for (size_t k = 0; k < spread.value.reference[0].value.number; k++) {
+									new_storage[j++] = copy_data(spread.value.reference[k + 1]);
+								}
+							}
+							else if (spread.type == D_RANGE) {
+								int start = range_start(spread);
+								int end = range_end(spread);
+								for (int k = start; k != end; start < end ? k++ : k--) {
+									new_storage[j++] = make_data(D_NUMBER, data_value_num(k));
+								}
+							}
+						}
+						else {
+							new_storage[j++] = storage[i];
+						}
+						// if (j > size + additional_space) {
+						// 	printf("WTF ERROR\n");
+						// }
+					}
+					refcnt_free(storage);
+					storage = new_storage;
+					if (storage[0].type == D_LIST_HEADER) {
+						// - 1 for header
+						storage[0].value.number = size + additional_space - 1;
+					}
+				}
+
+				reference.value.reference = storage;
 				push_arg(reference);
 				break;
 			}
@@ -1167,6 +1226,9 @@ static struct data size_of(struct data a) {
 	else if (a.type == D_RANGE) {
 		size = abs(range_end(a) - range_start(a));
 	}
+	else if (a.type == D_SPREAD) {
+		size = size_of(*a.value.reference).value.number;
+	}
 	return make_data(D_NUMBER, data_value_num(size));
 }
 
@@ -1193,6 +1255,8 @@ static struct data type_of(struct data a) {
 			return make_data(D_OBJ_TYPE, data_value_str("closure"));
 		case D_STRUCT:
 			return make_data(D_OBJ_TYPE, data_value_str("struct"));
+		case D_SPREAD:
+			return make_data(D_OBJ_TYPE, data_value_str("spread"));
 		case D_OBJ_TYPE:
 			return make_data(D_OBJ_TYPE, data_value_str("type"));
 		case D_ANY:
@@ -1267,6 +1331,16 @@ static struct data eval_uniop(enum operator op, struct data a) {
 			return none_data();
 		}
 		return a.type == D_TRUE ? false_data() : true_data();
+	}
+	else if (op == O_SPREAD) {
+		// Expandable Types
+		if (a.type != D_LIST && a.type != D_RANGE) {
+			error_runtime(line, VM_SPREAD_NOT_ITERABLE);
+			return none_data();
+		}
+		struct data *storage = refcnt_malloc(1);
+		*storage = copy_data(a);
+		return make_data(D_SPREAD, data_value_ptr(storage));
 	}
 	else {
 		// fallback case

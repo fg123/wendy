@@ -306,7 +306,7 @@ static struct expr* access(void) {
 }
 
 static struct expr* unary(void) {
-	if (match(T_MINUS, T_NOT, T_TILDE)) {
+	if (match(T_MINUS, T_NOT, T_TILDE, T_DOT_DOT_DOT)) {
 		struct token op = previous();
 		struct expr* right = unary();
 		return make_una_expr(op, right);

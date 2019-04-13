@@ -159,6 +159,10 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
 void safe_free_impl(void* ptr, char* filename, int line_num) {
 	UNUSED(filename);
 	UNUSED(line_num);
+	if (!ptr) {
+		fprintf(stderr, "Free Error: Attempted to free a null pointer.\n");
+		return;
+	}
 	struct malloc_node* node_ptr = ptr - sizeof(struct malloc_node);
 	remove_from_list(node_ptr);
 	free(node_ptr);
