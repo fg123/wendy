@@ -1,0 +1,30 @@
+// Everything should output yes
+
+let make => (b, should_run) {
+	if (should_run) "Yes";
+	ret b;
+};
+
+// true and true: both run
+make(true, true) and make(true, true);
+
+// true and false: both run
+make(true, true) and make(false, true);
+
+// false and true: only first run
+make(false, true) and make(true, false);
+
+// false and false: only first run
+make(false, true) and make(false, true);
+
+// true or true: only first run
+make(true, true) or make(true, false);
+
+// true or false: only first run
+make(true, true) or make(false, false);
+
+// false or true: both run
+make(false, true) or make(true, true);
+
+// false or false: both run
+make(false, true) or make(false, true);

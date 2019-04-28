@@ -66,7 +66,7 @@ static void write_address(address a) {
 	}
 }
 
-static void write_address_at(address a, int pos) {
+static void write_address_at(address a, address pos) {
 	if (!is_big_endian) pos += sizeof(address);
 	uint8_t* first = (void*)&a;
 	for (size_t i = 0; i < sizeof(address); i++) {
@@ -74,7 +74,7 @@ static void write_address_at(address a, int pos) {
 	}
 }
 
-static void write_double_at(double a, int pos) {
+static void write_double_at(double a, address pos) {
 	if (!is_big_endian) pos += sizeof(a);
 	uint8_t* p = (void*)&a;
 	for (size_t i = 0; i < sizeof(double); i++) {
@@ -636,6 +636,40 @@ static void codegen_expr(void* expre) {
 			write_data(copy_data(
                 expression->op.bin_expr.right->op.lit_expr));
 			codegen_expr(expression->op.bin_expr.left);
+		}
+		/* Short Circuiting for Boolean Operators. Boolean operators
+		 * are commutative, so we can generate the left first. */
+		else if (expression->op.bin_expr.operator == O_AND ||
+				 expression->op.bin_expr.operator == O_OR) {
+			codegen_expr(expression->op.bin_expr.left);
+			bool is_or = expression->op.bin_expr.operator == O_OR;
+			/* We want to negate for OR, so the JIF is accurate */
+			if (is_or) {
+				write_opcode(OP_UNA);
+				write_byte(O_NOT);
+			}
+			write_opcode(OP_JIF);
+			address short_circuit_loc = size;
+			size += sizeof(address);
+			/* LHS is True (or False for or), since we didn't short circuit */
+			write_opcode(OP_PUSH);
+			write_data(is_or ? false_data() : true_data());
+			codegen_expr(expression->op.bin_expr.right);
+			write_opcode(OP_BIN);
+			write_byte(expression->op.bin_expr.operator);
+			write_opcode(OP_JMP);
+			address fine_loc = size;
+			size += sizeof(address);
+
+			/* Jump to Here if we short circuit */
+			write_address_at(size, short_circuit_loc);
+			write_opcode(OP_PUSH);
+			write_data(is_or ? true_data() : false_data());
+
+			/* Jump to Here if everything is fine */
+			write_address_at(size, fine_loc);
+			/* Skip the default OP_BIN */
+			return;
 		}
 		else {
 			codegen_expr(expression->op.bin_expr.right);
