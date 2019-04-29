@@ -726,6 +726,18 @@ static void codegen_expr(void* expre) {
 			expression->op.call_expr.function->op.bin_expr.operator == O_MEMBER) {
 			// Struct Member Call, we will generate an extra "argument" that is the
 			//   reference to the LHS
+
+			// TODO(felixguo): THIS IS BIG ISSUE, THIS WILL GENERATE THE LHS
+			//   TWICE! WHICH IS BAD IF THE LHS IS A CONSTRUCTOR WITH SOME KIND
+			//   OF GLOBAL STATE. Instead, we should duplicate the reference
+			//   that this following codegen creates, and then reuse that in
+			//   the call_expr.function codegen below.
+			//  Test Broken Code:
+			//   struct test => () [b]
+			//   test.init => () {"testing"; ret this;}
+			//   test.b => (x) x
+			//   test().b(10)
+
 			codegen_expr(expression->op.call_expr.function->op.bin_expr.left);
 		}
 		codegen_expr(expression->op.call_expr.function);
