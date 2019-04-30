@@ -24,6 +24,7 @@ static uint8_t* bytecode = 0;
 static size_t capacity = 0;
 static size_t size = 0;
 static size_t global_loop_id = 0;
+static size_t global_member_call_id = 0;
 
 int verify_header(uint8_t* bytecode) {
 	char* start = (char*)bytecode;
@@ -727,18 +728,21 @@ static void codegen_expr(void* expre) {
 			// Struct Member Call, we will generate an extra "argument" that is the
 			//   reference to the LHS
 
-			// TODO(felixguo): THIS IS BIG ISSUE, THIS WILL GENERATE THE LHS
-			//   TWICE! WHICH IS BAD IF THE LHS IS A CONSTRUCTOR WITH SOME KIND
-			//   OF GLOBAL STATE. Instead, we should duplicate the reference
-			//   that this following codegen creates, and then reuse that in
-			//   the call_expr.function codegen below.
-			//  Test Broken Code:
-			//   struct test => () [b]
-			//   test.init => () {"testing"; ret this;}
-			//   test.b => (x) x
-			//   test().b(10)
-
+			char temp_variable[30];
+			sprintf(temp_variable, "$mem_call_tmp%zd", global_member_call_id++);
 			codegen_expr(expression->op.call_expr.function->op.bin_expr.left);
+			write_opcode(OP_DECL);
+			write_string(temp_variable);
+			write_opcode(OP_WRITE);
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_IDENTIFIER, data_value_str(temp_variable)));
+
+			traverse_expr(expression->op.call_expr.function->op.bin_expr.left, &ast_safe_free_impl);
+
+			struct expr *temp_expr = safe_malloc(sizeof(struct expr));
+			temp_expr->type = E_LITERAL;
+			temp_expr->op.lit_expr = make_data(D_IDENTIFIER, data_value_str(temp_variable));
+			expression->op.call_expr.function->op.bin_expr.left = temp_expr;
 		}
 		codegen_expr(expression->op.call_expr.function);
 		write_opcode(OP_CALL);

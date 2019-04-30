@@ -1,0 +1,5 @@
+// testing should only be printed once
+struct test => () [b];
+test.init => () {"testing"; ret this;}
+test.b => (x) x
+test().b(10)
