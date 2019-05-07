@@ -91,6 +91,12 @@ struct data *refcnt_malloc_impl(struct data* allocated, size_t count) {
 	return (void*)allocated + sizeof(struct refcnt_container);
 }
 
+struct data *refcnt_realloc_impl(struct refcnt_container* realloc_ptr, size_t new_count) {
+	// Assume we have already reallocated the size
+	realloc_ptr->count = new_count;
+	return (void*)realloc_ptr + sizeof(struct refcnt_container);
+}
+
 void refcnt_free(struct data *ptr) {
 	struct refcnt_container* container_info =
 		(void*)ptr - sizeof(struct refcnt_container);

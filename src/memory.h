@@ -60,6 +60,13 @@ struct data pop_arg(int line);
 		(count) * sizeof(struct data) + sizeof(struct refcnt_container), 1), count)
 struct data *refcnt_malloc_impl(struct data* allocated, size_t count);
 
+// refcnt_realloc() reallocates the block of memory to increase the size
+#define refcnt_realloc(ptr, count) \
+	refcnt_realloc_impl(safe_realloc( \
+		(void*)ptr - sizeof(struct refcnt_container), \
+		(count) * sizeof(struct data) + sizeof(struct refcnt_container)), count)
+struct data *refcnt_realloc_impl(struct refcnt_container* realloc_ptr, size_t new_count);
+
 // refcnt_free() reduces the refcount by 1, and frees the heap memory
 //   if the refcount is 0
 void refcnt_free(struct data *ptr);
