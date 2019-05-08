@@ -684,7 +684,9 @@ static struct statement* parse_statement(void) {
 		case T_INPUT:
 		case T_AT:  {
 			sm->type = S_OPERATION;
-            enum opcode code;
+			// Initializing this for the default case, even though the default case should
+			//   never be reached, because we check for the t_type above.
+            enum opcode code = OP_PUSH;
             switch(first.t_type) {
                 case T_INC: code = OP_INC; break;
                 case T_DEC: code = OP_DEC; break;
