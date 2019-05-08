@@ -369,6 +369,14 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 									new_storage[j++] = make_data(D_NUMBER, data_value_num(k));
 								}
 							}
+							else if (spread.type == D_STRING) {
+								size_t len = strlen(spread.value.string);
+								for (size_t k = 0; k < len; k++) {
+									struct data str = make_data(D_STRING, data_value_str(" "));
+									str.value.string[0] = spread.value.string[k];
+									new_storage[j++] = str;
+								}
+							}
 						}
 						else {
 							new_storage[j++] = storage[i];
@@ -1334,7 +1342,7 @@ static struct data eval_uniop(enum operator op, struct data a) {
 	}
 	else if (op == O_SPREAD) {
 		// Expandable Types
-		if (a.type != D_LIST && a.type != D_RANGE) {
+		if (a.type != D_LIST && a.type != D_RANGE && a.type != D_STRING) {
 			error_runtime(line, VM_SPREAD_NOT_ITERABLE);
 			return none_data();
 		}
