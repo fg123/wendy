@@ -381,9 +381,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 						else {
 							new_storage[j++] = storage[i];
 						}
-						// if (j > size + additional_space) {
-						// 	printf("WTF ERROR\n");
-						// }
 					}
 					refcnt_free(storage);
 					storage = new_storage;
@@ -567,6 +564,58 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				}
 				i = (address) addr.value.number;
 
+				// Resolve Spread Objects in the Call List
+				size_t ptr = working_stack_pointer - 1;
+				bool has_spread = false;
+				size_t additional_size = 0;
+				size_t argc = 0;
+				while (working_stack[ptr].type != D_END_OF_ARGUMENTS) {
+					if (working_stack[ptr].type == D_SPREAD) {
+						has_spread = true;
+						additional_size +=
+							size_of(*working_stack[ptr].value.reference).value.number - 1;
+					}
+					argc += 1;
+					ptr -= 1;
+				}
+
+				if (has_spread) {
+					// Expand the Stack if required
+					ensure_working_stack_size(additional_size);
+					// In-place move from the back
+					size_t og_ptr = working_stack_pointer - 1;
+					size_t new_ptr = working_stack_pointer + additional_size - 1;
+					for (; working_stack[og_ptr].type != D_END_OF_ARGUMENTS; og_ptr--) {
+						if (working_stack[og_ptr].type == D_SPREAD) {
+							struct data spread = working_stack[og_ptr].value.reference[0];
+							if (spread.type == D_LIST) {
+								for (size_t k = 0; k < spread.value.reference[0].value.number; k++) {
+									working_stack[new_ptr--] = copy_data(spread.value.reference[k + 1]);
+								}
+							}
+							else if (spread.type == D_RANGE) {
+								int start = range_start(spread);
+								int end = range_end(spread);
+								for (int k = start; k != end; start < end ? k++ : k--) {
+									working_stack[new_ptr--] = make_data(D_NUMBER, data_value_num(k));
+								}
+							}
+							else if (spread.type == D_STRING) {
+								size_t len = strlen(spread.value.string);
+								for (size_t k = 0; k < len; k++) {
+									struct data str = make_data(D_STRING, data_value_str(" "));
+									str.value.string[0] = spread.value.string[k];
+									working_stack[new_ptr--] = str;
+								}
+							}
+						}
+						else {
+							working_stack[new_ptr--] = working_stack[og_ptr];
+						}
+					}
+					working_stack_pointer += additional_size;
+				}
+
 				if (top.type == D_STRUCT_FUNCTION) {
 					// Either we pushed the new instance on the stack on top, or
 					//   codegen generated the instance on the top.
@@ -613,8 +662,12 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				}
 
 				if (top_arg(line)->type == D_END_OF_ARGUMENTS ||
-					top_arg(line)->type == D_NAMED_ARGUMENT_NAME)
+					top_arg(line)->type == D_NAMED_ARGUMENT_NAME) {
+					if (ptr.value.reference->type == D_EMPTY) {
+						*(ptr.value.reference) = none_data();
+					}
 					break;
+				}
 
 				struct data value = pop_arg(line);
 

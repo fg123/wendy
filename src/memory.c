@@ -62,6 +62,12 @@ void check_memory(void) {
 	}
 }
 
+void ensure_working_stack_size(size_t additional) {
+	while (working_stack_pointer + additional >= working_stack_size) {
+		resize(working_stack, working_stack_size);
+	}
+}
+
 struct data *refcnt_malloc_impl(struct data* allocated, size_t count) {
 	// We allocate:
 	// | refcnt_container | data         |

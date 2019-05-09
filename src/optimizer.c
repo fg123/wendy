@@ -177,6 +177,7 @@ static void free_id_nodes(struct id_node* node) {
 static void add_node(char* id, struct expr* value) {
 	if (!curr_statement_block) {
 		error_general(OPTIMIZER_NO_STATEMENT_BLOCK);
+		return;
 	}
 	struct id_node* new_node = safe_malloc(sizeof(struct id_node));
 	new_node->id_name = id;
@@ -335,7 +336,7 @@ static struct expr* optimize_expr(struct expr* expression) {
 						remove_usage(expression->op.lit_expr.value.string,
 							expression->line, expression->col);
 						destroy_data(&expression->op.lit_expr);
-						*expression = *value;
+						expression->op.lit_expr = copy_data(value->op.lit_expr);
 					}
 				}
 			}

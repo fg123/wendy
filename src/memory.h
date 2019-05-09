@@ -52,6 +52,9 @@ void push_arg(struct data t);
 // pop(line) returns the top of the working stack
 struct data pop_arg(int line);
 
+// ensure_working_stack_size(n) ensures it can fit another items
+void ensure_working_stack_size(size_t additional);
+
 // refcnt_malloc() allocates a block of memory with reference count
 //   returned from MKPTR mostly, the count is 1 by default
 // We use a macro here so leaks can be traced back to the caller

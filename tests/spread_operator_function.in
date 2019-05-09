@@ -1,0 +1,18 @@
+let l = [1, 2, 3];
+let r = 1->4;
+let s = "123";
+
+let test_each_arg => (a, b, c) {
+    a + b + c;
+};
+
+let test_all_args => () {
+    arguments;
+};
+
+test_each_arg(...l);
+test_each_arg(...r);
+test_each_arg(...s);
+test_all_args(...l);
+test_all_args(...r);
+test_all_args(...s);
