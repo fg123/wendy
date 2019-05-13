@@ -723,11 +723,17 @@ static void codegen_expr(void* expre) {
 	}
 	else if (expression->type == E_CALL) {
 		codegen_expr_list_for_call(expression->op.call_expr.arguments);
+
+		bool made_new_frame = false;
 		if (expression->op.call_expr.function->type == E_BINARY &&
 			expression->op.call_expr.function->op.bin_expr.operator == O_MEMBER) {
 			// Struct Member Call, we will generate an extra "argument" that is the
 			//   reference to the LHS
 
+			// Encase this in a seperate frame in case we use imports and it's
+			//   already declared.
+			write_opcode(OP_FRM);
+			made_new_frame = true;
 			char temp_variable[30];
 			sprintf(temp_variable, "$mem_call_tmp%zd", global_member_call_id++);
 			codegen_expr(expression->op.call_expr.function->op.bin_expr.left);
@@ -746,6 +752,9 @@ static void codegen_expr(void* expre) {
 		}
 		codegen_expr(expression->op.call_expr.function);
 		write_opcode(OP_CALL);
+		if (made_new_frame) {
+			write_opcode(OP_END);
+		}
 	}
 	else if (expression->type == E_LIST) {
 		int count = expression->op.list_expr.length;
