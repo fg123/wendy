@@ -101,3 +101,12 @@ let indexOf => (list, item) {
 		if list[i] == item ret i;
 	ret -1;
 };
+
+let @ <list> => (lst) {
+	@"[";
+	for i in 0->lst.size {
+		if (i != 0) @", ";
+		@lst[i];
+	}
+	"]";
+};
