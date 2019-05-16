@@ -931,22 +931,26 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 		else if (streq("char", b.value.string)) {
 			return char_of(a);
 		}
-		else if (a.type == D_FUNCTION && streq("closure", b.value.string)) {
+		else if ((a.type == D_FUNCTION || a.type == D_STRUCT_FUNCTION) &&
+			streq("closure", b.value.string)) {
 			return copy_data(a.value.reference[1]);
 		}
-		else if (a.type == D_FUNCTION && streq("params", b.value.string)) {
+		else if ((a.type == D_FUNCTION || a.type == D_STRUCT_FUNCTION) &&
+			streq("params", b.value.string)) {
 			return copy_data(a.value.reference[3]);
 		}
 		else if (a.type == D_NONERET) {
 			error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
 			return none_data();
 		}
-		else if (!(a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE)) {
-			error_runtime(line, VM_NOT_A_STRUCT);
-			return none_data();
-		}
+		// else if (!(a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE)) {
+		//	error_runtime(line, VM_NOT_A_STRUCT);
+		//	return none_data();
+		// }
 		else {
-			error_runtime(line, VM_MEMBER_NOT_EXIST, b.value.string);
+			struct data type = type_of(a);
+			error_runtime(line, VM_MEMBER_NOT_EXIST, b.value.string, type.value.string);
+			destroy_data(&type);
 			return false_data();
 		}
 	}

@@ -51,8 +51,8 @@ void error_compile(int line, int col, char* message, ...);
 
 // CodeGen Messages:
 #define CODEGEN_LVALUE_EXPECTED_IDENTIFIER "Expected identifier in lvalue expression."
-#define CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL \
-	"Right parameter of member access binary operator must be a LITERAL expression."
+#define CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL_IDENTIFIER \
+	"Right parameter of member access binary operator must be a valid identifier, found %s."
 #define CODEGEN_NAMED_ARGUMENT_NOT_LITERAL "Named arguments must be a valid LITERAL identifier."
 #define CODEGEN_UNEXPECTED_FUNCTION_PARAMETER \
 	"Unexpected function parameter declaration."
@@ -97,7 +97,7 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_LIST_REF_OUT_RANGE "List subscript is out of range!"
 #define VM_NOT_A_STRUCT "You can only access member of a struct or a struct instance!"
 #define VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS "Tried to access member of a <noneret>, did you forget `ret this` in the init function?"
-#define VM_MEMBER_NOT_EXIST "Member '%s' does not exist in struct."
+#define VM_MEMBER_NOT_EXIST "Could not evaluate member '%s' in <%s>."
 #define VM_COND_EVAL_NOT_BOOL "Condition must evaluate to true or false."
 #define VM_FN_CALL_NOT_FN "Initiated function call but did not find function to call."
 #define VM_INVALID_LIST_SUBSCRIPT "List index must be a number or a range!"

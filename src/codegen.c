@@ -120,6 +120,12 @@ static void codegen_expr(void* expre);
 static void codegen_statement(void* expre);
 static void codegen_statement_list(void* expre);
 
+static bool is_literal_identifier(struct expr *e) {
+	return e->type == E_LITERAL &&
+		(e->op.lit_expr.type == D_IDENTIFIER ||
+		 e->op.lit_expr.type == D_MEMBER_IDENTIFIER);
+}
+
 static void codegen_lvalue_expr(struct expr* expression) {
 	if (expression->type == E_LITERAL) {
 		// Better be a identifier eh
@@ -136,9 +142,10 @@ static void codegen_lvalue_expr(struct expr* expression) {
 		codegen_expr(expression->op.bin_expr.left);
 
 		if (expression->op.bin_expr.operator == O_MEMBER) {
-			if (expression->op.bin_expr.right->type != E_LITERAL) {
+			if (!is_literal_identifier(expression->op.bin_expr.right)) {
 				error_lexer(expression->line, expression->col,
-					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
+					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL_IDENTIFIER,
+					data_string[expression->op.bin_expr.right->op.lit_expr.type]);
 				return;
 			}
 			//expression->op.bin_expr.right->op.lit_expr.t_type = T_MEMBER;
@@ -628,9 +635,11 @@ static void codegen_expr(void* expre) {
 			return;
 		}
 		else if (expression->op.bin_expr.operator == O_MEMBER) {
-			if (expression->op.bin_expr.right->type != E_LITERAL) {
+			if (!is_literal_identifier(expression->op.bin_expr.right)) {
 				error_lexer(expression->line, expression->col,
-					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL);
+					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL_IDENTIFIER,
+					data_string[expression->op.bin_expr.right->op.lit_expr.type]);
+				return;
 			}
 			expression->op.bin_expr.right->op.lit_expr.type = D_MEMBER_IDENTIFIER;
 			write_opcode(OP_PUSH);
