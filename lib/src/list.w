@@ -83,15 +83,6 @@ let difference => (list_a, list_b) {
 	ret unique(result)
 };
 
-let expand => (list) {
-	let result = [];
-	for i in list
-		if i.type == <range>
-			for j in i result += j
-		else result += i
-	ret result
-};
-
 let reduce => (list, fn, initial)
 	if list.size == 0 ret initial
 	else ret fn(list[0], reduce(list[1->list.size], fn, initial))
