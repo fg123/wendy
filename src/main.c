@@ -198,7 +198,7 @@ bool bracket_check(char* source) {
 int repl(void) {
 	init_source(0, "", 0, false);
 	printf("Welcome to " WENDY_VERSION " created by: Felix Guo\n");
-	printf(BUILD_VERSION "\n");
+	printf(BUILD_VERSION " (" GIT_COMMIT ")\n");
 	printf("Run `wendy -help` to get help.\n");
 	printf("Press Ctrl+D (EOF) to exit REPL.\n");
 	char* path = get_path();

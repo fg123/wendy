@@ -7,6 +7,9 @@
 // global.h - Felix Guo
 // This file contains global information and utility functions.
 
+#define ENUM(x) x,
+#define STRING(x) #x,
+
 // Main Information
 #define WENDY_VERSION "Wendy 2.0"
 
@@ -31,9 +34,6 @@
 #define LOOP_COUNTER_PREFIX ":"
 
 #define DIVIDER "===================="
-
-#define ENUM(x) x,
-#define STRING(x) #x,
 
 enum settings_flags {
 	SETTINGS_COMPILE = 0,

@@ -2,7 +2,8 @@ CC=gcc
 BINDIR = bin
 SRCDIR = src
 WARNING_FLAGS = -Wall -Wextra -Werror -Wstrict-prototypes
-CFLAGS = -g -std=c99 $(WARNING_FLAGS) $(release) $(FLAGS)
+GIT_COMMIT = $(shell git rev-parse --short HEAD)
+CFLAGS = -g -std=c99 $(WARNING_FLAGS) $(release) $(FLAGS) -DGIT_COMMIT=\"$(GIT_COMMIT)\"
 EXTERNAL_LIBRARIES = -lreadline -lm
 
 _DEPS = *.h
