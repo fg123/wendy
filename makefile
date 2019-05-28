@@ -25,6 +25,7 @@ setup:
 
 main: $(OBJ)
 	$(CC) -o $(BINDIR)/wendy $^ $(EXTERNAL_LIBRARIES) $(CFLAGS)
+	ln $(BINDIR)/wendy $(BINDIR)/windu
 	$(MAKE) -C tools/
 
 .PHONY: clean
