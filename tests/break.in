@@ -25,3 +25,12 @@ for i in 1->5 {
 		i + " " + j;
 	}
 }
+
+let fn => (start, end) {
+	for j in start->end {
+		if j > 0 break;
+		j;
+	}
+}
+fn (-10, -5);
+fn (-3, 5);
