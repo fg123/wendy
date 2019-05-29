@@ -66,6 +66,9 @@ void ast_safe_free_s(struct statement* ptr, struct traversal_algorithm* algo) {
 				safe_free(ptr->op.let_statement.lvalue);
 			}
 			break;
+		case S_BREAK:
+		case S_CONTINUE:
+			break;
 		case S_STRUCT:
 			if (ptr->op.struct_statement.name) {
 				safe_free(ptr->op.struct_statement.name);
@@ -502,6 +505,14 @@ static struct statement* parse_statement(void) {
 			sm->op.if_statement.statement_false = run_if_false;
 			break;
 		}
+		case T_BREAK: {
+			sm->type = S_BREAK;
+			break;
+		}
+		case T_CONTINUE: {
+			sm->type = S_CONTINUE;
+			break;
+		}
 		case T_LOOP: {
 			struct expr* index_var = expression();
 			char* a_index;
@@ -798,6 +809,10 @@ void traverse_statement(struct statement* state, struct traversal_algorithm* alg
 			traverse_expr(state->op.expr_statement, algo);
 			break;
 		}
+		case S_BREAK:
+		case S_CONTINUE: {
+			break;
+		}
 		case S_BLOCK: {
 			traverse_statement_list(state->op.block_statement, algo);
 			break;
@@ -954,7 +969,15 @@ static void print_s(struct statement* state, struct traversal_algorithm* algo) {
 			break;
 		}
 		case S_EXPR: {
-			printf("Expression statement \n");
+			printf("Expression statement\n");
+			break;
+		}
+		case S_BREAK: {
+			printf("Break statement\n");
+			break;
+		}
+		case S_CONTINUE: {
+			printf("Continue statement\n");
 			break;
 		}
 		case S_BLOCK: {

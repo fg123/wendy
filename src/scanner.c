@@ -190,6 +190,8 @@ static void identifier(void) {
 	else if (streq(text, "true")) { add_token(T_TRUE); }
 
 	else if (streq(text, "let"))  { add_token(T_LET); }
+	else if (streq(text, "break")){ add_token(T_BREAK); }
+	else if (streq(text, "continue")) { add_token(T_CONTINUE); }
 	else if (streq(text, "for"))  { add_token(T_LOOP); }
 	else if (streq(text, "none")) { add_token(T_NONE); }
 	else if (streq(text, "in"))   { add_token(T_IN); }

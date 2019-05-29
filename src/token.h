@@ -63,6 +63,8 @@
 	OP(T_FALSE) \
 	OP(T_LET) \
 	OP(T_LOOP) \
+	OP(T_BREAK) \
+	OP(T_CONTINUE) \
 	OP(T_DEFFN) \
 	OP(T_RET) \
 	OP(T_INPUT) \

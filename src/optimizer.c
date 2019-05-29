@@ -236,6 +236,8 @@ static struct statement* optimize_statement(struct statement* state) {
 			}
 			break;
 		}
+		case S_BREAK:
+		case S_CONTINUE:
 		case S_OPERATION: {
 			break;
 		}
@@ -552,6 +554,9 @@ static void scan_statement(struct statement* state) {
 			}
 			break;
 		}
+		case S_BREAK:
+		case S_CONTINUE:
+			break;
 		case S_EXPR: {
 			scan_expr(state->op.expr_statement);
 			break;

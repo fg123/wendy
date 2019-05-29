@@ -72,7 +72,7 @@ struct expr_list {
 
 struct statement {
 	enum { S_EXPR, S_OPERATION, S_LET, S_STRUCT, S_IF, S_BLOCK, S_LOOP,
-		S_IMPORT, S_ENUM }
+		S_IMPORT, S_ENUM, S_BREAK, S_CONTINUE }
 		type;
 	union { struct expr*                                       expr_statement;
 			struct {    enum opcode        operator;

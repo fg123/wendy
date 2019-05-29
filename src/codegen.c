@@ -256,6 +256,11 @@ static void codegen_statement(void* expre) {
 				write_opcode(OP_OUT);
 			break;
 		}
+		case S_BREAK:
+		case S_CONTINUE: {
+			error_general("Break and continue are not implemented!");
+			break;
+		}
 		case S_BLOCK: {
 			if (state->op.block_statement) {
 				write_opcode(OP_FRM);
