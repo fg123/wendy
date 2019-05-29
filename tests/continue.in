@@ -1,0 +1,16 @@
+for i in 1->5 {
+	i;
+	continue;
+}
+
+
+for j in 1->10 {
+	if j % 2 == 0 continue;
+	j;
+}
+
+for k in "HelloWorld" {
+	"Blah";
+	if (k ~ ['a', 'e', 'o']) continue;
+	k;
+}

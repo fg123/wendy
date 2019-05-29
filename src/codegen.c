@@ -20,6 +20,21 @@ const char* opcode_string[] = {
 	0 // Sentinal value used when traversing through this array; acts as a NULL
 };
 
+// For the implementation of break and continue, we keep track of nested loops
+struct loop_context {
+	int scope;
+	address break_locations[256];
+	size_t break_count;
+
+	address continue_locations[256];
+	size_t continue_count;
+
+	struct loop_context *parent;
+};
+
+struct loop_context *current_loop_context = 0;
+int scope_level = 0;
+
 static uint8_t* bytecode = 0;
 static size_t capacity = 0;
 static size_t size = 0;
@@ -114,6 +129,19 @@ static void write_data(struct data t) {
 static inline void write_opcode(enum opcode op) {
 	guarantee_size(1);
 	write_byte(op);
+}
+
+static void make_scope(void) {
+	write_opcode(OP_FRM);
+	scope_level += 1;
+}
+
+static void end_scope(void) {
+	write_opcode(OP_END);
+	scope_level -= 1;
+	if (scope_level < 0) {
+		error_general("Scope level below 0! make_scope and end_scope not aligned!");
+	}
 }
 
 static void codegen_expr(void* expre);
@@ -256,18 +284,56 @@ static void codegen_statement(void* expre) {
 				write_opcode(OP_OUT);
 			break;
 		}
-		case S_BREAK:
+		case S_BREAK: {
+			if (!current_loop_context) {
+				error_lexer(state->src_line, 0, CODEGEN_BREAK_NOT_IN_LOOP);
+				break;
+			}
+			if (scope_level < current_loop_context->scope) {
+				error_general("Internal error, scope (%d) < current loop (%d)!",
+					scope_level, current_loop_context->scope);
+			}
+			for (int j = scope_level; j != current_loop_context->scope; j--) {
+				write_opcode(OP_END);
+			}
+			write_opcode(OP_JMP);
+
+			current_loop_context->break_locations[
+				current_loop_context->break_count++] = size;
+
+			size += sizeof(address);
+			break;
+		}
 		case S_CONTINUE: {
-			error_general("Break and continue are not implemented!");
+			if (!current_loop_context) {
+				error_lexer(state->src_line, 0, CODEGEN_CONTINUE_NOT_IN_LOOP);
+				break;
+			}
+			if (scope_level < current_loop_context->scope) {
+				error_general("Internal error, scope (%d) < current loop (%d)!",
+					scope_level, current_loop_context->scope);
+			}
+			for (int j = scope_level; j != current_loop_context->scope; j--) {
+				write_opcode(OP_END);
+			}
+			write_opcode(OP_JMP);
+
+			current_loop_context->continue_locations[
+				current_loop_context->continue_count++] = size;
+
+			size += sizeof(address);
 			break;
 		}
 		case S_BLOCK: {
 			if (state->op.block_statement) {
-				write_opcode(OP_FRM);
+				make_scope();
 				codegen_statement_list(state->op.block_statement);
 				if (bytecode[size - 1] != OP_RET) {
 					/* Don't need to end the block if we immediately RET */
-					write_opcode(OP_END);
+					end_scope();
+				}
+				else {
+					scope_level -= 1;
 				}
 			}
 			break;
@@ -489,18 +555,18 @@ static void codegen_statement(void* expre) {
 			int falseJumpLoc = size;
 			size += sizeof(address);
 
-			write_opcode(OP_FRM);
+			make_scope();
 			codegen_statement(state->op.if_statement.statement_true);
-			write_opcode(OP_END);
+			end_scope();
 
 			write_opcode(OP_JMP);
 			int doneJumpLoc = size;
 			size += sizeof(address);
 			write_address_at(size, falseJumpLoc);
 
-			write_opcode(OP_FRM);
+			make_scope();
 			codegen_statement(state->op.if_statement.statement_false);
-			write_opcode(OP_END);
+			end_scope();
 
 			write_address_at(size, doneJumpLoc);
 			break;
@@ -510,7 +576,13 @@ static void codegen_statement(void* expre) {
 				// Don't generate if empty loop body
 				return;
 			}
-			write_opcode(OP_FRM);
+			make_scope();
+			struct loop_context *new_ctx = safe_malloc(sizeof(struct loop_context));
+			new_ctx->scope = scope_level;
+			new_ctx->break_count = 0;
+			new_ctx->continue_count = 0;
+			new_ctx->parent = current_loop_context;
+			current_loop_context = new_ctx;
 
 			bool is_iterating_loop = state->op.loop_statement.index_var;
 
@@ -585,6 +657,7 @@ static void codegen_statement(void* expre) {
 				write_opcode(OP_WRITE);
 			}
 			codegen_statement(state->op.loop_statement.statement_true);
+			address continue_addr = size;
 			if (is_iterating_loop) {
 				write_opcode(OP_WHERE);
 				write_string(loop_index_name);
@@ -594,7 +667,17 @@ static void codegen_statement(void* expre) {
 			write_address(loop_start_addr);
 			write_address_at(size, loop_skip_loc);
 
-			write_opcode(OP_END);
+			for (size_t i = 0; i < new_ctx->break_count; i++) {
+				write_address_at(size, new_ctx->break_locations[i]);
+			}
+
+			for (size_t i = 0; i < new_ctx->continue_count; i++) {
+				write_address_at(continue_addr, new_ctx->continue_locations[i]);
+			}
+
+			current_loop_context = new_ctx->parent;
+			safe_free(new_ctx);
+			end_scope();
 			break;
 		}
 	}
@@ -914,6 +997,10 @@ static void codegen_expr(void* expre) {
 }
 
 uint8_t* generate_code(struct statement_list* _ast, size_t* size_ptr) {
+	if (current_loop_context) {
+		error_general("Loop context exists already going into code generation!");
+	}
+	scope_level = 0;
 	capacity = CODEGEN_START_SIZE;
 	bytecode = safe_malloc(capacity * sizeof(uint8_t));
 	size = 0;

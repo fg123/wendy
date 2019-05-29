@@ -67,6 +67,9 @@ void error_compile(int line, int col, char* message, ...);
 #define CODEGEN_EXPECTED_IDENTIFIER AST_EXPECTED_IDENTIFIER
 #define CODEGEN_REQ_FILE_READ_ERR SCAN_REQ_FILE_READ_ERR
 
+#define CODEGEN_BREAK_NOT_IN_LOOP "Break statement not in loop!"
+#define CODEGEN_CONTINUE_NOT_IN_LOOP "Continue statement not in loop!"
+
 #define CODEGEN_BYTECODE_INVALID_OPCODE "Inline Bytecode: Invalid opcode '%s'"
 #define CODEGEN_BYTECODE_UNEXPECTED_OPERATOR "Inline Bytecode: Unexpected operator '%s'. Operators must follow BIN or UNA opcode."
 #define CODEGEN_BYTECODE_UNEXPECTED_DATA_NO_CONTENT "Inline Bytecode: Found a data_type specifier but no content!"
