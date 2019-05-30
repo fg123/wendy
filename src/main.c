@@ -5,6 +5,7 @@
 #include "native.h"
 #include "scanner.h"
 #include "ast.h"
+#include "locals.h"
 #include "vm.h"
 #include "codegen.h"
 #include "source.h"
@@ -61,6 +62,7 @@ void invalid_usage(void) {
 	printf("    -t, --token-list  : prints out the parsed tokens.\n");
 	printf("    -d --disassemble  : prints out the disassembled bytecode.\n");
 	printf("    --dependencies    : prints out the module dependencies of the file.\n");
+	printf("    --optimize-locals : assign local variables during compile tile.\n");
 	printf("    --sandbox         : runs the VM in sandboxed mode, ie. no file access and no native execution calls.\n");
 	printf("\nWendy will enter REPL mode if no parameters are supplied.\n");
 	safe_exit(1);
@@ -87,6 +89,9 @@ bool process_options(char** options, int len, char** source) {
 		}
 		else if (streq("--optimize", options[i])) {
 			set_settings_flag(SETTINGS_OPTIMIZE);
+		}
+		else if (streq("--optimize-locals", options[i])) {
+			set_settings_flag(SETTINGS_OPTIMIZE_LOCALS);
 		}
 		else if (streq("--trace-vm", options[i])) {
 			set_settings_flag(SETTINGS_TRACE_VM);
@@ -146,6 +151,9 @@ void run(char* input_string, struct vm * vm) {
 	struct statement_list* ast = generate_ast(tokens, tokens_count);
 	if (get_settings_flag(SETTINGS_OPTIMIZE)) {
 		ast = optimize_ast(ast);
+	}
+	if (get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+		ast = assign_locals(ast);
 	}
 	if (get_settings_flag(SETTINGS_ASTPRINT)) {
 		print_ast(ast);
@@ -308,6 +316,9 @@ int main(int argc, char** argv) {
 		struct statement_list* ast = generate_ast(tokens, tokens_count);
 		if (get_settings_flag(SETTINGS_OPTIMIZE)) {
 			ast = optimize_ast(ast);
+		}
+		if (get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+			ast = assign_locals(ast);
 		}
 		if (get_settings_flag(SETTINGS_ASTPRINT)) {
 			print_ast(ast);
