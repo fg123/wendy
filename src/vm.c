@@ -932,12 +932,12 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 			return char_of(a);
 		}
 		else if (a.type == D_RANGE &&
-				 streq("from", b.value.string)) {
+				 streq("start", b.value.string)) {
 			return make_data(D_NUMBER,
 				data_value_num(range_start(a)));
 		}
 		else if (a.type == D_RANGE &&
-				 streq("to", b.value.string)) {
+				 streq("end", b.value.string)) {
 			return make_data(D_NUMBER,
 				data_value_num(range_end(a)));
 		}
