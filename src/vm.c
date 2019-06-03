@@ -931,6 +931,16 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 		else if (streq("char", b.value.string)) {
 			return char_of(a);
 		}
+		else if (a.type == D_RANGE &&
+				 streq("from", b.value.string)) {
+			return make_data(D_NUMBER,
+				data_value_num(range_start(a)));
+		}
+		else if (a.type == D_RANGE &&
+				 streq("to", b.value.string)) {
+			return make_data(D_NUMBER,
+				data_value_num(range_end(a)));
+		}
 		else if ((a.type == D_FUNCTION || a.type == D_STRUCT_FUNCTION) &&
 			streq("closure", b.value.string)) {
 			return copy_data(a.value.reference[1]);
