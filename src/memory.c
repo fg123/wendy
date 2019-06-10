@@ -250,12 +250,14 @@ bool pop_frame(bool is_ret, address* ret) {
 		*ret = unwrap_number(call_stack[trace + 1].val);
 	}
 	frame_pointer = unwrap_number(call_stack[trace].val);
+	bool is_at_function = call_stack[trace].id[0] == CHAR(FUNCTION_START);
+
 	while (call_stack_pointer > trace) {
 		call_stack_pointer -= 1;
 		safe_free(call_stack[call_stack_pointer].id);
 		destroy_data(&call_stack[call_stack_pointer].val);
 	}
-	return (is_ret || call_stack[trace].id[0] == CHAR(FUNCTION_START));
+	return (is_ret || is_at_function);
 }
 
 void print_call_stack(FILE* file, int maxlines) {
