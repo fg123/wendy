@@ -120,6 +120,7 @@ void error_compile(int line, int col, char* message, ...);
 #define VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION "Struct's init constructor is not a function!"
 #define VM_ASSIGNING_NONERET "Attempted to use result from function that does not return a value!"
 #define VM_SPREAD_NOT_ITERABLE "Spread operator can only be called on List or Range."
+#define VM_STRING_DUPLICATION_NEGATIVE "Attempted to multiply string with negative integer."
 
 #define VM_INTERNAL_ERROR "An internal VM error occured: %s"
 

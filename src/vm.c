@@ -1212,11 +1212,19 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 			char* result;
 			if (a.type == D_NUMBER) {
 				times = (int) a.value.number;
+				if (times < 0) {
+					error_runtime(line, VM_STRING_DUPLICATION_NEGATIVE);
+					return copy_data(b);
+				}
 				size = times * strlen(b.value.string) + 1;
 				string = b.value.string;
 			}
 			else {
 				times = (int) b.value.number;
+				if (times < 0) {
+					error_runtime(line, VM_STRING_DUPLICATION_NEGATIVE);
+					return copy_data(a);
+				}
 				size = times * strlen(a.value.string) + 1;
 				string = a.value.string;
 			}
