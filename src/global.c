@@ -5,15 +5,6 @@
 #include <string.h>
 #include <stdarg.h>
 
-struct malloc_node {
-	char* filename;
-	int line_num;
-	size_t size;
-	void* ptr;
-	struct malloc_node* next;
-	struct malloc_node* prev;
-};
-
 static struct malloc_node* malloc_node_start = 0;
 static struct malloc_node* malloc_node_end = 0;
 static bool settings_data[SETTINGS_COUNT] = { false };

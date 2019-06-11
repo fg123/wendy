@@ -33,6 +33,9 @@ extern size_t working_stack_size;
 struct refcnt_container {
 	size_t count;
 	size_t refs;
+
+	// detects a reference cycle.
+	bool touched;
 	struct refcnt_container* prev;
 	struct refcnt_container* next;
 };

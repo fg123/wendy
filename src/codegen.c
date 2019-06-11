@@ -446,7 +446,7 @@ static void codegen_statement(void* expre) {
 			write_opcode(OP_DECL);
 			write_string(enum_name);
 			write_opcode(OP_WRITE);
-			write_double_at(push_size, meta_header_loc + 1);
+			write_double_at(push_size - 1, meta_header_loc + 1);
 
 			// Now we assign each one.
 			curr = state->op.enum_statement.values;
@@ -546,7 +546,9 @@ static void codegen_statement(void* expre) {
 			write_opcode(OP_DECL);
 			write_string(struct_name);
 			write_opcode(OP_WRITE);
-			write_double_at(push_size, metaHeaderLoc + 1);
+
+			// header don't include the initial
+			write_double_at(push_size - 1, metaHeaderLoc + 1);
 			break;
 		}
 		case S_IF: {
@@ -1002,7 +1004,7 @@ uint8_t* generate_code(struct statement_list* _ast, size_t* size_ptr) {
 	}
 	scope_level = 0;
 	capacity = CODEGEN_START_SIZE;
-	bytecode = safe_malloc(capacity * sizeof(uint8_t));
+	bytecode = safe_calloc(capacity, sizeof(uint8_t));
 	size = 0;
 	if (!get_settings_flag(SETTINGS_REPL)) {
 		write_string(WENDY_VM_HEADER);

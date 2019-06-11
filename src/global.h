@@ -55,6 +55,15 @@ enum settings_flags {
 void set_settings_flag(enum settings_flags flag);
 bool get_settings_flag(enum settings_flags flag);
 
+struct malloc_node {
+	char* filename;
+	int line_num;
+	size_t size;
+	void* ptr;
+	struct malloc_node* next;
+	struct malloc_node* prev;
+};
+
 void determine_endianness(void);
 bool streq(const char* a, const char* b);
 

@@ -26,6 +26,10 @@ void error_runtime(int line, char* message, ...);
 
 void error_compile(int line, int col, char* message, ...);
 
+void reset_error_flag(void);
+
+bool get_error_flag(void);
+
 // General Messages:
 #define GENERAL_INVALID_HEADER "Invalid bytecode header!"
 #define GENERAL_NOT_IMPLEMENTED "%s is not implemented yet!"
@@ -149,22 +153,4 @@ void error_compile(int line, int col, char* message, ...);
 
 #endif
 
-// init_error(src) gives the source pointer to the error module so we can
-//   print the problematic line, this is called in main()
-void init_error(char* src);
-
-// error(line, message, ...) prints an error message to the screen with an
-//   optional string parameter which can be appended to the front.
-void error(int line, char* message, ...);
-
-// w_error(message) prints an error message corresponding to
-//   an internal wendyscript error, not one of the user.
-void w_error(char* message);
-
-// d_error(message) prints an error message corresponding to
-//   a debugger error message
-void d_error(char* message);
-
-void reset_error_flag(void);
-bool get_error_flag(void);
 #endif

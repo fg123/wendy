@@ -77,6 +77,7 @@ struct data *refcnt_malloc_impl(struct data* allocated, size_t count) {
 		(struct refcnt_container*) allocated;
 	container_info->count = count;
 	container_info->refs = 1;
+	container_info->touched = false;
 
 	if (!all_containers_end && !all_containers_start) {
 		all_containers_start = container_info;
@@ -101,17 +102,31 @@ void refcnt_free(struct data *ptr) {
 	struct refcnt_container* container_info =
 		(void*)ptr - sizeof(struct refcnt_container);
 
-	container_info->refs -= 1;
 	if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
-		printf("refcnt free %p, count %zd\n",
-			container_info, container_info->refs);
+		printf("refcnt free %p, container %p, count %zd before decrement",
+			ptr, container_info, container_info->refs);
+		printf("\n");
 	}
-	// TODO: crash if refcount is below 0...
+
 	if (container_info->refs == 0) {
+		error_general("Internal error: refcnt_free on reference with 0 count!");
+		safe_exit(1);
+		return;
+	}
+
+	container_info->refs -= 1;
+
+	if (container_info->refs == 0) {
+		if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
+			printf("refcnt at 0, looping through %zd to clear\n", container_info->count);
+		}
 		for (size_t i = 0; i < container_info->count; i++) {
+			if (container_info->count < 10 &&
+				get_settings_flag(SETTINGS_TRACE_REFCNT)) {
+				printf("loop to %p\n", &ptr[i]);
+			}
 			destroy_data(&ptr[i]);
 		}
-		// count_p also points to the start of the actual allocation
 		if (container_info == all_containers_start && container_info == all_containers_end) {
 			all_containers_start = 0;
 			all_containers_end = 0;
@@ -197,10 +212,34 @@ void free_memory(void) {
 	}
 	safe_free(call_stack);
 
+	if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
+		printf("Call/working stack cleared. Now we clear cycles.\n");
+	}
+
 	// Check remaining cycled references
-	while (all_containers_start) {
-		refcnt_free((void*)all_containers_start +
-			sizeof(struct refcnt_container));
+	struct refcnt_container *start = all_containers_start;
+	struct refcnt_container *next;
+
+	while (start) {
+		// There's no safe way to free the remaining through refcnt_free
+		//   due to cycling issues and also freeing a part before
+		//   the owning parent has freed, which leads to bad memory
+		//   reads. The best way is to forcefully free the remaining
+		//   refcnted containers;
+		struct data *ptr = (struct data *)(start + 1);
+		for (size_t i = 0; i < start->count; i++) {
+			if (!is_reference(ptr[i])) {
+				// If it's a reference, it will be dealt with later
+				//   or before
+				destroy_data(&ptr[i]);
+			}
+		}
+		next = start->next;
+		safe_free(start);
+		start = next;
+		if (start == all_containers_start) {
+			break;
+		}
 	}
 }
 

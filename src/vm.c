@@ -193,12 +193,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				else {
 					// Uni-op has a special spread operator that returns noneret
 					struct data result = eval_uniop(op, a);
-					if (result.type != D_NONERET) {
-						push_arg(result);
-					}
-					else {
-						destroy_data(&result);
-					}
+					push_arg(result);
 					destroy_data(&a);
 				}
 				safe_free(fn_name);
@@ -525,9 +520,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					// Calling Struct Constructor
 					struct data* metadata = top.value.reference;
 
-					destroy_data(&top);
+					struct data old_top = top;
+
 					// Select `init` function.
 					top = copy_data(metadata[3]);
+
 					if (top.type != D_FUNCTION) {
 						error_runtime(line, VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION);
 						destroy_data(&top);
@@ -554,6 +551,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					}
 
 					push_arg(make_data(D_STRUCT_INSTANCE, data_value_ptr(struct_instance)));
+					destroy_data(&old_top);
 				}
 
 				struct data addr = top.value.reference[0];
@@ -587,7 +585,8 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					size_t new_ptr = working_stack_pointer + additional_size - 1;
 					for (; working_stack[og_ptr].type != D_END_OF_ARGUMENTS; og_ptr--) {
 						if (working_stack[og_ptr].type == D_SPREAD) {
-							struct data spread = working_stack[og_ptr].value.reference[0];
+							struct data og_spread = working_stack[og_ptr];
+							struct data spread = og_spread.value.reference[0];
 							if (spread.type == D_LIST) {
 								for (size_t k = 0; k < spread.value.reference[0].value.number; k++) {
 									working_stack[new_ptr--] = copy_data(spread.value.reference[k + 1]);
@@ -608,6 +607,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 									working_stack[new_ptr--] = str;
 								}
 							}
+							destroy_data(&og_spread);
 						}
 						else {
 							working_stack[new_ptr--] = working_stack[og_ptr];
@@ -1223,7 +1223,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 				times = (int) b.value.number;
 				if (times < 0) {
 					error_runtime(line, VM_STRING_DUPLICATION_NEGATIVE);
-					return copy_data(a);
+					return copy_data(b);
 				}
 				size = times * strlen(a.value.string) + 1;
 				string = a.value.string;
