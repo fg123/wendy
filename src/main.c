@@ -154,7 +154,7 @@ void run(char* input_string) {
 		size_t size;
 		uint8_t* bytecode = generate_code(ast, &size);
 		if (get_settings_flag(SETTINGS_DISASSEMBLE)) {
-			print_bytecode(bytecode, stdout);
+			print_bytecode(bytecode, size, stdout);
 		}
 		if (!get_error_flag()) {
 			vm_run(bytecode, size);
@@ -354,7 +354,7 @@ int main(int argc, char** argv) {
 	}
 	fclose(file);
 	if (get_settings_flag(SETTINGS_DISASSEMBLE)) {
-		print_bytecode(bytecode_stream, stdout);
+		print_bytecode(bytecode_stream, length, stdout);
 	}
 	if (get_settings_flag(SETTINGS_COMPILE)) {
 		if (is_compiled) {

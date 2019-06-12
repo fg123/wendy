@@ -41,9 +41,10 @@ static size_t size = 0;
 static size_t global_loop_id = 0;
 static size_t global_member_call_id = 0;
 
-int verify_header(uint8_t* bytecode) {
+int verify_header(uint8_t* bytecode, size_t length) {
 	char* start = (char*)bytecode;
-	if (streq(WENDY_VM_HEADER, start)) {
+	if (length > strlen(WENDY_VM_HEADER) + 1 &&
+		streq(WENDY_VM_HEADER, start)) {
 		return strlen(WENDY_VM_HEADER) + 1;
 	}
 	else {
@@ -384,7 +385,7 @@ static void codegen_statement(void* expre) {
 					int offset = size - strlen(WENDY_VM_HEADER) - 1;
 					offset_addresses(buffer, length, offset);
 					guarantee_size(length);
-					for (long i = verify_header(buffer); i < length; i++) {
+					for (long i = verify_header(buffer, length); i < length; i++) {
 						if (i == length - 1 && buffer[i] == OP_HALT) break;
 						write_byte(buffer[i]);
 					}
@@ -1062,7 +1063,7 @@ address get_address(uint8_t* bytecode, unsigned int* end) {
 	return result;
 }
 
-void print_bytecode(uint8_t* bytecode, FILE* buffer) {
+void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer) {
 	fprintf(buffer, RED "WendyVM ByteCode Disassembly\n" GRN ".header\n");
 	fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: ", &bytecode[0], 0);
 	fprintf(buffer, YEL WENDY_VM_HEADER);
@@ -1072,7 +1073,7 @@ void print_bytecode(uint8_t* bytecode, FILE* buffer) {
 	UNUSED(baseaddr);
 	unsigned int i = 0;
 	if (!get_settings_flag(SETTINGS_REPL)) {
-		i = verify_header(bytecode);
+		i = verify_header(bytecode, length);
 	}
 	forever {
 		unsigned int start = i;
@@ -1191,10 +1192,11 @@ static void write_data_at_buffer(struct data t, uint8_t* buffer, size_t loc) {
 void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 	UNUSED(length);
 	unsigned int i = 0;
-	if (streq(WENDY_VM_HEADER, (char*)buffer)) {
+	if (length > strlen(WENDY_VM_HEADER + 1) &&
+		streq(WENDY_VM_HEADER, (char*)buffer)) {
 		i += strlen(WENDY_VM_HEADER) + 1;
 	}
-	forever {
+	while (i < length) {
 		enum opcode op = buffer[i++];
 		switch (op) {
 			case OP_PUSH: {
@@ -1232,17 +1234,6 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 				write_address_at_buffer(loc, buffer, bi);
 				break;
 			}
-			// else if (op == OP_LJMP) {
-			// 	unsigned int bi = i;
-			// 	address loc = get_address(buffer + i, &i);
-			// 	loc += offset;
-			// 	write_address_at_buffer(loc, buffer, bi);
-			// 	get_string(buffer + i, &i);
-			// }
-			// else if (op == OP_LBIND) {
-			// 	get_string(buffer + i, &i);
-			// 	get_string(buffer + i, &i);
-			// }
 			case OP_NATIVE: {
 				get_address(buffer + i, &i);
 				get_string(buffer + i, &i);

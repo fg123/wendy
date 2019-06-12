@@ -91,7 +91,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 	size_t saved_size = bytecode_size;
 	if (!get_settings_flag(SETTINGS_REPL)) {
 		bytecode = new_bytecode;
-		start_at = verify_header(bytecode);
+		start_at = verify_header(bytecode, size);
 	}
 	else {
 		// REPL Bytecode has no headers!
@@ -1432,5 +1432,5 @@ static struct data eval_uniop(enum operator op, struct data a) {
 }
 
 void print_current_bytecode() {
-	print_bytecode(bytecode, stdout);
+	print_bytecode(bytecode, bytecode_size, stdout);
 }

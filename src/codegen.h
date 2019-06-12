@@ -65,9 +65,9 @@ struct statement_list;
 // effects: allocates memory, caller must free
 uint8_t* generate_code(struct statement_list* ast, size_t* size);
 
-// print_bytecode(bytecode, buffer) prints the given bytecode into
+// print_bytecode(bytecode, length, buffer) prints the given bytecode into
 //   a readable format into the buffer.
-void print_bytecode(uint8_t* bytecode, FILE* buffer);
+void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer);
 
 // offset_addresses(buffer, length, offset) offsets all instructions
 //   that require an address by the given offset
@@ -89,6 +89,6 @@ char *get_string(uint8_t *bytecode, unsigned int *end);
 
 // verify_header(bytecode) checks the header for information,
 //   then returns the index of the first enum opcode instruction
-int verify_header(uint8_t* bytecode);
+int verify_header(uint8_t* bytecode, size_t length);
 
 #endif
