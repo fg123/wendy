@@ -1,0 +1,13 @@
+let @ <list> => (lst) {
+	@"[";
+	for i in 0->lst.size {
+		if (i != 0) @", ";
+		@lst[i];
+	}
+	"]";
+};
+
+struct T => (x)
+let @ <T> => (z) z.x;
+
+[T(1)]
