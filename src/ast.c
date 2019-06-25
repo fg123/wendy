@@ -999,6 +999,7 @@ static void print_s(struct statement* state, struct traversal_algorithm* algo) {
 		}
 		case S_BYTECODE: {
 			printf("Inline bytecode statement\n");
+			break;
 		}
 		case S_BREAK: {
 			printf("Break statement\n");
