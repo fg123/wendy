@@ -1,0 +1,48 @@
+// Push / Bin Test
+${
+	push "hello"
+	push D_STRING "world"
+	push 10
+	bin +
+	bin +
+	out
+};
+
+// Push / Una Test
+${
+	push 10
+	una -
+	out
+};
+
+// Call / Ret Test
+let fn => (x) {
+	${
+		push x
+		ret
+	}
+};
+
+${
+	push D_END_OF_ARGUMENTS 0
+	push 12
+	push fn
+	call
+	out
+};
+
+// Decl / Write Test
+${
+	push "Decl test"
+	decl x
+	write
+}
+
+x;
+
+${
+	halt
+};
+
+// The following should not run
+1 + 1;

@@ -350,6 +350,7 @@ int main(int argc, char** argv) {
 		}
 		safe_free(search_name);
 		bytecode_stream = safe_malloc(sizeof(uint8_t) * length);
+		size = length;
 		fread(bytecode_stream, sizeof(uint8_t), length, file);
 	}
 	fclose(file);

@@ -19,6 +19,7 @@
 // WendyVM Bytecode (17 bytes, null terminated)
 // =============================================================================
 // https://docs.felixguo.me/architecture/wendy/slim-vm.md
+// https://docs.felixguo.me/architecture/wendy/inline-bytecode.md
 
 enum opcode {
 	OP_PUSH,

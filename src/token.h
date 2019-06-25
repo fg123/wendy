@@ -107,6 +107,9 @@ union token_data make_data_num(double i);
 #define make_data_str(s) make_data_str_impl(safe_strdup((s)))
 union token_data make_data_str_impl(char* s);
 
+// makes a deep copy
+struct token copy_token(struct token old);
+
 // none_token() returns a none token
 struct token none_token(void);
 

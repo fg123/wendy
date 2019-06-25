@@ -247,6 +247,193 @@ static void codegen_expr_list_for_call(struct expr_list* list) {
 	codegen_expr_list_for_call_named(list);
 }
 
+static void assert_one(size_t size, size_t *ptr) {
+	if (*ptr >= size) {
+		error_general("Expected argument (1 more token) in inline bytecode!");
+	}
+}
+
+static int is_data_type(struct token t) {
+	if (t.t_type != T_IDENTIFIER) return -1;
+	for (size_t j = 0; data_string[j]; j++) {
+		if (streq(t.t_data.string, data_string[j])) {
+			return j;
+		}
+	}
+	return -1;
+}
+
+// _size because global size taken; oops
+static bool codegen_one_instruction(struct token *tokens, size_t _size, size_t * ptr) {
+	if (*ptr >= _size) return false;
+	bool found = false;
+	enum opcode op;
+	for (size_t j = 0; opcode_string[j]; j++) {
+		if (streq(tokens[*ptr].t_data.string, opcode_string[j])) {
+			op = (enum opcode) j;
+			write_opcode(op);
+			found = true;
+			break;
+		}
+	}
+	if (!found) {
+		error_general("Unrecognized Instruction %s", tokens[*ptr].t_data.string);
+		return false;
+	}
+	*ptr += 1;
+	switch (op) {
+		case OP_PUSH: {
+			assert_one(_size, ptr);
+			struct token arg = tokens[(*ptr)++];
+			int maybe_data_type = is_data_type(arg);
+			if (maybe_data_type >= 0) {
+				assert_one(_size, ptr);
+				struct token arg2 = tokens[(*ptr)++];
+				if (arg2.t_type == T_NUMBER) {
+					write_data(make_data((enum data_type) maybe_data_type,
+						data_value_num(arg2.t_data.number)));
+				}
+				else if (arg2.t_type == T_STRING) {
+					write_data(make_data((enum data_type) maybe_data_type,
+						data_value_str(arg2.t_data.string)));
+				}
+				else {
+					error_general("Invalid second arg to PUSH");
+				}
+			}
+			else if (arg.t_type == T_NUMBER || arg.t_type == T_STRING ||
+				arg.t_type == T_IDENTIFIER) {
+				write_data(literal_to_data(arg));
+			}
+			else {
+				error_general("Invalid arg(s) to PUSH");
+			}
+			break;
+		}
+		case OP_BIN:
+		case OP_UNA: {
+			assert_one(_size, ptr);
+			struct token op_t = tokens[(*ptr)++];
+			if (op == OP_BIN) {
+				enum operator op_e = token_operator_binary(op_t);
+				write_byte(op_e);
+			}
+			else {
+				enum operator op_e = token_operator_unary(op_t);
+				write_byte(op_e);
+			}
+			break;
+		}
+		case OP_CALL:
+		case OP_RET:
+			// NO ARGS
+			break;
+		case OP_DECL: {
+			assert_one(_size, ptr);
+			struct token arg = tokens[(*ptr)++];
+			if (arg.t_type == T_IDENTIFIER) {
+				write_string(arg.t_data.string);
+			}
+			else {
+				error_general("Invalid args to DECL");
+			}
+			break;
+		}
+		case OP_WRITE:
+		case OP_IN:
+		case OP_OUT:
+		case OP_OUTL:
+			// NO ARGS
+			break;
+		case OP_JMP:
+		case OP_JIF:
+		case OP_SRC: {
+			assert_one(_size, ptr);
+			struct token arg = tokens[(*ptr)++];
+			if (arg.t_type == T_NUMBER) {
+				address a = (address) arg.t_data.number;
+				write_address(a);
+			}
+			else {
+				error_general("Invalid args to JMP or JIF");
+			}
+			break;
+		}
+		case OP_FRM:
+		case OP_END:
+			// NO ARGS
+			break;
+		case OP_HALT:
+			break;
+		case OP_NATIVE: {
+			assert_one(_size, ptr);
+			struct token arg = tokens[(*ptr)++];
+			if (arg.t_type == T_NUMBER) {
+				write_address((address) arg.t_data.number);
+				assert_one(_size, ptr);
+				struct token arg2 = tokens[(*ptr)++];
+				if (arg2.t_type == T_IDENTIFIER) {
+					write_string(arg2.t_data.string);
+				}
+				else {
+					error_general("Invalid arg2 for NATIVE");
+				}
+			}
+			else {
+				error_general("Invalid args for NATIVE");
+			}
+			break;
+		}
+		case OP_WHERE:
+		case OP_IMPORT: {
+			assert_one(_size, ptr);
+			struct token arg = tokens[(*ptr)++];
+			if (arg.t_type == T_IDENTIFIER) {
+				write_string(arg.t_data.string);
+			}
+			else {
+				error_general("Invalid args for IMPORT");
+			}
+			break;
+		}
+		case OP_ARGCLN:
+		case OP_CLOSURE:
+			// NO ARGS
+			break;
+		case OP_MKREF: {
+			assert_one(_size, ptr);
+			struct token arg = tokens[(*ptr)++];
+			int maybe_data_type = is_data_type(arg);
+			if (maybe_data_type >= 0) {
+				write_byte(maybe_data_type);
+				assert_one(_size, ptr);
+				struct token arg2 = tokens[(*ptr)++];
+				if (arg2.t_type == T_NUMBER) {
+					write_double(arg2.t_data.number);
+				}
+				else {
+					error_general("Invalid arg2 for MKREF");
+				}
+			}
+			else {
+				error_general("Invalid arg for MKREF");
+			}
+			break;
+		}
+		case OP_NTHPTR:
+		case OP_MEMPTR:
+		case OP_INC:
+		case OP_DEC:
+			break;
+	}
+	return true;
+}
+
+static void codegen_inline_bytecode(struct token *tokens, size_t size) {
+	size_t curr = 0;
+	while (codegen_one_instruction(tokens, size, &curr)) {}
+}
+
 static void codegen_statement(void* expre) {
 	if (!expre) return;
 	struct statement* state = (struct statement*) expre;
@@ -283,6 +470,11 @@ static void codegen_statement(void* expre) {
 			if (state->op.expr_statement &&
 				state->op.expr_statement->type != E_ASSIGN)
 				write_opcode(OP_OUT);
+			break;
+		}
+		case S_BYTECODE: {
+			codegen_inline_bytecode(state->op.bytecode_statement.data,
+				state->op.bytecode_statement.size);
 			break;
 		}
 		case S_BREAK: {

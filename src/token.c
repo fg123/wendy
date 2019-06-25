@@ -25,6 +25,14 @@ struct token none_token() {
 	return t;
 }
 
+struct token copy_token(struct token old) {
+	struct token t = old;
+	if (t.t_type != T_NUMBER) {
+		t.t_data.string = safe_strdup(t.t_data.string);
+    }
+    return t;
+}
+
 struct token true_token() {
 	struct token t = make_token(T_TRUE, make_data_str("<true>"));
 	t.t_line = line;

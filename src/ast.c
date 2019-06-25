@@ -69,6 +69,12 @@ void ast_safe_free_s(struct statement* ptr, struct traversal_algorithm* algo) {
 		case S_BREAK:
 		case S_CONTINUE:
 			break;
+		case S_BYTECODE:
+			for (size_t i = 0; i < ptr->op.bytecode_statement.size; i++) {
+				destroy_token(ptr->op.bytecode_statement.data[i]);
+			}
+			safe_free(ptr->op.bytecode_statement.data);
+			break;
 		case S_STRUCT:
 			if (ptr->op.struct_statement.name) {
 				safe_free(ptr->op.struct_statement.name);
@@ -415,6 +421,24 @@ static struct statement* parse_statement(void) {
 	struct statement* sm = safe_malloc(sizeof(struct statement));
 	sm->src_line = first.t_line;
 	switch (first.t_type) {
+		case T_DOLLAR_SIGN: {
+			consume(T_LEFT_BRACE);
+			sm->type = S_BYTECODE;
+			size_t start = curr_index;
+			while (curr_index < length &&
+				   tokens[curr_index].t_type != T_RIGHT_BRACE) {
+				curr_index++;
+			}
+			size_t end = curr_index;
+			consume(T_RIGHT_BRACE);
+			struct token* bytecode_list = safe_malloc((end - start) * sizeof(struct token));
+			for (size_t i = start; i < end; i++) {
+				bytecode_list[i - start] = copy_token(tokens[i]);
+			}
+			sm->op.bytecode_statement.data = bytecode_list;
+			sm->op.bytecode_statement.size = end - start;
+			break;
+		}
 		case T_LEFT_BRACE: {
 			if (peek().t_type == T_RIGHT_BRACE) {
 				// Non-Empty struct statement Block
@@ -810,7 +834,8 @@ void traverse_statement(struct statement* state, struct traversal_algorithm* alg
 			break;
 		}
 		case S_BREAK:
-		case S_CONTINUE: {
+		case S_CONTINUE:
+		case S_BYTECODE: {
 			break;
 		}
 		case S_BLOCK: {
@@ -971,6 +996,9 @@ static void print_s(struct statement* state, struct traversal_algorithm* algo) {
 		case S_EXPR: {
 			printf("Expression statement\n");
 			break;
+		}
+		case S_BYTECODE: {
+			printf("Inline bytecode statement\n");
 		}
 		case S_BREAK: {
 			printf("Break statement\n");
