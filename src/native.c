@@ -35,6 +35,8 @@ static struct data native_writeFile(struct data* args, int line);
 static struct data native_vm_getRefs(struct data* args, int line);
 static struct data native_vm_getAt(struct data* args, int line);
 
+static struct data native_process_execute(struct data* args, int line);
+
 // Math Functions
 static struct data native_pow(struct data* args, int line);
 static struct data native_ln(struct data* args, int line);
@@ -57,7 +59,8 @@ static struct native_function native_functions[] = {
 	{ "io_readFile", 1, native_readFile },
 	{ "io_writeFile", 2, native_writeFile },
 	{ "vm_getRefs", 1, native_vm_getRefs },
-	{ "vm_getAt", 2, native_vm_getAt }
+	{ "vm_getAt", 2, native_vm_getAt },
+	{ "process_execute", 1, native_process_execute }
 };
 
 static double native_to_numeric(struct data* t, int line) {
@@ -140,6 +143,74 @@ static struct data native_exec(struct data* args, int line) {
 		return make_data(D_NUMBER, data_value_num(system(command)));
 	}
 	return noneret_data();
+}
+
+static struct data native_process_execute(struct data* args, int line) {
+	// args[0] should be a command, args[1] should be list!
+	if (get_settings_flag(SETTINGS_SANDBOXED)) {
+		struct data * result_list = wendy_list_malloc(2);
+		result_list[1] = make_data(D_NUMBER, data_value_num(0));
+		struct data * output_list = wendy_list_malloc(0);
+		result_list[2] = make_data(D_LIST, data_value_ptr(output_list));
+		return make_data(D_LIST, data_value_ptr(result_list));
+	}
+	char* command = native_to_string(args, line);
+
+	FILE* fd = safe_popen(command, "r");
+	if (!fd) {
+		error_runtime(line, "Internal error opening file descriptor with popen!");
+		return none_data();
+	}
+
+	// Start with 256 lines.
+	size_t capacity = 256, size = 0;
+	struct data* answer_buffer = safe_calloc(capacity, sizeof(struct data));
+
+	char line_buffer[INPUT_BUFFER_SIZE];
+	bool last_has_newline = true;
+	while (fgets(line_buffer, sizeof(line_buffer), fd)) {
+		bool old_has_newline = last_has_newline;
+		last_has_newline = false;
+		for (size_t i = 0; line_buffer[i]; i++) {
+			if (line_buffer[i] == '\n') {
+				line_buffer[i] = 0;
+				if (old_has_newline) {
+					// Make new!
+					if (size == capacity) {
+						capacity *= 2;
+						answer_buffer = safe_realloc(answer_buffer, capacity);
+					}
+					answer_buffer[size++] = make_data(D_STRING, data_value_str(line_buffer));
+				}
+				else {
+					// Append to the last one
+					size_t old = strlen(answer_buffer[size - 1].value.string);
+					size_t total = old + strlen(line_buffer);
+					answer_buffer[size - 1].value.string = safe_realloc(answer_buffer[size - 1].value.string, total + 1);
+					strcat(&answer_buffer[size - 1].value.string[old], line_buffer);
+				}
+				last_has_newline = true;
+				break;
+			}
+		}
+	}
+
+	// This is a refcnted list, we allocate here once we know the size;
+	//   we also steal the data over from the answer_buffer;
+	struct data * wendy_list = wendy_list_malloc(size);
+	for (size_t i = 0; i < size; i++) {
+		wendy_list[i + 1] = answer_buffer[i];
+	}
+
+	// No need to destroy data when we steal it.
+	safe_free(answer_buffer);
+
+	int status = safe_pclose(fd);
+
+	struct data * result_list = wendy_list_malloc(2);
+	result_list[1] = make_data(D_NUMBER, data_value_num(status));
+	result_list[2] = make_data(D_LIST, data_value_ptr(wendy_list));
+	return make_data(D_LIST, data_value_ptr(result_list));
 }
 
 static struct data native_printCallStack(struct data* args, int line) {

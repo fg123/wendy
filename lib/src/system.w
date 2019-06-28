@@ -17,3 +17,18 @@ System.program = Program();
 	let args => () native getProgramArgs;
 	Program.args = args();
 }
+
+struct Process => (command, stdout, exit_code) [execute];
+Process.init => (command) {
+	this.command = command;
+	this.stdout = [];
+	this.exit_code = -1;
+	ret this;
+};
+
+Process.execute => () {
+	let internal_execute => (command) native process_execute;
+	let result = internal_execute(this.command);
+	this.stdout = result[1];
+	this.exit_code = result[0];
+};

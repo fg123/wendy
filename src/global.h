@@ -1,6 +1,7 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -111,4 +112,11 @@ void free_alloc(void);
 void check_leak(void);
 void safe_exit(int code);
 
+#ifdef _WIN32
+	#define safe_popen _popen
+	#define safe_pclose _pclose
+#else
+	#define safe_popen popen
+	#define safe_pclose pclose
+#endif
 #endif

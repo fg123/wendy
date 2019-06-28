@@ -473,7 +473,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					}
 				}
 				if (!found) {
-					error_runtime(line, VM_MEMBER_NOT_EXIST, member);
+					struct data type = type_of(instance);
+					error_runtime(line, VM_MEMBER_NOT_EXIST, member, type.value.string);
+					destroy_data(&type);
 				}
 				destroy_data(&instance);
 				break;
