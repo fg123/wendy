@@ -1043,10 +1043,11 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 			(streq(a.value.string, b.value.string)) ?
 			false_data() : true_data();
 	}
-	else if((a.type == D_NONE || b.type == D_NONE) &&
+	else if ((a.type == D_NONE || b.type == D_NONE ||
+			  a.type == D_NONERET || b.type == D_NONERET) &&
 			(op == O_EQ || op == O_NEQ)) {
 		return (op == O_EQ) ^
-			(a.type == D_NONE && b.type == D_NONE) ?
+			((a.type == D_NONE || a.type == D_NONERET) && (b.type == D_NONE || b.type == D_NONERET)) ?
 			false_data() : true_data();
 	}
 	else if((a.type == D_OBJ_TYPE && b.type == D_OBJ_TYPE) &&
