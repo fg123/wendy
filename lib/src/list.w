@@ -9,13 +9,6 @@ let map => (fn) {
   if (arguments.size == 0) {
   	ret [];
   }
-  let size = arguments[0].size;
-  for lst in arguments {
-  	if size != lst.size {
-  		"Sizes must all be the same!";
-  		ret [];
-  	}
-  }
   let out = [];
   if (arguments.size == 1) {
   	// Fast Path
@@ -23,6 +16,13 @@ let map => (fn) {
   		out += fn(i);
   }
   else {
+  	let size = arguments[0].size;
+	  for lst in arguments {
+	  	if size != lst.size {
+	  		"Sizes must all be the same!";
+	  		ret [];
+	  	}
+	  }
   	// Construct
   	for i in 0->size {
   		out += fn(...map(#:(l) l[i], arguments));
