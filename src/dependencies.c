@@ -12,14 +12,9 @@ static void handle_statement(struct statement* s, struct traversal_algorithm* al
 	}
 }
 
-struct traversal_algorithm dependency_print_impl = {
-	do_nothing_e,
-	do_nothing_el,
-	handle_statement,
-	do_nothing_sl,
-	HANDLE_BEFORE_CHILDREN,
-	0
-};
+struct traversal_algorithm dependency_print_impl =
+	TRAVERSAL_ALGO_PRE(do_nothing_e, do_nothing_el,
+		handle_statement, do_nothing_sl);
 
 void print_dependencies(struct statement_list* ast) {
 	traverse_ast(ast, &dependency_print_impl);

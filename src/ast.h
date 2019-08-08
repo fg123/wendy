@@ -105,20 +105,24 @@ struct statement_list {
 	struct statement_list*  next;
 };
 
-enum traversal_algorithm_type {
-	HANDLE_BEFORE_CHILDREN, HANDLE_AFTER_CHILDREN
-};
-
 struct traversal_algorithm {
-	void (*handle_expr)(struct expr *, struct traversal_algorithm*);
-	void (*handle_expr_list)(struct expr_list *, struct traversal_algorithm*);
-	void (*handle_statement)(struct statement *, struct traversal_algorithm*);
-	void (*handle_statement_list)(struct statement_list *, struct traversal_algorithm*);
-	enum traversal_algorithm_type type;
+	void (*handle_expr_pre)(struct expr *, struct traversal_algorithm*);
+	void (*handle_expr_list_pre)(struct expr_list *, struct traversal_algorithm*);
+	void (*handle_statement_pre)(struct statement *, struct traversal_algorithm*);
+	void (*handle_statement_list_pre)(struct statement_list *, struct traversal_algorithm*);
+
+	void (*handle_expr_post)(struct expr *, struct traversal_algorithm*);
+	void (*handle_expr_list_post)(struct expr_list *, struct traversal_algorithm*);
+	void (*handle_statement_post)(struct statement *, struct traversal_algorithm*);
+	void (*handle_statement_list_post)(struct statement_list *, struct traversal_algorithm*);
 
 	// Internal tracker of which level of traversal
 	int level;
 };
+
+#define TRAVERSAL_ALGO_PRE(a, b, c, d) { a, b, c, d, 0, 0, 0, 0, 0 }
+#define TRAVERSAL_ALGO_POST(a, b, c, d) { 0, 0, 0, 0, a, b, c, d, 0 }
+#define TRAVERSAL_ALGO(a, b, c, d, e, f, g, h) { a, b, c, d, e, f, g, h, 0 }
 
 extern struct traversal_algorithm ast_safe_free_impl;
 

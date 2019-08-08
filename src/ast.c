@@ -105,26 +105,24 @@ void ast_safe_free_sl(struct statement_list* ptr, struct traversal_algorithm* al
 }
 
 struct traversal_algorithm ast_safe_free_impl =
-{
-	ast_safe_free_e,
-	ast_safe_free_el,
-	ast_safe_free_s,
-	ast_safe_free_sl,
-	HANDLE_AFTER_CHILDREN, 0
-};
+	TRAVERSAL_ALGO_POST (
+		ast_safe_free_e,
+		ast_safe_free_el,
+		ast_safe_free_s,
+		ast_safe_free_sl
+	);
 
 static void print_e(struct expr*, struct traversal_algorithm*);
 static void print_el(struct expr_list*, struct traversal_algorithm*);
 static void print_s(struct statement*, struct traversal_algorithm*);
 static void print_sl(struct statement_list*, struct traversal_algorithm*);
 static struct traversal_algorithm print_ast_impl =
-{
-	print_e,
-	print_el,
-	print_s,
-	print_sl,
-	HANDLE_BEFORE_CHILDREN, 0
-};
+	TRAVERSAL_ALGO_PRE(
+		print_e,
+		print_el,
+		print_s,
+		print_sl
+	);
 
 static bool is_at_end(void) {
 	return curr_index == length;
@@ -804,21 +802,23 @@ static struct statement_list* parse_statement_list(void) {
 
 void traverse_statement_list(struct statement_list* list, struct traversal_algorithm* algo) {
 	if (!list) return;
-	if (algo->type == HANDLE_BEFORE_CHILDREN) {
-		algo->handle_statement_list(list, algo);
+	if (algo->handle_statement_list_pre) {
+		algo->handle_statement_list_pre(list, algo);
 	}
 	algo->level++;
 	traverse_statement(list->elem, algo);
 	algo->level--;
 	traverse_statement_list(list->next, algo);
-	if (algo->type == HANDLE_AFTER_CHILDREN) {
-		algo->handle_statement_list(list, algo);
+	if (algo->handle_statement_list_post) {
+		algo->handle_statement_list_post(list, algo);
 	}
 }
 
 void traverse_statement(struct statement* state, struct traversal_algorithm* algo) {
 	if (!state) return;
-	if (algo->type == HANDLE_BEFORE_CHILDREN) algo->handle_statement(state, algo);
+	if (algo->handle_statement_pre) {
+		algo->handle_statement_pre(state, algo);
+	}
 	algo->level++;
 	switch(state->type) {
 		case S_LET: {
@@ -867,12 +867,16 @@ void traverse_statement(struct statement* state, struct traversal_algorithm* alg
 		case S_IMPORT: break;
 	}
 	algo->level--;
-	if (algo->type == HANDLE_AFTER_CHILDREN) algo->handle_statement(state, algo);
+	if (algo->handle_statement_post) {
+		algo->handle_statement_post(state, algo);
+	}
 }
 
 void traverse_expr(struct expr* expression, struct traversal_algorithm* algo) {
 	if (!expression) return;
-	if (algo->type == HANDLE_BEFORE_CHILDREN) algo->handle_expr(expression, algo);
+	if (algo->handle_expr_pre) {
+		algo->handle_expr_pre(expression, algo);
+	}
 	algo->level++;
 	switch (expression->type) {
 		case E_LITERAL: {
@@ -914,24 +918,32 @@ void traverse_expr(struct expr* expression, struct traversal_algorithm* algo) {
 		}
 	}
 	algo->level--;
-	if (algo->type == HANDLE_AFTER_CHILDREN) algo->handle_expr(expression, algo);
+	if (algo->handle_expr_post) {
+		algo->handle_expr_post(expression, algo);
+	}
 }
 
 void traverse_expr_list(struct expr_list* list, struct traversal_algorithm* algo) {
 	if (!list) return;
-	if (algo->type == HANDLE_BEFORE_CHILDREN) algo->handle_expr_list(list, algo);
+	if (algo->handle_expr_list_pre) {
+		algo->handle_expr_list_pre(list, algo);
+	}
 	algo->level++;
 	traverse_expr(list->elem, algo);
 	algo->level--;
 	traverse_expr_list(list->next, algo);
-	if (algo->type == HANDLE_AFTER_CHILDREN) algo->handle_expr_list(list, algo);
+	if (algo->handle_expr_list_post) {
+		algo->handle_expr_list_post(list, algo);
+	}
 }
+
 static void print_indent(struct traversal_algorithm* algo) {
 	for (int i = 0; i < algo->level; i++) {
 		printf("| ");
 	}
 	printf("`-");
 }
+
 static void print_e(struct expr* expression, struct traversal_algorithm* algo) {
 	print_indent(algo);
 	printf("%s", YEL);

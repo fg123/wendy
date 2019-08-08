@@ -142,13 +142,11 @@ void optimize_safe_free_sl(struct statement_list* ptr, struct traversal_algorith
     ast_safe_free_sl(ptr, algo);
 }
 
-struct traversal_algorithm optimize_safe_free_impl = {
+struct traversal_algorithm optimize_safe_free_impl = TRAVERSAL_ALGO_POST(
 	optimize_safe_free_e,
 	optimize_safe_free_el,
 	optimize_safe_free_s,
-	optimize_safe_free_sl,
-	HANDLE_AFTER_CHILDREN, 0
-};
+	optimize_safe_free_sl);
 
 struct statement_list* optimize_ast(struct statement_list* ast) {
 	struct statement_list* result = scan_statement_list_with_new_block(ast);
