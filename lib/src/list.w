@@ -4,11 +4,32 @@
  * Provides map(), filter(), sort(), zip()
  */
 
-let map => (fn, list)
-  if list.size == 0
-	ret []
-  else
-	ret [fn(list[0])] + map(fn, list[1->list.size])
+let map => (fn) {
+  // Arguments are lists of lists.
+  if (arguments.size == 0) {
+  	ret [];
+  }
+  let size = arguments[0].size;
+  for lst in arguments {
+  	if size != lst.size {
+  		"Sizes must all be the same!";
+  		ret [];
+  	}
+  }
+  let out = [];
+  if (arguments.size == 1) {
+  	// Fast Path
+  	for i in arguments[0]
+  		out += fn(i);
+  }
+  else {
+  	// Construct
+  	for i in 0->size {
+  		out += fn(...map(#:(l) l[i], arguments));
+  	}
+  }
+  ret out;
+}
 
 
 let filter => (fn, list)

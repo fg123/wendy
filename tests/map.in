@@ -1,0 +1,10 @@
+import list;
+
+let a = [1, 2, 3, 4, 5];
+let b = [6, 7, 8, 9, 10];
+let c = 11->16;
+
+map(#:(x) x, a);
+map(#:(x, y) x + y, a, b);
+map(#:(x, y, z) x + y + z, a, b, c);
+
