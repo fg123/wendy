@@ -114,7 +114,9 @@ bool is_numeric(struct data t) {
 		// This is actually a "reference" type, but because the
 		// corresponding pointer is not ref-counted, we label it
 		// as numeric.
-		t.type == D_INTERNAL_POINTER;
+		t.type == D_INTERNAL_POINTER ||
+		t.type == D_IDENTIFIER_LOCAL_OFFSET ||
+		t.type == D_IDENTIFIER_GLOBAL_OFFSET;
 }
 
 bool is_vm_internal_type(struct data t) {
