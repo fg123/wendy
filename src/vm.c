@@ -1105,6 +1105,9 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 		} // End A==List && B==List
 		else if (a.type == D_LIST) {
 			if (op == O_ADD) {
+				if (b.type == D_NONERET) {
+					return copy_data(a);
+				}
 				// list + element
 				int size_a = a.value.reference->value.number;
 
@@ -1137,6 +1140,9 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 			int size_b = b.value.reference->value.number;
 
 			if (op == O_ADD) {
+				if (a.type == D_NONERET) {
+					return copy_data(b);
+				}
 				// element + list
 				struct data* new_list = wendy_list_malloc(size_b + 1);
 				int n = 1;

@@ -1,0 +1,4 @@
+import list
+map(#:(x) if (x % 2 == 0) ret x, 1->10);
+let fn => () {}
+[1, 2, 3] + fn();
