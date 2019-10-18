@@ -100,7 +100,7 @@ bool get_error_flag(void);
 #define VM_INVALID_OPCODE "Invalid enum opcode encountered (0x%X at 0x%X)."
 #define VM_VAR_DECLARED_ALREADY "Identifier '%s' was already declared!"
 #define VM_NOT_A_LIST "Setting nth item of identifier must be List."
-#define VM_INVALID_LVALUE_LIST_SUBSCRIPT "List index must be a number!"
+#define VM_INVALID_LVALUE_LIST_SUBSCRIPT "List index must be a number or range!"
 #define VM_LIST_REF_OUT_RANGE "List subscript is out of range!"
 #define VM_NOT_A_STRUCT "You can only access member of a struct or a struct instance!"
 #define VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS "Tried to access member of a <noneret>, did you forget `ret this` in the init function?"

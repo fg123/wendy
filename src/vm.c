@@ -391,7 +391,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_NTHPTR: {
 				struct data number = pop_arg(line);
-				if (number.type != D_NUMBER) {
+				if (number.type != D_NUMBER && number.type != D_RANGE) {
 					error_runtime(line, VM_INVALID_LVALUE_LIST_SUBSCRIPT);
 					continue;
 				}
@@ -406,13 +406,27 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					goto nthptr_cleanup;
 				}
 				size_t list_size = list_data->value.number;
-				if (number.value.number >= list_size) {
-					error_runtime(line, VM_LIST_REF_OUT_RANGE);
-					goto nthptr_cleanup;
+				if (number.type == D_NUMBER) {
+					if (number.value.number >= list_size) {
+						error_runtime(line, VM_LIST_REF_OUT_RANGE);
+						goto nthptr_cleanup;
+					}
+					push_arg(make_data(D_INTERNAL_POINTER,
+						data_value_ptr(&list_data[(int)number.value.number + 1])));
 				}
-				push_arg(make_data(D_INTERNAL_POINTER,
-					data_value_ptr(&list_data[(int)number.value.number + 1])));
-
+				else if (number.type == D_RANGE) {
+					int start = range_start(number);
+					int end = range_end(number);
+					if (start < 0 || end < 0 || start >= (int) list_size || end >= (int) list_size) {
+						error_runtime(line, VM_LIST_REF_OUT_RANGE);
+						goto nthptr_cleanup;
+					}
+					struct data *internal = refcnt_malloc(2);
+					internal[0] = copy_data(list);
+					internal[1] = number; // which is a range
+					push_arg(make_data(D_LIST_RANGE_LVALUE,
+						data_value_ptr(internal)));
+				}
 				nthptr_cleanup:
 					destroy_data(&list);
 				break;
@@ -657,7 +671,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_WRITE: {
 				struct data ptr = pop_arg(line);
-				if (ptr.type != D_INTERNAL_POINTER) {
+				if (ptr.type != D_INTERNAL_POINTER && ptr.type != D_LIST_RANGE_LVALUE) {
 					error_runtime(line, VM_INTERNAL_ERROR, "WRITE on non-pointer");
 					destroy_data(&ptr);
 					continue;
@@ -680,16 +694,21 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					break;
 				}
 
-				destroy_data(&ptr.value.reference[0]);
-				*(ptr.value.reference) = value;
+				if (ptr.type == D_INTERNAL_POINTER) {
+					destroy_data(&ptr.value.reference[0]);
+					*(ptr.value.reference) = value;
 
-				if (ptr.value.reference->type == D_FUNCTION) {
-					// Write Name to Function
-					char* bind_name = last_pushed_identifier;
-					struct data* fn_data = ptr.value.reference->value.reference;
-					fn_data[2].value.string = safe_realloc(
-						fn_data[2].value.string, strlen(bind_name) + 1);
-					strcpy(fn_data[2].value.string, bind_name);
+					if (ptr.value.reference->type == D_FUNCTION) {
+						// Write Name to Function
+						char* bind_name = last_pushed_identifier;
+						struct data* fn_data = ptr.value.reference->value.reference;
+						fn_data[2].value.string = safe_realloc(
+							fn_data[2].value.string, strlen(bind_name) + 1);
+						strcpy(fn_data[2].value.string, bind_name);
+					}
+				}
+				else if (ptr.type == D_LIST_RANGE_LVALUE) {
+					// TODO: Implement here
 				}
 				break;
 			}

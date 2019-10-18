@@ -39,6 +39,7 @@
 	OP(D_NAMED_ARGUMENT_NAME) \
 	OP(D_END_OF_ARGUMENTS) \
 	OP(D_SPREAD) \
+	OP(D_LIST_RANGE_LVALUE) \
 	OP(D_ANY) // No way for client to construct this, can only have a type <any>
 
 enum data_type {
