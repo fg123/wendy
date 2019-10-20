@@ -8,3 +8,8 @@ a[4->6] = 1->3;
 a[6->12] = [456, 678] * 3;
 
 a;
+
+let b = [none] * 12;
+// Honestly disgusting syntax
+b[11->(-1)] = [...(0->12)];
+b;

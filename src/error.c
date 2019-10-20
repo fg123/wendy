@@ -77,7 +77,6 @@ void error_lexer(int line, int col, char* message, ...) {
 	}
 }
 
-
 void error_compile(int line, int col, char* message, ...) {
 	error_flag = true;
 	va_list args;

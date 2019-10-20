@@ -713,8 +713,6 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				else if (ptr.type == D_LIST_RANGE_LVALUE) {
 					struct data list = ptr.value.reference[0];
 					struct data* list_data = list.value.reference;
-					size_t list_size = list_data->value.number;
-					UNUSED(list_size);
 					struct data range = ptr.value.reference[1];
 					int start = range_start(range);
 					int end = range_end(range);
@@ -728,7 +726,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 						struct data* value_data = value.value.reference;
 						if (value_data->value.number != needed_size) {
 							error_runtime(line, VM_LIST_RANGE_ASSIGN_SIZE_MISMATCH,
-								needed_size, value_data->value.number);
+								needed_size, (int) value_data->value.number);
 							goto write_list_range_lvalue_cleanup;
 						}
 						int i = 0;
