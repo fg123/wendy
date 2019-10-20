@@ -86,7 +86,8 @@ bool is_reference(struct data t) {
 		t.type == D_CLOSURE ||
 		t.type == D_SPREAD ||
 		t.type == D_STRUCT_INSTANCE ||
-		t.type == D_STRUCT_FUNCTION;
+		t.type == D_STRUCT_FUNCTION ||
+		t.type == D_LIST_RANGE_LVALUE;
 }
 
 bool is_numeric(struct data t) {
