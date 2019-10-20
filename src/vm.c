@@ -391,11 +391,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_NTHPTR: {
 				struct data number = pop_arg(line);
+				struct data list = pop_arg(line);
 				if (number.type != D_NUMBER && number.type != D_RANGE) {
 					error_runtime(line, VM_INVALID_LVALUE_LIST_SUBSCRIPT);
-					continue;
+					goto nthptr_cleanup;
 				}
-				struct data list = pop_arg(line);
 				if (list.type != D_LIST) {
 					error_runtime(line, VM_NOT_A_LIST);
 					goto nthptr_cleanup;
@@ -417,18 +417,20 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				else if (number.type == D_RANGE) {
 					int start = range_start(number);
 					int end = range_end(number);
-					if (start < 0 || end < 0 || start >= (int) list_size || end >= (int) list_size) {
+					// Test for end is different because end is exclusive
+					if (start < 0 || end < -1 || start >= (int) list_size || end > (int) list_size) {
 						error_runtime(line, VM_LIST_REF_OUT_RANGE);
 						goto nthptr_cleanup;
 					}
 					struct data *internal = refcnt_malloc(2);
 					internal[0] = copy_data(list);
-					internal[1] = number; // which is a range
+					internal[1] = copy_data(number); // which is a range
 					push_arg(make_data(D_LIST_RANGE_LVALUE,
 						data_value_ptr(internal)));
 				}
 				nthptr_cleanup:
 					destroy_data(&list);
+					destroy_data(&number);
 				break;
 			}
 			case OP_CLOSURE: {
@@ -706,9 +708,45 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 							fn_data[2].value.string, strlen(bind_name) + 1);
 						strcpy(fn_data[2].value.string, bind_name);
 					}
+					// We stole value, so don't need to destroy it here
 				}
 				else if (ptr.type == D_LIST_RANGE_LVALUE) {
-					// TODO: Implement here
+					struct data list = ptr.value.reference[0];
+					struct data* list_data = list.value.reference;
+					size_t list_size = list_data->value.number;
+					UNUSED(list_size);
+					struct data range = ptr.value.reference[1];
+					int start = range_start(range);
+					int end = range_end(range);
+
+					// No range checking needed here, OP_NTHPTR checks the bounds, and
+					//   the rvalue side get's evaluated first, so no side effects can
+					//   occur between NTHPTR and WRITE (I hope)...
+
+					if (value.type == D_LIST) {
+						int needed_size = abs(start - end);
+						struct data* value_data = value.value.reference;
+						if (value_data->value.number != needed_size) {
+							error_runtime(line, VM_LIST_RANGE_ASSIGN_SIZE_MISMATCH,
+								needed_size, value_data->value.number);
+							goto write_list_range_lvalue_cleanup;
+						}
+						int i = 0;
+						for (int k = start; k != end; start < end ? k++ : k--) {
+							destroy_data(&list_data[k + 1]);
+							list_data[k + 1] = copy_data(value_data[i + 1]);
+							i++;
+						}
+					}
+					else {
+						for (int k = start; k != end; start < end ? k++ : k--) {
+							destroy_data(&list_data[k + 1]);
+							list_data[k + 1] = copy_data(value);
+						}
+					}
+				write_list_range_lvalue_cleanup:
+					destroy_data(&value);
+					destroy_data(&ptr);
 				}
 				break;
 			}
