@@ -133,7 +133,7 @@ bool process_options(char** options, int len, char** source) {
 	return false;
 }
 
-void run(char* input_string) {
+void run(char* input_string, struct vm * vm) {
 	size_t alloc_size = 0;
 	struct token* tokens;
 	size_t tokens_count;
@@ -157,7 +157,7 @@ void run(char* input_string) {
 			print_bytecode(bytecode, size, stdout);
 		}
 		if (!get_error_flag()) {
-			vm_run(bytecode, size);
+			vm_run(vm, bytecode, size);
 		}
 		safe_free(bytecode);
 	}
@@ -195,7 +195,7 @@ bool bracket_check(char* source) {
 	return !p && !s && !c && !in_string;
 }
 
-int repl(void) {
+int repl(struct vm* vm) {
 	init_source(0, "", 0, false);
 	printf("Welcome to " WENDY_VERSION " created by: Felix Guo\n");
 	printf(BUILD_VERSION " (" GIT_COMMIT ")\n");
@@ -235,7 +235,7 @@ int repl(void) {
 			free(input_buffer);
 		}
 		add_history(source_to_run);
-		run(source_to_run);
+		run(source_to_run, vm);
 		has_run = true;
 		unwind_stack();
 	}
@@ -245,7 +245,7 @@ cleanup:
 	safe_free(source_to_run);
 	free_memory();
 	if (has_run) {
-		vm_cleanup_if_repl();
+		vm_cleanup_if_repl(vm);
 	}
 	check_leak();
 	return 0;
@@ -254,13 +254,14 @@ cleanup:
 int main(int argc, char** argv) {
 	init_memory();
 	determine_endianness();
+	struct vm* vm = vm_init();
 	char *option_result;
 	if (process_options(&argv[1], argc - 1, &option_result)) {
 		// User asked for -h / --help
 		invalid_usage();
 	}
 	if (!option_result) {
-		return repl();
+		return repl(vm);
 	}
 	set_settings_flag(SETTINGS_STRICT_ERROR);
 	// FILE READ MODE
@@ -270,7 +271,7 @@ int main(int argc, char** argv) {
 	if (!file) {
 		// Attempt to run as source string
 		push_frame("main", 0, 0);
-		run(option_result);
+		run(option_result, vm);
 		goto wendy_exit;
 	}
 	// Compute File Size
@@ -381,7 +382,7 @@ int main(int argc, char** argv) {
 	}
 	else {
 		push_frame("main", 0, 0);
-		vm_run(bytecode_stream, size);
+		vm_run(vm, bytecode_stream, size);
 		if (!last_printed_newline) {
 			printf("\n");
 		}
@@ -392,6 +393,7 @@ wendy_exit:
 	free_imported_libraries_ll();
 	free_source();
 	free_memory();
+	vm_destroy(vm);
 	check_leak();
 	return 0;
 }

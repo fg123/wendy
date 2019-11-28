@@ -13,27 +13,31 @@
 #include <limits.h>
 #include <stdarg.h>
 
-static int line;
-static address i = 0;
-static uint8_t* bytecode = 0;
-static size_t bytecode_size = 0;
-static char* last_pushed_identifier;
-
 // Forward Declarations
-static struct data eval_binop(enum operator op, struct data a, struct data b);
-static struct data eval_uniop(enum operator op, struct data a);
+static struct data eval_binop(struct vm * vm, enum operator op, struct data a, struct data b);
+static struct data eval_uniop(struct vm * vm, enum operator op, struct data a);
 static struct data type_of(struct data a);
 static struct data size_of(struct data a);
 static struct data value_of(struct data a);
 static struct data char_of(struct data a);
 
-address get_instruction_pointer() {
-	return i;
+struct vm *vm_init() {
+	struct vm* vm = safe_malloc(sizeof(*vm));
+	vm->bytecode = 0;
+	vm->instruction_ptr = 0;
+	vm->bytecode_size = 0;
+	vm->last_pushed_identifier = 0;
+	vm->line = 0;
+	return vm;
 }
 
-void vm_cleanup_if_repl() {
+void vm_destroy(struct vm * vm) {
+	safe_free(vm);
+}
+
+void vm_cleanup_if_repl(struct vm * vm) {
 	// bytecode could be null if codegen didn't generate anything
-	if (bytecode) safe_free(bytecode);
+	if (vm->bytecode) safe_free(vm->bytecode);
 }
 
 #define num_args(...) (sizeof((char*[]){__VA_ARGS__})/sizeof(char*))
@@ -82,28 +86,28 @@ static char* get_print_overload_name(struct data a) {
 	return fn_name;
 }
 
-void vm_run(uint8_t* new_bytecode, size_t size) {
+void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 	if (get_settings_flag(SETTINGS_DRY_RUN)) {
 		return;
 	}
 	// Verify Header
 	address start_at;
-	size_t saved_size = bytecode_size;
+	size_t saved_size = vm->bytecode_size;
 	if (!get_settings_flag(SETTINGS_REPL)) {
-		bytecode = new_bytecode;
-		start_at = verify_header(bytecode, size);
+		vm->bytecode = new_bytecode;
+		start_at = verify_header(vm->bytecode, size);
 	}
 	else {
 		// REPL Bytecode has no headers!
 		// Resize Bytecode Block, Offset New Addresses, Push to End
-		bytecode_size += size;
-		if (bytecode) {
+		vm->bytecode_size += size;
+		if (vm->bytecode) {
 			// This gets rid of the OP_HALT from the previous chain of BC
-			bytecode_size--;
-			bytecode = safe_realloc(bytecode, bytecode_size * sizeof(uint8_t));
+			vm->bytecode_size--;
+			vm->bytecode = safe_realloc(vm->bytecode, vm->bytecode_size * sizeof(uint8_t));
 		}
 		else {
-			bytecode = safe_malloc(bytecode_size * sizeof(uint8_t));
+			vm->bytecode = safe_malloc(vm->bytecode_size * sizeof(uint8_t));
 		}
 		if (saved_size != 0) {
 			start_at = saved_size - 1;
@@ -113,21 +117,21 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 		}
 		offset_addresses(new_bytecode, size, start_at);
 		for (size_t i = 0; i < size; i++) {
-			bytecode[start_at + i] = new_bytecode[i];
+			vm->bytecode[start_at + i] = new_bytecode[i];
 		}
 	}
-	for (i = start_at;;) {
+	for (vm->instruction_ptr = start_at;;) {
 		reset_error_flag();
-		enum opcode op = bytecode[i];
+		enum opcode op = vm->bytecode[vm->instruction_ptr];
 		if (get_settings_flag(SETTINGS_TRACE_VM)) {
 			// This branch could slow down the VM but the CPU should branch
 			// predict after one or two iterations.
-			printf(BLU "<+%04X>: " RESET "%s\n", i, opcode_string[op]);
+			printf(BLU "<+%04X>: " RESET "%s\n", vm->instruction_ptr, opcode_string[op]);
 		}
-		i += 1;
+		vm->instruction_ptr += 1;
 		switch (op) {
 			case OP_PUSH: {
-				struct data t = get_data(bytecode + i, &i);
+				struct data t = get_data(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
 				// t will never be a reference type
 				struct data d;
 				if (t.type == D_IDENTIFIER) {
@@ -135,7 +139,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 						d = time_data();
 					}
 					else {
-						struct data* value = get_value_of_id(t.value.string, line);
+						struct data* value = get_value_of_id(t.value.string, vm->line);
 						if (!value) {
 							break;
 						}
@@ -145,14 +149,14 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				else {
 					d = copy_data(t);
 				}
-				last_pushed_identifier = t.value.string;
+				vm->last_pushed_identifier = t.value.string;
 				push_arg(d);
 				break;
 			}
 			case OP_BIN: {
-				enum operator op = bytecode[i++];
-				struct data a = pop_arg(line);
-				struct data b = pop_arg(line);
+				enum operator op = vm->bytecode[vm->instruction_ptr++];
+				struct data a = pop_arg(vm->line);
+				struct data b = pop_arg(vm->line);
 				struct data any_d = any_data();
 				char* a_and_b = get_binary_overload_name(op, a, b);
 				char* any_a = get_binary_overload_name(op, any_d, b);
@@ -163,14 +167,14 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
 					push_arg(b);
 					push_arg(a);
-					push_arg(copy_data(*get_value_of_id(fn_name, line)));
+					push_arg(copy_data(*get_value_of_id(fn_name, vm->line)));
 					safe_free(a_and_b);
 					safe_free(any_a);
 					safe_free(any_b);
 					goto wendy_vm_call;
 				}
 				else {
-					push_arg(eval_binop(op, a, b));
+					push_arg(eval_binop(vm, op, a, b));
 					destroy_data(&a);
 					destroy_data(&b);
 				}
@@ -180,19 +184,19 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_UNA: {
-				enum operator op = bytecode[i++];
-				struct data a = pop_arg(line);
+				enum operator op = vm->bytecode[vm->instruction_ptr++];
+				struct data a = pop_arg(vm->line);
 				char* fn_name = get_unary_overload_name(op, a);
 				if (id_exist(fn_name, true)) {
 					push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
 					push_arg(a);
-					push_arg(copy_data(*get_value_of_id(fn_name, line)));
+					push_arg(copy_data(*get_value_of_id(fn_name, vm->line)));
 					safe_free(fn_name);
 					goto wendy_vm_call;
 				}
 				else {
 					// Uni-op has a special spread operator that returns noneret
-					struct data result = eval_uniop(op, a);
+					struct data result = eval_uniop(vm, op, a);
 					push_arg(result);
 					destroy_data(&a);
 				}
@@ -200,44 +204,44 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_SRC: {
-				void* ad = &bytecode[i];
-				line = get_address(ad, &i);
+				void* ad = &vm->bytecode[vm->instruction_ptr];
+				vm->line = get_address(ad, &vm->instruction_ptr);
 				break;
 			}
 			case OP_NATIVE: {
-				void* ag = &bytecode[i];
-				address args = get_address(ag, &i);
-				char* name = get_string(bytecode + i, &i);
-				native_call(name, args, line);
+				void* ag = &vm->bytecode[vm->instruction_ptr];
+				address args = get_address(ag, &vm->instruction_ptr);
+				char* name = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
+				native_call(vm, name, args);
 				break;
 			}
 			case OP_DECL: {
-				char *id = get_string(bytecode + i, &i);
+				char *id = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
 				if (id_exist(id, false)) {
-					address a = get_stack_pos_of_id(id, line);
+					address a = get_stack_pos_of_id(id, vm->line);
 					if (!call_stack[a].is_closure) {
-						error_runtime(line, VM_VAR_DECLARED_ALREADY, id);
+						error_runtime(vm->line, VM_VAR_DECLARED_ALREADY, id);
 						continue;
 					}
 				}
-				struct stack_entry* result = push_stack_entry(id, line);
+				struct stack_entry* result = push_stack_entry(id, vm->line);
 				push_arg(make_data(D_INTERNAL_POINTER, data_value_ptr(&result->val)));
-				last_pushed_identifier = id;
+				vm->last_pushed_identifier = id;
 				break;
 			}
 			case OP_WHERE: {
-				char* id = get_string(bytecode + i, &i);
-				last_pushed_identifier = id;
+				char* id = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
+				vm->last_pushed_identifier = id;
 				push_arg(make_data(D_INTERNAL_POINTER,
-					data_value_ptr(get_address_of_id(id, line))
+					data_value_ptr(get_address_of_id(id, vm->line))
 				));
 				break;
 			}
 			case OP_IMPORT: {
-				char* name = get_string(bytecode + i, &i);
-				address a = get_address(bytecode + i, &i);
+				char* name = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
+				address a = get_address(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
 				if (has_already_imported_library(name)) {
-					i = a;
+					vm->instruction_ptr = a;
 				}
 				else {
 					add_imported_library(name);
@@ -248,81 +252,81 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				// TODO: 128 limit here seems a bit arbitrary and we
 				struct data* extra_args = wendy_list_malloc(128);
 				size_t count = 0;
-				while (top_arg(line)->type != D_END_OF_ARGUMENTS) {
-					if (top_arg(line)->type == D_NAMED_ARGUMENT_NAME) {
-						struct data identifier = pop_arg(line);
-						struct data* loc = get_address_of_id(identifier.value.string, line);
+				while (top_arg(vm->line)->type != D_END_OF_ARGUMENTS) {
+					if (top_arg(vm->line)->type == D_NAMED_ARGUMENT_NAME) {
+						struct data identifier = pop_arg(vm->line);
+						struct data* loc = get_address_of_id(identifier.value.string, vm->line);
 						destroy_data(loc);
-						*loc = pop_arg(line);
+						*loc = pop_arg(vm->line);
 						destroy_data(&identifier);
 					}
 					else {
-						extra_args[count + 1] = pop_arg(line);
+						extra_args[count + 1] = pop_arg(vm->line);
 						count += 1;
 					}
 				}
 				// We need to re-write the list counter
 				extra_args[0].value.number = count;
 				// Assign "arguments" variable with rest of the arguments.
-				push_stack_entry("arguments", line)->val =
+				push_stack_entry("arguments", vm->line)->val =
 					make_data(D_LIST, data_value_ptr(extra_args));
 				// Pop End of Arguments
-				struct data eoargs = pop_arg(line);
+				struct data eoargs = pop_arg(vm->line);
 				destroy_data(&eoargs);
 				break;
 			}
 			case OP_RET: {
 				if (frame_pointer == 0) {
 					// We tried to return from the main function!
-					error_runtime(line, VM_RET_FROM_MAIN);
+					error_runtime(vm->line, VM_RET_FROM_MAIN);
 					continue;
 				}
-				pop_frame(true, &i);
+				pop_frame(true, &vm->instruction_ptr);
 				break;
 			}
 			case OP_INC: {
-				struct data ptr = pop_arg(line);
+				struct data ptr = pop_arg(vm->line);
 				if (ptr.type != D_INTERNAL_POINTER) {
-					error_runtime(line, VM_INTERNAL_ERROR, "INC on non-pointer");
+					error_runtime(vm->line, VM_INTERNAL_ERROR, "INC on non-pointer");
 					continue;
 				}
 				struct data* arg = ptr.value.reference;
 				if (arg->type != D_NUMBER) {
-					error_runtime(line, VM_TYPE_ERROR, "INC");
+					error_runtime(vm->line, VM_TYPE_ERROR, "INC");
 					continue;
 				}
 				arg->value.number += 1;
 				break;
 			}
 			case OP_DEC: {
-				struct data ptr = pop_arg(line);
+				struct data ptr = pop_arg(vm->line);
 				if (ptr.type != D_INTERNAL_POINTER) {
-					error_runtime(line, VM_INTERNAL_ERROR, "DEC on non-pointer");
+					error_runtime(vm->line, VM_INTERNAL_ERROR, "DEC on non-pointer");
 					continue;
 				}
 				struct data* arg = ptr.value.reference;
 				if (arg->type != D_NUMBER) {
-					error_runtime(line, VM_TYPE_ERROR, "DEC");
+					error_runtime(vm->line, VM_TYPE_ERROR, "DEC");
 					continue;
 				}
 				arg->value.number -= 1;
 				break;
 			}
 			case OP_FRM: {
-				push_auto_frame(i, "automatic", line);
+				push_auto_frame(vm->instruction_ptr, "automatic", vm->line);
 				break;
 			}
 			case OP_END: {
-				pop_frame(false, &i);
+				pop_frame(false, &vm->instruction_ptr);
 				break;
 			}
 			case OP_MKREF: {
-				enum data_type type = bytecode[i++];
-				size_t size = get_address(&bytecode[i], &i);
+				enum data_type type = vm->bytecode[vm->instruction_ptr++];
+				size_t size = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
 				struct data reference = make_data(type, data_value_ptr(NULL));
 
 				if (!is_reference(reference)) {
-					error_runtime(line, VM_INTERNAL_ERROR,
+					error_runtime(vm->line, VM_INTERNAL_ERROR,
 						"MKREF called on non-reference type");
 					continue;
 				}
@@ -336,7 +340,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 
 				size_t i = size;
 				while (i > 0) {
-					struct data next = pop_arg(line);
+					struct data next = pop_arg(vm->line);
 					storage[i - 1] = next;
 					i -= 1;
 					if (next.type == D_SPREAD) {
@@ -390,25 +394,25 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_NTHPTR: {
-				struct data number = pop_arg(line);
-				struct data list = pop_arg(line);
+				struct data number = pop_arg(vm->line);
+				struct data list = pop_arg(vm->line);
 				if (number.type != D_NUMBER && number.type != D_RANGE) {
-					error_runtime(line, VM_INVALID_LVALUE_LIST_SUBSCRIPT);
+					error_runtime(vm->line, VM_INVALID_LVALUE_LIST_SUBSCRIPT);
 					goto nthptr_cleanup;
 				}
 				if (list.type != D_LIST) {
-					error_runtime(line, VM_NOT_A_LIST);
+					error_runtime(vm->line, VM_NOT_A_LIST);
 					goto nthptr_cleanup;
 				}
 				struct data* list_data = list.value.reference;
 				if (list_data->type != D_LIST_HEADER) {
-					error_runtime(line, VM_INTERNAL_ERROR, "List doesn't point to list header!");
+					error_runtime(vm->line, VM_INTERNAL_ERROR, "List doesn't point to list header!");
 					goto nthptr_cleanup;
 				}
 				size_t list_size = list_data->value.number;
 				if (number.type == D_NUMBER) {
 					if (number.value.number >= list_size) {
-						error_runtime(line, VM_LIST_REF_OUT_RANGE);
+						error_runtime(vm->line, VM_LIST_REF_OUT_RANGE);
 						goto nthptr_cleanup;
 					}
 					push_arg(make_data(D_INTERNAL_POINTER,
@@ -419,7 +423,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					int end = range_end(number);
 					// Test for end is different because end is exclusive
 					if (start < 0 || end < -1 || start >= (int) list_size || end > (int) list_size) {
-						error_runtime(line, VM_LIST_REF_OUT_RANGE);
+						error_runtime(vm->line, VM_LIST_REF_OUT_RANGE);
 						goto nthptr_cleanup;
 					}
 					struct data *internal = refcnt_malloc(2);
@@ -444,13 +448,13 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				// Structs can only modify Static members, instances modify instance
 				//   members.
 				// Either will be allowed to look through static parameters.
-				struct data instance = pop_arg(line);
-				char* member = get_string(bytecode + i, &i);
+				struct data instance = pop_arg(vm->line);
+				char* member = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
 				if (instance.type != D_STRUCT && instance.type != D_STRUCT_INSTANCE) {
 					if (instance.type == D_NONERET) {
-						error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
+						error_runtime(vm->line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
 					} else {
-						error_runtime(line, VM_NOT_A_STRUCT);
+						error_runtime(vm->line, VM_NOT_A_STRUCT);
 					}
 					destroy_data(&instance);
 					break;
@@ -490,35 +494,35 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				}
 				if (!found) {
 					struct data type = type_of(instance);
-					error_runtime(line, VM_MEMBER_NOT_EXIST, member, type.value.string);
+					error_runtime(vm->line, VM_MEMBER_NOT_EXIST, member, type.value.string);
 					destroy_data(&type);
 				}
 				destroy_data(&instance);
 				break;
 			}
 			case OP_JMP: {
-				address addr = get_address(&bytecode[i], &i);
-				i = addr;
+				address addr = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
+				vm->instruction_ptr = addr;
 				break;
 			}
 			case OP_JIF: {
 				// Jump IF False Instruction
-				struct data top = pop_arg(line);
-				address addr = get_address(&bytecode[i], &i);
+				struct data top = pop_arg(vm->line);
+				address addr = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
 				if (top.type != D_TRUE && top.type != D_FALSE) {
-					error_runtime(line, VM_COND_EVAL_NOT_BOOL);
+					error_runtime(vm->line, VM_COND_EVAL_NOT_BOOL);
 				}
 				if (top.type == D_FALSE) {
-					i = addr;
+					vm->instruction_ptr = addr;
 				}
 				destroy_data(&top);
 				break;
 			}
 			case OP_CALL:
 			wendy_vm_call: {
-				struct data top = pop_arg(line);
+				struct data top = pop_arg(vm->line);
 				if (top.type != D_FUNCTION && top.type != D_STRUCT && top.type != D_STRUCT_FUNCTION) {
-					error_runtime(line, VM_FN_CALL_NOT_FN);
+					error_runtime(vm->line, VM_FN_CALL_NOT_FN);
 					destroy_data(&top);
 					break;
 				}
@@ -526,12 +530,12 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				char* function_disp = safe_malloc((128 + strlen(boundName.value.string)) * sizeof(char));
 				function_disp[0] = 0;
 				if (boundName.value.string && streq(boundName.value.string, "self")) {
-					sprintf(function_disp, "annonymous:0x%X", i);
+					sprintf(function_disp, "annonymous:0x%X", vm->instruction_ptr);
 				}
 				else {
-					sprintf(function_disp, "%s:0x%X", boundName.value.string, i);
+					sprintf(function_disp, "%s:0x%X", boundName.value.string, vm->instruction_ptr);
 				}
-				push_frame(function_disp, i, line);
+				push_frame(function_disp, vm->instruction_ptr, vm->line);
 				safe_free(function_disp);
 
 				if (top.type == D_STRUCT) {
@@ -544,7 +548,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 					top = copy_data(metadata[3]);
 
 					if (top.type != D_FUNCTION) {
-						error_runtime(line, VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION);
+						error_runtime(vm->line, VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION);
 						destroy_data(&top);
 						break;
 					}
@@ -574,11 +578,11 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 
 				struct data addr = top.value.reference[0];
 				if (addr.type != D_INSTRUCTION_ADDRESS) {
-					error_runtime(line, VM_INTERNAL_ERROR, "Address of function is not D_INSTRUCTION_ADDRESS");
+					error_runtime(vm->line, VM_INTERNAL_ERROR, "Address of function is not D_INSTRUCTION_ADDRESS");
 					destroy_data(&top);
 					break;
 				}
-				i = (address) addr.value.number;
+				vm->instruction_ptr = (address) addr.value.number;
 
 				// Resolve Spread Objects in the Call List
 				size_t ptr = working_stack_pointer - 1;
@@ -637,14 +641,14 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				if (top.type == D_STRUCT_FUNCTION) {
 					// Either we pushed the new instance on the stack on top, or
 					//   codegen generated the instance on the top.
-					struct data instance = pop_arg(line);
+					struct data instance = pop_arg(vm->line);
 					if (instance.type != D_STRUCT_INSTANCE && instance.type != D_STRUCT) {
-						error_runtime(line, VM_INTERNAL_ERROR, "D_STRUCT_FUNCTION encountered but top of stack is not a instance nor a struct.");
+						error_runtime(vm->line, VM_INTERNAL_ERROR, "D_STRUCT_FUNCTION encountered but top of stack is not a instance nor a struct.");
 						destroy_data(&top);
 						destroy_data(&instance);
 						break;
 					}
-					push_stack_entry("this", line)->val = instance;
+					push_stack_entry("this", vm->line)->val = instance;
 				}
 
 				// Push closure variables
@@ -655,43 +659,43 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				list_data += 1;
 				for (size_t i = 0; i < size; i += 2) {
 					if (list_data[i].type != D_IDENTIFIER) {
-						error_runtime(line, VM_INTERNAL_ERROR, "Did not find a D_IDENTIFIER in function closure");
+						error_runtime(vm->line, VM_INTERNAL_ERROR, "Did not find a D_IDENTIFIER in function closure");
 						destroy_data(&top);
 						break;
 					}
-					struct stack_entry *entry = push_stack_entry(list_data[i].value.string, line);
+					struct stack_entry *entry = push_stack_entry(list_data[i].value.string, vm->line);
 					entry->val = copy_data(list_data[i + 1]);
 					entry->is_closure = true;
 				}
 
 				// At this point, we put `top` back into the stack, so no need to destroy it
 				if (strcmp(boundName.value.string, "self") != 0) {
-					push_stack_entry("self", line)->val = copy_data(top);
+					push_stack_entry("self", vm->line)->val = copy_data(top);
 				}
-				push_stack_entry(boundName.value.string, line)->val = top;
+				push_stack_entry(boundName.value.string, vm->line)->val = top;
 				break;
 			}
 			case OP_WRITE: {
-				struct data ptr = pop_arg(line);
+				struct data ptr = pop_arg(vm->line);
 				if (ptr.type != D_INTERNAL_POINTER && ptr.type != D_LIST_RANGE_LVALUE) {
-					error_runtime(line, VM_INTERNAL_ERROR, "WRITE on non-pointer");
+					error_runtime(vm->line, VM_INTERNAL_ERROR, "WRITE on non-pointer");
 					destroy_data(&ptr);
 					continue;
 				}
 
-				if (top_arg(line)->type == D_END_OF_ARGUMENTS ||
-					top_arg(line)->type == D_NAMED_ARGUMENT_NAME) {
+				if (top_arg(vm->line)->type == D_END_OF_ARGUMENTS ||
+					top_arg(vm->line)->type == D_NAMED_ARGUMENT_NAME) {
 					if (ptr.value.reference->type == D_EMPTY) {
 						*(ptr.value.reference) = none_data();
 					}
 					break;
 				}
 
-				struct data value = pop_arg(line);
+				struct data value = pop_arg(vm->line);
 
 				// Since value is written back, we don't need to destroy it
 				if (value.type == D_NONERET) {
-					error_runtime(line, VM_ASSIGNING_NONERET);
+					error_runtime(vm->line, VM_ASSIGNING_NONERET);
 					destroy_data(&value);
 					break;
 				}
@@ -702,7 +706,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 
 					if (ptr.value.reference->type == D_FUNCTION) {
 						// Write Name to Function
-						char* bind_name = last_pushed_identifier;
+						char* bind_name = vm->last_pushed_identifier;
 						struct data* fn_data = ptr.value.reference->value.reference;
 						fn_data[2].value.string = safe_realloc(
 							fn_data[2].value.string, strlen(bind_name) + 1);
@@ -725,7 +729,7 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 						int needed_size = abs(start - end);
 						struct data* value_data = value.value.reference;
 						if (value_data->value.number != needed_size) {
-							error_runtime(line, VM_LIST_RANGE_ASSIGN_SIZE_MISMATCH,
+							error_runtime(vm->line, VM_LIST_RANGE_ASSIGN_SIZE_MISMATCH,
 								needed_size, (int) value_data->value.number);
 							goto write_list_range_lvalue_cleanup;
 						}
@@ -749,19 +753,19 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_OUT: {
-				struct data t = pop_arg(line);
+				struct data t = pop_arg(vm->line);
 				if (t.type != D_NONERET) {
 					char* fn_name = get_print_overload_name(t);
 					if (id_exist(fn_name, true)) {
 						push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
 						push_arg(t);
-						push_arg(copy_data(*get_value_of_id(fn_name, line)));
+						push_arg(copy_data(*get_value_of_id(fn_name, vm->line)));
 						safe_free(fn_name);
 						/* This i-- allows the overloaded function to return
 						 * a string / object and have that be the printed
 						 * output, i.e. it will call function and execute
 						 * the OP_OUT again */
-						i--;
+						vm->instruction_ptr--;
 						goto wendy_vm_call;
 					}
 					safe_free(fn_name);
@@ -771,19 +775,19 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 				break;
 			}
 			case OP_OUTL: {
-				struct data t = pop_arg(line);
+				struct data t = pop_arg(vm->line);
 				if (t.type != D_NONERET) {
 					char* fn_name = get_print_overload_name(t);
 					if (id_exist(fn_name, true)) {
 						push_arg(make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
 						push_arg(t);
-						push_arg(copy_data(*get_value_of_id(fn_name, line)));
+						push_arg(copy_data(*get_value_of_id(fn_name, vm->line)));
 						safe_free(fn_name);
 						/* This i-- allows the overloaded function to return
 						 * a string / object and have that be the printed
 						 * output, i.e. it will call function and execute
 						 * the OP_OUT again */
-						i--;
+						vm->instruction_ptr--;
 						goto wendy_vm_call;
 					}
 					safe_free(fn_name);
@@ -794,9 +798,9 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_IN: {
 				// Scan one line from the input.
-				struct data ptr = pop_arg(line);
+				struct data ptr = pop_arg(vm->line);
 				if (ptr.type != D_INTERNAL_POINTER) {
-					error_runtime(line, VM_INTERNAL_ERROR, "INC on non-pointer");
+					error_runtime(vm->line, VM_INTERNAL_ERROR, "INC on non-pointer");
 					continue;
 				}
 				struct data* storage = ptr.value.reference;
@@ -832,12 +836,12 @@ void vm_run(uint8_t* new_bytecode, size_t size) {
 	}
 }
 
-static struct data eval_binop(enum operator op, struct data a, struct data b) {
+static struct data eval_binop(struct vm * vm, enum operator op, struct data a, struct data b) {
 	if (op == O_SUBSCRIPT) {
 		// Array Reference, or String
 		// A must be a list/string/range, b must be a number.
 		if (a.type != D_LIST && a.type != D_STRING && a.type != D_RANGE) {
-			error_runtime(line, VM_TYPE_ERROR, operator_string[op]);
+			error_runtime(vm->line, VM_TYPE_ERROR, operator_string[op]);
 			return none_data();
 		}
 
@@ -853,14 +857,14 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 		}
 
 		if (b.type != D_NUMBER && b.type != D_RANGE) {
-			error_runtime(line, VM_INVALID_LIST_SUBSCRIPT);
+			error_runtime(vm->line, VM_INVALID_LIST_SUBSCRIPT);
 			return none_data();
 		}
 		if ((b.type == D_NUMBER && (int)(b.value.number) >= list_size) ||
 			(b.type == D_RANGE &&
 			((range_start(b) > list_size || range_end(b) > list_size ||
 			 range_start(b) < 0 || range_end(b) < 0)))) {
-			error_runtime(line, VM_LIST_REF_OUT_RANGE);
+			error_runtime(vm->line, VM_LIST_REF_OUT_RANGE);
 			return none_data();
 		}
 
@@ -931,7 +935,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 		// Regular Member, Must be either struct or a struct instance.
 		//   Check for Regular Member before checking for built-in ones
 		if (b.type != D_MEMBER_IDENTIFIER) {
-			error_runtime(line, VM_MEMBER_NOT_IDEN);
+			error_runtime(vm->line, VM_MEMBER_NOT_IDEN);
 			return false_data();
 		}
 		if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
@@ -1006,7 +1010,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 			return copy_data(a.value.reference[3]);
 		}
 		else if (a.type == D_NONERET) {
-			error_runtime(line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
+			error_runtime(vm->line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
 			return none_data();
 		}
 		// else if (!(a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE)) {
@@ -1015,7 +1019,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 		// }
 		else {
 			struct data type = type_of(a);
-			error_runtime(line, VM_MEMBER_NOT_EXIST, b.value.string, type.value.string);
+			error_runtime(vm->line, VM_MEMBER_NOT_EXIST, b.value.string, type.value.string);
 			destroy_data(&type);
 			return false_data();
 		}
@@ -1056,7 +1060,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 			case O_REM:
 				// check for division by zero error
 				if (b.value.number == 0) {
-					error_runtime(line, VM_MATH_DISASTER);
+					error_runtime(vm->line, VM_MATH_DISASTER);
 				}
 				else {
 					if (op == O_REM) {
@@ -1066,7 +1070,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 
 						// check integer
 						if (a_n != floor(a_n) || b_n != floor(b_n)) {
-							error_runtime(line, VM_TYPE_ERROR, "/");
+							error_runtime(vm->line, VM_TYPE_ERROR, "/");
 							return none_data();
 						}
 						else {
@@ -1087,7 +1091,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 				}
 				break;
 			default:
-				error_runtime(line, VM_NUM_NUM_INVALID_OPERATOR,
+				error_runtime(vm->line, VM_NUM_NUM_INVALID_OPERATOR,
 					operator_string[op]);
 				break;
 		}
@@ -1154,7 +1158,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 					}
 					return make_data(D_LIST, data_value_ptr(new_list));
 				}
-				default: error_runtime(line, VM_LIST_LIST_INVALID_OPERATOR,
+				default: error_runtime(vm->line, VM_LIST_LIST_INVALID_OPERATOR,
 					operator_string[op]); break;
 			}
 		} // End A==List && B==List
@@ -1188,7 +1192,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 				return make_data(D_LIST, data_value_ptr(new_list));
 			}
 			else {
-				error_runtime(line, VM_INVALID_APPEND);
+				error_runtime(vm->line, VM_INVALID_APPEND);
 			}
 		}
 		else if (b.type == D_LIST) {
@@ -1229,7 +1233,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 				}
 				return false_data();
 			}
-			else { error_runtime(line, VM_INVALID_APPEND); }
+			else { error_runtime(vm->line, VM_INVALID_APPEND); }
 		}
 	}
 	else if((a.type == D_STRING && b.type == D_STRING) ||
@@ -1276,7 +1280,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 			if (a.type == D_NUMBER) {
 				times = (int) a.value.number;
 				if (times < 0) {
-					error_runtime(line, VM_STRING_DUPLICATION_NEGATIVE);
+					error_runtime(vm->line, VM_STRING_DUPLICATION_NEGATIVE);
 					return copy_data(b);
 				}
 				size = times * strlen(b.value.string) + 1;
@@ -1285,7 +1289,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 			else {
 				times = (int) b.value.number;
 				if (times < 0) {
-					error_runtime(line, VM_STRING_DUPLICATION_NEGATIVE);
+					error_runtime(vm->line, VM_STRING_DUPLICATION_NEGATIVE);
 					return copy_data(b);
 				}
 				size = times * strlen(a.value.string) + 1;
@@ -1302,7 +1306,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 			return t;
 		}
 		else {
-			error_runtime(line,
+			error_runtime(vm->line,
 				(a.type == D_STRING && b.type == D_STRING) ?
 				VM_STRING_STRING_INVALID_OPERATOR : VM_STRING_NUM_INVALID_OPERATOR,
 				operator_string[op]);
@@ -1319,7 +1323,7 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 				return (a.type == D_FALSE && b.type == D_FALSE) ?
 					false_data() : true_data();
 			default:
-				error_runtime(line, VM_TYPE_ERROR, operator_string[op]);
+				error_runtime(vm->line, VM_TYPE_ERROR, operator_string[op]);
 				break;
 		}
 	}
@@ -1333,10 +1337,10 @@ static struct data eval_binop(enum operator op, struct data a, struct data b) {
 			return (a.value.reference != b.value.reference) ?
 				true_data() : false_data();
 		}
-		error_runtime(line, VM_TYPE_ERROR, operator_string[op]);
+		error_runtime(vm->line, VM_TYPE_ERROR, operator_string[op]);
 	}
 	else {
-		error_runtime(line, VM_TYPE_ERROR, operator_string[op]);
+		error_runtime(vm->line, VM_TYPE_ERROR, operator_string[op]);
 	}
 	return none_data();
 }
@@ -1415,7 +1419,7 @@ static struct data type_of(struct data a) {
 	}
 }
 
-static struct data eval_uniop(enum operator op, struct data a) {
+static struct data eval_uniop(struct vm * vm, enum operator op, struct data a) {
 	if (op == O_COPY) {
 		// Create copy of object a, only applies to lists or
 		// struct or struct instances
@@ -1451,7 +1455,7 @@ static struct data eval_uniop(enum operator op, struct data a) {
 		// 	size++; // for the header itself
 		// 	data* copy = safe_malloc(size * sizeof(struct data));
 		// 	for (int i = 0; i < size; i++) {
-		// 		copy[i] = copy_data(memory[copy_start + i]);
+		// 		copy[vm->instruction_ptr] = copy_data(memory[copy_start + i]);
 		// 	}
 		// 	address addr = push_memory_array(copy, size, line);
 		// 	safe_free(copy);
@@ -1465,7 +1469,7 @@ static struct data eval_uniop(enum operator op, struct data a) {
 	}
 	else if (op == O_NEG) {
 		if (a.type != D_NUMBER) {
-			error_runtime(line, VM_INVALID_NEGATE);
+			error_runtime(vm->line, VM_INVALID_NEGATE);
 			return none_data();
 		}
 		struct data res = make_data(D_NUMBER, data_value_num(-1 * a.value.number));
@@ -1473,7 +1477,7 @@ static struct data eval_uniop(enum operator op, struct data a) {
 	}
 	else if (op == O_NOT) {
 		if (a.type != D_TRUE && a.type != D_FALSE) {
-			error_runtime(line, VM_INVALID_NEGATE);
+			error_runtime(vm->line, VM_INVALID_NEGATE);
 			return none_data();
 		}
 		return a.type == D_TRUE ? false_data() : true_data();
@@ -1481,7 +1485,7 @@ static struct data eval_uniop(enum operator op, struct data a) {
 	else if (op == O_SPREAD) {
 		// Expandable Types
 		if (a.type != D_LIST && a.type != D_RANGE && a.type != D_STRING) {
-			error_runtime(line, VM_SPREAD_NOT_ITERABLE);
+			error_runtime(vm->line, VM_SPREAD_NOT_ITERABLE);
 			return none_data();
 		}
 		struct data *storage = refcnt_malloc(1);
@@ -1494,6 +1498,6 @@ static struct data eval_uniop(enum operator op, struct data a) {
 	}
 }
 
-void print_current_bytecode() {
-	print_bytecode(bytecode, bytecode_size, stdout);
+void print_current_bytecode(struct vm * vm) {
+	print_bytecode(vm->bytecode, vm->bytecode_size, stdout);
 }

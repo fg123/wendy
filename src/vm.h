@@ -10,13 +10,21 @@
 // Executes a stream of bytecode based on instructions in [codegen] by
 //   interfacing with [memory]
 
-// vm_run(bytecode) runs the given bytecode.
-void vm_run(uint8_t* bytecode, size_t size);
-void vm_cleanup_if_repl(void);
+struct vm {
+    int line;
+    address instruction_ptr;
+    uint8_t* bytecode;
+    size_t bytecode_size;
+    char* last_pushed_identifier;
+};
 
-// get_instruction_pointer() returns the current instruction pointer.
-address get_instruction_pointer(void);
+struct vm *vm_init(void);
+void vm_destroy(struct vm * vm);
+
+// vm_run(bytecode) runs the given bytecode.
+void vm_run(struct vm * vm, uint8_t* bytecode, size_t size);
+void vm_cleanup_if_repl(struct vm * vm);
 
 // print_current_bytecode() prints the current executing bytecode
-void print_current_bytecode(void);
+void print_current_bytecode(struct vm * vm);
 #endif
