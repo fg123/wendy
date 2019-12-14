@@ -11,22 +11,6 @@
 #define RA_START "#"
 #define CHAR(s) (*s)
 
-struct data* working_stack;
-struct stack_entry* call_stack;
-
-address frame_pointer = 0;
-address working_stack_pointer = 0;
-address call_stack_pointer = 0;
-
-size_t call_stack_size = INITIAL_STACK_SIZE;
-size_t working_stack_size = INITIAL_WORKING_STACK_SIZE;
-
-struct refcnt_container* all_containers_start = 0;
-struct refcnt_container* all_containers_end = 0;
-
-// Pointer to the end of the main() stack frame
-static address main_end_pointer = 0;
-
 #define resize(container, current) do { \
 	current *= 2; \
 	container = safe_realloc(container, current * sizeof(*container)); \
@@ -41,34 +25,34 @@ static address main_end_pointer = 0;
 #define unwrap_number(data) \
 	(data).value.number
 
-static inline bool is_at_main(void) {
-	return frame_pointer == 0;
+static inline bool is_at_main(struct memory * memory) {
+	return memory->frame_pointer == 0;
 }
 
-static inline bool is_identifier_entry(int index) {
-	return call_stack[index].id[0] != CHAR(FUNCTION_START) &&
-		   call_stack[index].id[0] != CHAR(AUTOFRAME_START) &&
-		   call_stack[index].id[0] != CHAR(RA_START);
+static inline bool is_identifier_entry(struct memory * memory, int index) {
+	return memory->call_stack[index].id[0] != CHAR(FUNCTION_START) &&
+		   memory->call_stack[index].id[0] != CHAR(AUTOFRAME_START) &&
+		   memory->call_stack[index].id[0] != CHAR(RA_START);
 }
 
-void check_memory(void) {
+void check_memory(struct memory * memory) {
 	// Check stack
-	if (call_stack_pointer >= call_stack_size - 1) {
-		resize(call_stack, call_stack_size);
+	if (memory->call_stack_pointer >= memory->call_stack_size - 1) {
+		resize(memory->call_stack, memory->call_stack_size);
 	}
 	// Check argstack
-	if (working_stack_pointer >= working_stack_size - 1) {
-		resize(working_stack, working_stack_size);
+	if (memory->working_stack_pointer >= memory->working_stack_size - 1) {
+		resize(memory->working_stack, memory->working_stack_size);
 	}
 }
 
-void ensure_working_stack_size(size_t additional) {
-	while (working_stack_pointer + additional >= working_stack_size) {
-		resize(working_stack, working_stack_size);
+void ensure_working_stack_size(struct memory * memory, size_t additional) {
+	while (memory->working_stack_pointer + additional >= memory->working_stack_size) {
+		resize(memory->working_stack, memory->working_stack_size);
 	}
 }
 
-struct data *refcnt_malloc_impl(struct data* allocated, size_t count) {
+struct data *refcnt_malloc_impl(struct memory * memory, struct data* allocated, size_t count) {
 	// We allocate:
 	// | refcnt_container | data         |
 	// |                  | count * data |
@@ -79,18 +63,18 @@ struct data *refcnt_malloc_impl(struct data* allocated, size_t count) {
 	container_info->refs = 1;
 	container_info->touched = false;
 
-	if (!all_containers_end && !all_containers_start) {
-		all_containers_start = container_info;
-		all_containers_end = container_info;
+	if (!memory->all_containers_end && !memory->all_containers_start) {
+		memory->all_containers_start = container_info;
+		memory->all_containers_end = container_info;
 	}
 
-	all_containers_end->next = container_info;
-	container_info->prev = all_containers_end;
+	memory->all_containers_end->next = container_info;
+	container_info->prev = memory->all_containers_end;
 
-	all_containers_start->prev = container_info;
-	container_info->next = all_containers_start;
+	memory->all_containers_start->prev = container_info;
+	container_info->next = memory->all_containers_start;
 
-	all_containers_end = container_info;
+	memory->all_containers_end = container_info;
 	if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
 		printf("refcnt malloc %p\n", allocated);
 	}
@@ -98,7 +82,7 @@ struct data *refcnt_malloc_impl(struct data* allocated, size_t count) {
 	return (void*)allocated + sizeof(struct refcnt_container);
 }
 
-void refcnt_free(struct data *ptr) {
+void refcnt_free(struct memory * memory, struct data *ptr) {
 	struct refcnt_container* container_info =
 		(void*)ptr - sizeof(struct refcnt_container);
 
@@ -125,20 +109,21 @@ void refcnt_free(struct data *ptr) {
 				get_settings_flag(SETTINGS_TRACE_REFCNT)) {
 				printf("loop to %p\n", &ptr[i]);
 			}
-			destroy_data(&ptr[i]);
+			destroy_data_runtime(memory, &ptr[i]);
 		}
-		if (container_info == all_containers_start && container_info == all_containers_end) {
-			all_containers_start = 0;
-			all_containers_end = 0;
+		if (container_info == memory->all_containers_start &&
+			container_info == memory->all_containers_end) {
+			memory->all_containers_start = 0;
+			memory->all_containers_end = 0;
 		}
 		else {
 			container_info->prev->next = container_info->next;
 			container_info->next->prev = container_info->prev;
-			if (container_info == all_containers_end) {
-				all_containers_end = container_info->prev;
+			if (container_info == memory->all_containers_end) {
+				memory->all_containers_end = container_info->prev;
 			}
-			if (container_info == all_containers_start) {
-				all_containers_start = container_info->next;
+			if (container_info == memory->all_containers_start) {
+				memory->all_containers_start = container_info->next;
 			}
 			container_info->prev = 0;
 			container_info->next = 0;
@@ -163,61 +148,75 @@ struct data* wendy_list_malloc_impl(struct data* allocated, size_t size) {
 	return allocated;
 }
 
-struct data *create_closure(void) {
+struct data *create_closure(struct memory * memory) {
 	size_t size = 0;
-	for (size_t i = main_end_pointer; i < call_stack_pointer; i++) {
-		if (is_identifier_entry(i)) {
+	for (size_t i = memory->main_end_pointer; i < memory->call_stack_pointer; i++) {
+		if (is_identifier_entry(memory, i)) {
 			size += 1;
 		}
 	}
 	// We store a closure as a wendy-list of: identifier, value, identifier 2, value 2, etc
-	struct data *closure_list = wendy_list_malloc(size * 2);
+	struct data *closure_list = wendy_list_malloc(memory, size * 2);
 	size_t index = 1;
-	for (size_t i = main_end_pointer; i < call_stack_pointer; i++) {
-		if (is_identifier_entry(i)) {
+	for (size_t i = memory->main_end_pointer; i < memory->call_stack_pointer; i++) {
+		if (is_identifier_entry(memory, i)) {
 			// Add to closure list
-			closure_list[index++] = make_data(D_IDENTIFIER, data_value_str(call_stack[i].id));
-			closure_list[index++] = copy_data(call_stack[i].val);
+			closure_list[index++] = make_data(D_IDENTIFIER, data_value_str(memory->call_stack[i].id));
+			closure_list[index++] = copy_data(memory->call_stack[i].val);
 		}
 	}
 	return closure_list;
 }
 
-void init_memory(void) {
+struct memory *memory_init(void) {
+	struct memory *memory = malloc(sizeof(*memory));
+	
+	memory->call_stack_size = INITIAL_STACK_SIZE;
+	memory->working_stack_size = INITIAL_WORKING_STACK_SIZE;
+
 	// Initialize Argument Stack
-	working_stack = safe_calloc(working_stack_size, sizeof(struct data));
+	memory->working_stack = safe_calloc(memory->working_stack_size, sizeof(struct data));
 
 	// Initialize Call Stack
-	call_stack = safe_calloc(call_stack_size, sizeof(struct stack_entry));
+	memory->call_stack = safe_calloc(memory->call_stack_size, sizeof(struct stack_entry));
+
+	memory->frame_pointer = 0;
+	memory->working_stack_pointer = 0;
+	memory->call_stack_pointer = 0;
+	memory->all_containers_start = 0;
+	memory->all_containers_end = 0;
+	memory->main_end_pointer = 0;
+	return memory;	
 }
 
-void clear_working_stack(void) {
-	while (working_stack_pointer > 0) {
-		working_stack_pointer--;
-		destroy_data(&working_stack[working_stack_pointer]);
+void clear_working_stack(struct memory * memory) {
+	while (memory->working_stack_pointer > 0) {
+		memory->working_stack_pointer--;
+		destroy_data_runtime(memory, &memory->working_stack[memory->working_stack_pointer]);
 	}
 }
 
-void free_memory(void) {
-	for (size_t i = 0; i < working_stack_pointer; i++) {
-		destroy_data(&working_stack[i]);
+void memory_destroy(struct memory* memory) {
+	for (size_t i = 0; i < memory->working_stack_pointer; i++) {
+		destroy_data_runtime(memory, &memory->working_stack[i]);
 	}
-	safe_free(working_stack);
-	for (size_t i = 0; i < call_stack_pointer; i++) {
+	safe_free(memory->working_stack);
+	for (size_t i = 0; i < memory->call_stack_pointer; i++) {
 		if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
-			printf("Clearing %s at %p\n", call_stack[i].id, call_stack[i].val.value.reference);
+			printf("Clearing %s at %p\n", memory->call_stack[i].id,
+				memory->call_stack[i].val.value.reference);
 		}
-		destroy_data(&call_stack[i].val);
-		safe_free(call_stack[i].id);
+		destroy_data_runtime(memory, &memory->call_stack[i].val);
+		safe_free(memory->call_stack[i].id);
 	}
-	safe_free(call_stack);
+	safe_free(memory->call_stack);
 
 	if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
 		printf("Call/working stack cleared. Now we clear cycles.\n");
 	}
 
 	// Check remaining cycled references
-	struct refcnt_container *start = all_containers_start;
+	struct refcnt_container *start = memory->all_containers_start;
 	struct refcnt_container *next;
 
 	while (start) {
@@ -231,105 +230,105 @@ void free_memory(void) {
 			if (!is_reference(ptr[i])) {
 				// If it's a reference, it will be dealt with later
 				//   or before
-				destroy_data(&ptr[i]);
+				destroy_data_runtime(memory, &ptr[i]);
 			}
 		}
 		next = start->next;
 		safe_free(start);
 		start = next;
-		if (start == all_containers_start) {
+		if (start == memory->all_containers_start) {
 			break;
 		}
 	}
 }
 
-void push_frame(char* name, address ret, int line) {
+void push_frame(struct memory * memory, char* name, address ret, int line) {
 	// Store current frame pointer
 	char* se_name = safe_concat(
 		FUNCTION_START " ",
 		name,
 		"()"
 	);
-	address old_fp = frame_pointer;
-	frame_pointer = call_stack_pointer;
+	address old_fp = memory->frame_pointer;
+	memory->frame_pointer = memory->call_stack_pointer;
 
-	struct stack_entry* se = push_stack_entry(se_name, line);
+	struct stack_entry* se = push_stack_entry(memory, se_name, line);
 	se->val = wrap_number(old_fp);
 
 	safe_free(se_name);
 
-	se = push_stack_entry(RA_START "RET", line);
+	se = push_stack_entry(memory, RA_START "RET", line);
 	se->val = wrap_number(ret);
 }
 
-void push_auto_frame(address ret, char* type, int line) {
+void push_auto_frame(struct memory * memory, address ret, char* type, int line) {
 	// store current frame pointer
 	char* se_name = safe_concat(
 		AUTOFRAME_START "autoframe:", type, ">"
 	);
-	address old_fp = frame_pointer;
-	frame_pointer = call_stack_pointer;
+	address old_fp = memory->frame_pointer;
+	memory->frame_pointer = memory->call_stack_pointer;
 
-	struct stack_entry* se = push_stack_entry(se_name, line);
+	struct stack_entry* se = push_stack_entry(memory, se_name, line);
 	se->val = wrap_number(old_fp);
 
 	safe_free(se_name);
 
-	se = push_stack_entry(RA_START "RET", line);
+	se = push_stack_entry(memory, RA_START "RET", line);
 	se->val = wrap_number(ret);
 }
 
-bool pop_frame(bool is_ret, address* ret) {
-	if (is_at_main()) return true;
-	address trace = frame_pointer;
+bool pop_frame(struct memory * memory, bool is_ret, address* ret) {
+	if (is_at_main(memory)) return true;
+	address trace = memory->frame_pointer;
 	if (is_ret) {
-		while (call_stack[trace].id[0] != CHAR(FUNCTION_START)) {
-			trace = unwrap_number(call_stack[trace].val);
+		while (memory->call_stack[trace].id[0] != CHAR(FUNCTION_START)) {
+			trace = unwrap_number(memory->call_stack[trace].val);
 		}
-		*ret = unwrap_number(call_stack[trace + 1].val);
+		*ret = unwrap_number(memory->call_stack[trace + 1].val);
 	}
-	frame_pointer = unwrap_number(call_stack[trace].val);
-	bool is_at_function = call_stack[trace].id[0] == CHAR(FUNCTION_START);
+	memory->frame_pointer = unwrap_number(memory->call_stack[trace].val);
+	bool is_at_function = memory->call_stack[trace].id[0] == CHAR(FUNCTION_START);
 
-	while (call_stack_pointer > trace) {
-		call_stack_pointer -= 1;
-		safe_free(call_stack[call_stack_pointer].id);
-		destroy_data(&call_stack[call_stack_pointer].val);
+	while (memory->call_stack_pointer > trace) {
+		memory->call_stack_pointer -= 1;
+		safe_free(memory->call_stack[memory->call_stack_pointer].id);
+		destroy_data_runtime(memory, &memory->call_stack[memory->call_stack_pointer].val);
 	}
 	return (is_ret || is_at_function);
 }
 
-void print_call_stack(FILE* file, int maxlines) {
+void print_call_stack(struct memory * memory, FILE* file, int maxlines) {
 	fprintf(file, "\n" DIVIDER "\n");
 	fprintf(file, "Dump: Stack Trace\n");
-	int start = call_stack_pointer - maxlines;
+	int start = memory->call_stack_pointer - maxlines;
 	if (start < 0 || maxlines < 0) start = 0;
-	for (size_t i = start; i < call_stack_pointer; i++) {
-		if (call_stack[i].id[0] != '$' && call_stack[i].id[0] != '~') {
-			if (frame_pointer == i) {
-				if (call_stack[i].id[0] == CHAR(FUNCTION_START)) {
+	for (size_t i = start; i < memory->call_stack_pointer; i++) {
+		if (memory->call_stack[i].id[0] != '$' && memory->call_stack[i].id[0] != '~') {
+			if (memory->frame_pointer == i) {
+				if (memory->call_stack[i].id[0] == CHAR(FUNCTION_START)) {
 					fprintf(file, "%5zd FP-> [" BLU "%s" RESET " -> ", i,
-							call_stack[i].id);
+							memory->call_stack[i].id);
 				}
 				else {
-					fprintf(file, "%5zd FP-> [%s -> ", i, call_stack[i].id);
+					fprintf(file, "%5zd FP-> [%s -> ", i, memory->call_stack[i].id);
 				}
 				fprintf(file, "]\n");
 			}
 			else {
-				if (call_stack[i].id[0] == CHAR(FUNCTION_START)) {
+				if (memory->call_stack[i].id[0] == CHAR(FUNCTION_START)) {
 					fprintf(file, "%5zd      [" BLU "%s" RESET " -> ", i,
-							call_stack[i].id);
+							memory->call_stack[i].id);
 				}
-				else if (call_stack[i].is_closure) {
+				else if (memory->call_stack[i].is_closure) {
 					fprintf(file, "%5zd  C-> [%s -> ",i,
-							call_stack[i].id);
+							memory->call_stack[i].id);
 				}
 				else {
 					fprintf(file, "%5zd      [%s -> ",i,
-							call_stack[i].id);
+							memory->call_stack[i].id);
 				}
-				print_data_inline(&call_stack[i].val, stdout);
+				print_data_inline(&memory->call_stack[i].val, stdout);
 				fprintf(file, "]\n");
 			}
 		}
@@ -337,30 +336,30 @@ void print_call_stack(FILE* file, int maxlines) {
 	fprintf(file, DIVIDER "\n");
 }
 
-void push_arg(struct data t) {
-	working_stack[working_stack_pointer++] = t;
-	check_memory();
+void push_arg(struct memory * memory, struct data t) {
+	memory->working_stack[memory->working_stack_pointer++] = t;
+	check_memory(memory);
 }
 
-struct data* top_arg(int line) {
-	if (working_stack_pointer != 0) {
-		return &working_stack[working_stack_pointer - 1];
+struct data* top_arg(struct memory * memory, int line) {
+	if (memory->working_stack_pointer != 0) {
+		return &memory->working_stack[memory->working_stack_pointer - 1];
 	}
-	error_runtime(line, MEMORY_STACK_UNDERFLOW);
+	error_runtime(memory, line, MEMORY_STACK_UNDERFLOW);
 	return 0;
 }
 
-struct data pop_arg(int line) {
-	if (working_stack_pointer != 0) {
-		struct data ret = working_stack[--working_stack_pointer];
-		working_stack[working_stack_pointer] = make_data(D_EMPTY, data_value_num(0));
+struct data pop_arg(struct memory * memory, int line) {
+	if (memory->working_stack_pointer != 0) {
+		struct data ret = memory->working_stack[--(memory->working_stack_pointer)];
+		memory->working_stack[memory->working_stack_pointer] = make_data(D_EMPTY, data_value_num(0));
 		return ret;
 	}
-	error_runtime(line, MEMORY_STACK_UNDERFLOW);
+	error_runtime(memory, line, MEMORY_STACK_UNDERFLOW);
 	return none_data();
 }
 
-struct stack_entry* push_stack_entry(char* id, int line) {
+struct stack_entry* push_stack_entry(struct memory * memory, char* id, int line) {
 	// TODO(felixguo): can probably remove line
 	UNUSED(line);
 	struct stack_entry new_entry;
@@ -370,36 +369,36 @@ struct stack_entry* push_stack_entry(char* id, int line) {
 	// We cannot be sure that .val will be written to, so we cannot
 	//   leave it uninitialized.
 	new_entry.val = make_data(D_EMPTY, data_value_num(0));
-	call_stack[call_stack_pointer++] = new_entry;
-	if (is_at_main()) {
+	memory->call_stack[memory->call_stack_pointer++] = new_entry;
+	if (is_at_main(memory)) {
 		// currently in main function
-		main_end_pointer = call_stack_pointer;
+		memory->main_end_pointer = memory->call_stack_pointer;
 	}
-	check_memory();
-	return &call_stack[call_stack_pointer - 1];
+	check_memory(memory);
+	return &memory->call_stack[memory->call_stack_pointer - 1];
 }
 
-address get_fn_frame_ptr(void) {
-	address trace = frame_pointer;
-	while (call_stack[trace].id[0] != CHAR(FUNCTION_START)) {
-		trace = unwrap_number(call_stack[trace].val);
+address get_fn_frame_ptr(struct memory * memory) {
+	address trace = memory->frame_pointer;
+	while (memory->call_stack[trace].id[0] != CHAR(FUNCTION_START)) {
+		trace = unwrap_number(memory->call_stack[trace].val);
 	}
 	return trace;
 }
 
-bool id_exist(char* id, bool search_main) {
-	size_t start = frame_pointer;
+bool id_exist(struct memory * memory, char* id, bool search_main) {
+	size_t start = memory->frame_pointer;
 	if (search_main) {
-		start = get_fn_frame_ptr();
+		start = get_fn_frame_ptr(memory);
 	}
-	for (size_t i = start + 1; i < call_stack_pointer; i++) {
-		if (streq(id, call_stack[i].id)) {
+	for (size_t i = start + 1; i < memory->call_stack_pointer; i++) {
+		if (streq(id, memory->call_stack[i].id)) {
 			return true;
 		}
 	}
 	if (search_main) {
-		for (size_t i = 0; i < main_end_pointer; i++) {
-			if (streq(id, call_stack[i].id)) {
+		for (size_t i = 0; i < memory->main_end_pointer; i++) {
+			if (streq(id, memory->call_stack[i].id)) {
 				return true;
 			}
 		}
@@ -407,49 +406,42 @@ bool id_exist(char* id, bool search_main) {
 	return false;
 }
 
-struct data* get_address_of_id(char* id, int line) {
-	address stack_entry = get_stack_pos_of_id(id, line);
+struct data* get_address_of_id(struct memory * memory, char* id, int line) {
+	address stack_entry = get_stack_pos_of_id(memory, id, line);
 	if (!stack_entry) {
 		/* Some error occured, nothing lies at 0 */
 		return 0;
 	}
-	return &call_stack[stack_entry].val;
+	return &memory->call_stack[stack_entry].val;
 }
 
-address get_stack_pos_of_id(char* id, int line) {
-	if (!id_exist(id, true)) {
-		error_runtime(line, MEMORY_ID_NOT_FOUND, id);
+address get_stack_pos_of_id(struct memory * memory, char* id, int line) {
+	if (!id_exist(memory, id, true)) {
+		error_runtime(memory, line, MEMORY_ID_NOT_FOUND, id);
 		return 0;
 	}
-	address frame_ptr = get_fn_frame_ptr();
-	for (size_t i = call_stack_pointer - 1; i > frame_ptr; i--) {
-		if (streq(id, call_stack[i].id)) {
+	address frame_ptr = get_fn_frame_ptr(memory);
+	for (size_t i = memory->call_stack_pointer - 1; i > frame_ptr; i--) {
+		if (streq(id, memory->call_stack[i].id)) {
 			return i;
 		}
 	}
-	for (size_t i = 0; i < main_end_pointer; i++) {
-		if (streq(id, call_stack[i].id)) {
+	for (size_t i = 0; i < memory->main_end_pointer; i++) {
+		if (streq(id, memory->call_stack[i].id)) {
 			return i;
 		}
 	}
 	return 0;
 }
 
-struct data* get_value_of_id(char* id, int line) {
+struct data* get_value_of_id(struct memory * memory, char* id, int line) {
 	// return get_value_of_address(get_address_of_id(id, line), line);
-	return get_address_of_id(id, line);
+	return get_address_of_id(memory, id, line);
 }
 
-struct data* get_value_of_address(struct data* a, int line) {
-	// TODO(felixguo): This is wrong
-	UNUSED(a);
-	UNUSED(line);
-	return NULL;
-}
-
-void unwind_stack(void) {
+void unwind_stack(struct memory * memory) {
 	address pointer;
-	while (!is_at_main()) {
-		pop_frame(true, &pointer);
+	while (!is_at_main(memory)) {
+		pop_frame(memory, true, &pointer);
 	}
 }

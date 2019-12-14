@@ -11,6 +11,10 @@
 #include <math.h>
 #include <errno.h>
 
+#ifdef __linux__
+#include <pthread.h>
+#endif
+
 char** program_arguments = 0;
 int program_arguments_count = 0;
 struct native_function {
@@ -38,6 +42,9 @@ static struct data native_pow(struct vm* vm, struct data* args);
 static struct data native_ln(struct vm* vm, struct data* args);
 static struct data native_log(struct vm* vm, struct data* args);
 
+static struct data native_dispatch(struct vm* vm, struct data* args);
+
+
 static struct native_function native_functions[] = {
 	{ "printCallStack", 1, native_printCallStack },
 	{ "reverseString", 1, native_reverseString },
@@ -56,12 +63,13 @@ static struct native_function native_functions[] = {
 	{ "io_writeFile", 2, native_writeFile },
 	{ "vm_getRefs", 1, native_vm_getRefs },
 	{ "vm_getAt", 2, native_vm_getAt },
-	{ "process_execute", 1, native_process_execute }
+	{ "process_execute", 1, native_process_execute },
+	{ "dispatch", 1, native_dispatch }
 };
 
 static double native_to_numeric(struct vm* vm, struct data* t) {
 	if (t->type != D_NUMBER) {
-		error_runtime(vm->line, VM_INVALID_NATIVE_NUMERICAL_TYPE_ERROR);
+		error_runtime(vm->memory, vm->line, VM_INVALID_NATIVE_NUMERICAL_TYPE_ERROR);
 		return 0;
 	}
 	return t->value.number;
@@ -69,16 +77,24 @@ static double native_to_numeric(struct vm* vm, struct data* t) {
 
 static char* native_to_string(struct vm* vm, struct data* t) {
 	if (t->type != D_STRING) {
-		error_runtime(vm->line, VM_INVALID_NATIVE_STRING_TYPE_ERROR);
+		error_runtime(vm->memory, vm->line, VM_INVALID_NATIVE_STRING_TYPE_ERROR);
 		return "";
 	}
 	return t->value.string;
 }
 
+static struct data native_dispatch(struct vm* vm, struct data* args) {
+	struct data *fn = &args[0];
+	if (fn->type != D_FUNCTION) {
+		error_runtime(vm->memory, vm->line, "Expected function to dispatch!");
+	}
+	return none_data();
+}
+
 static struct data native_getProgramArgs(struct vm* vm, struct data* args) {
 	UNUSED(args);
 	UNUSED(vm);
-	struct data* array = wendy_list_malloc(program_arguments_count);
+	struct data* array = wendy_list_malloc(vm->memory, program_arguments_count);
 	int size = 1; // 1st is the header
 	for (int i = 0; i < program_arguments_count; i++) {
 		array[size++] = make_data(D_STRING,
@@ -97,7 +113,7 @@ static struct data native_getImportedLibraries(struct vm* vm, struct data* args)
 		length++;
 		node = node->next;
 	}
-	struct data* library_list = wendy_list_malloc(length);
+	struct data* library_list = wendy_list_malloc(vm->memory, length);
 	node = imported_libraries;
 	length = 1;
 	while (node) {
@@ -142,9 +158,9 @@ static struct data native_exec(struct vm* vm, struct data* args) {
 static struct data native_process_execute(struct vm* vm, struct data* args) {
 	// args[0] should be a command, args[1] should be list!
 	if (get_settings_flag(SETTINGS_SANDBOXED)) {
-		struct data * result_list = wendy_list_malloc(2);
+		struct data * result_list = wendy_list_malloc(vm->memory, 2);
 		result_list[1] = make_data(D_NUMBER, data_value_num(0));
-		struct data * output_list = wendy_list_malloc(0);
+		struct data * output_list = wendy_list_malloc(vm->memory, 0);
 		result_list[2] = make_data(D_LIST, data_value_ptr(output_list));
 		return make_data(D_LIST, data_value_ptr(result_list));
 	}
@@ -152,7 +168,7 @@ static struct data native_process_execute(struct vm* vm, struct data* args) {
 
 	FILE* fd = safe_popen(command, "r");
 	if (!fd) {
-		error_runtime(vm->line, "Internal error opening file descriptor with popen!");
+		error_runtime(vm->memory, vm->line, "Internal error opening file descriptor with popen!");
 		return none_data();
 	}
 
@@ -191,7 +207,7 @@ static struct data native_process_execute(struct vm* vm, struct data* args) {
 
 	// This is a refcnted list, we allocate here once we know the size;
 	//   we also steal the data over from the answer_buffer;
-	struct data * wendy_list = wendy_list_malloc(size);
+	struct data * wendy_list = wendy_list_malloc(vm->memory, size);
 	for (size_t i = 0; i < size; i++) {
 		wendy_list[i + 1] = answer_buffer[i];
 	}
@@ -201,14 +217,14 @@ static struct data native_process_execute(struct vm* vm, struct data* args) {
 
 	int status = safe_pclose(fd);
 
-	struct data * result_list = wendy_list_malloc(2);
+	struct data * result_list = wendy_list_malloc(vm->memory, 2);
 	result_list[1] = make_data(D_NUMBER, data_value_num(status));
 	result_list[2] = make_data(D_LIST, data_value_ptr(wendy_list));
 	return make_data(D_LIST, data_value_ptr(result_list));
 }
 
 static struct data native_printCallStack(struct vm* vm, struct data* args) {
-	print_call_stack(stdout, (int)native_to_numeric(vm, args));
+	print_call_stack(vm->memory, stdout, (int)native_to_numeric(vm, args));
 	return noneret_data();
 }
 
@@ -314,7 +330,7 @@ static struct data native_writeFile(struct vm* vm, struct data* args) {
 			}
 		}
 		else {
-			error_runtime(vm->line, "Expected string or list to write to file.");
+			error_runtime(vm->memory, vm->line, "Expected string or list to write to file.");
 		}
 		fclose(f);
 	}
@@ -324,7 +340,7 @@ static struct data native_writeFile(struct vm* vm, struct data* args) {
 static struct data native_vm_getRefs(struct vm* vm, struct data* args) {
 	struct data arg = args[0];
 	if (!is_reference(arg)) {
-		error_runtime(vm->line, "Passed argument is not a reference type!");
+		error_runtime(vm->memory, vm->line, "Passed argument is not a reference type!");
 		return none_data();
 	}
 	struct refcnt_container* container_info =
@@ -337,12 +353,12 @@ static struct data native_vm_getAt(struct vm* vm, struct data* args) {
 	struct data ref = args[0];
 	double index = native_to_numeric(vm, &args[1]);
 	if (!is_reference(ref)) {
-		error_runtime(vm->line, "Passed argument is not a reference type!");
+		error_runtime(vm->memory, vm->line, "Passed argument is not a reference type!");
 		return none_data();
 	}
 	size_t max = ref.value.reference[0].value.number;
 	if (index > max) {
-		error_runtime(vm->line, "Index is out of bounds!");
+		error_runtime(vm->memory, vm->line, "Index is out of bounds!");
 		return none_data();
 	}
 
@@ -365,19 +381,19 @@ void native_call(struct vm* vm, char* function_name, int expected_args) {
 		if(streq(native_functions[i].name, function_name)) {
 			int argc = native_functions[i].argc;
 			if (expected_args != argc) {
-				error_runtime(vm->line, VM_INVALID_NATIVE_NUMBER_OF_ARGS, function_name);
+				error_runtime(vm->memory, vm->line, VM_INVALID_NATIVE_NUMBER_OF_ARGS, function_name);
 			}
 			struct data* arg_list = safe_malloc(sizeof(struct data) * argc);
 			for (int j = 0; j < argc; j++) {
-				arg_list[j] = pop_arg(vm->line);
+				arg_list[j] = pop_arg(vm->memory, vm->line);
 			}
-			struct data end_marker = pop_arg(vm->line);
+			struct data end_marker = pop_arg(vm->memory, vm->line);
 			if (end_marker.type != D_END_OF_ARGUMENTS) {
-				error_runtime(vm->line, VM_INVALID_NATIVE_NUMBER_OF_ARGS, function_name);
+				error_runtime(vm->memory, vm->line, VM_INVALID_NATIVE_NUMBER_OF_ARGS, function_name);
 			}
-			push_arg(native_functions[i].function(vm, arg_list));
+			push_arg(vm->memory, native_functions[i].function(vm, arg_list));
 			for (int i = 0; i < argc; i++) {
-				destroy_data(&arg_list[i]);
+				destroy_data_runtime(vm->memory, &arg_list[i]);
 			}
 			safe_free(arg_list);
 			found = true;
@@ -385,6 +401,6 @@ void native_call(struct vm* vm, char* function_name, int expected_args) {
 		}
 	}
 	if (!found) {
-		error_runtime(vm->line, VM_INVALID_NATIVE_CALL, function_name);
+		error_runtime(vm->memory, vm->line, VM_INVALID_NATIVE_CALL, function_name);
 	}
 }

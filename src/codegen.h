@@ -21,33 +21,36 @@
 // https://docs.felixguo.me/architecture/wendy/slim-vm.md
 // https://docs.felixguo.me/architecture/wendy/inline-bytecode.md
 
+#define FOREACH_OPCODE(OP) \
+	OP(OP_PUSH) \
+	OP(OP_BIN) \
+	OP(OP_UNA) \
+	OP(OP_CALL) \
+	OP(OP_RET) \
+	OP(OP_DECL) \
+	OP(OP_WRITE) \
+	OP(OP_IN) \
+	OP(OP_OUT) \
+	OP(OP_OUTL) \
+	OP(OP_JMP) \
+	OP(OP_JIF) \
+	OP(OP_FRM) \
+	OP(OP_END) \
+	OP(OP_SRC) \
+	OP(OP_HALT) \
+	OP(OP_NATIVE) \
+	OP(OP_IMPORT) \
+	OP(OP_ARGCLN) \
+	OP(OP_CLOSURE) \
+	OP(OP_MKREF) \
+	OP(OP_WHERE) \
+	OP(OP_NTHPTR) \
+	OP(OP_MEMPTR) \
+	OP(OP_INC) \
+	OP(OP_DEC)
+
 enum opcode {
-	OP_PUSH,
-	OP_BIN,
-	OP_UNA,
-	OP_CALL,
-	OP_RET,
-	OP_DECL,
-	OP_WRITE,
-	OP_IN,
-	OP_OUT,
-	OP_OUTL,
-	OP_JMP,
-	OP_JIF,
-	OP_FRM,
-	OP_END,
-	OP_SRC,
-	OP_HALT,
-	OP_NATIVE,
-	OP_IMPORT,
-	OP_ARGCLN,
-	OP_CLOSURE,
-	OP_MKREF,
-	OP_WHERE,
-	OP_NTHPTR,
-	OP_MEMPTR,
-	OP_INC,
-	OP_DEC
+	FOREACH_OPCODE(ENUM)
 };
 
 #define OPCODE_STRING \

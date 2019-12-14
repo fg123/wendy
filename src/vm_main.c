@@ -69,7 +69,6 @@ bool process_options(char** options, int len, char** source) {
 }
 
 int main(int argc, char** argv) {
-	init_memory();
 	determine_endianness();
 	char *option_result;
 	if (process_options(&argv[1], argc - 1, &option_result)) {
@@ -109,8 +108,8 @@ int main(int argc, char** argv) {
 	fread(bytecode_stream, sizeof(uint8_t), length, file);
 	fclose(file);
 
-	push_frame("main", 0, 0);
 	struct vm* vm = vm_init();
+	push_frame(vm->memory, "main", 0, 0);
 	vm_run(vm, bytecode_stream, size);
 	vm_destroy(vm);
 	if (!last_printed_newline) {
@@ -119,7 +118,6 @@ int main(int argc, char** argv) {
 
 	safe_free(bytecode_stream);
 	free_imported_libraries_ll();
-	free_memory();
 	check_leak();
 	return 0;
 }

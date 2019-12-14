@@ -16,6 +16,8 @@ struct vm {
     uint8_t* bytecode;
     size_t bytecode_size;
     char* last_pushed_identifier;
+
+    struct memory* memory;
 };
 
 struct vm *vm_init(void);

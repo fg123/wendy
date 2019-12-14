@@ -19,20 +19,6 @@ bool get_error_flag() {
 	return error_flag;
 }
 
-// Error Functions:
-void print_verbose_info(void) {
-	if (get_settings_flag(SETTINGS_VERBOSE)) {
-		fprintf(stderr, RED "VERBOSE ERROR DUMP\n" RESET);
-		fprintf(stderr, GRN "Limits\n" RESET);
-		fprintf(stderr, "Call Stack Size %zu\n", call_stack_size);
-		fprintf(stderr, "Working Stack Size %zu\n", working_stack_size);
-		fprintf(stderr, GRN "Memory\n" RESET);
-		fprintf(stderr, "FP: %d 0x%X\n", frame_pointer, frame_pointer);
-		fprintf(stderr, "SP: %d 0x%X\n", call_stack_pointer, call_stack_pointer);
-		fprintf(stderr, "AP: %d 0x%X\n", working_stack_pointer, working_stack_pointer);
-	}
-}
-
 char* error_message(char* message, va_list args) {
 	char* result;
 	vasprintf(&result, message, args);
@@ -46,7 +32,6 @@ void error_general(char* message, ...) {
 
 	char* msg = error_message(message, args);
 	fprintf(stderr, RED "Fatal Error: " RESET "%s\n", msg);
-	print_verbose_info();
 
 	// Cannot be safe, because vasprintf uses malloc!
 	free(msg);
@@ -70,7 +55,6 @@ void error_lexer(int line, int col, char* message, ...) {
 		fprintf(stderr, "%5d " RED "%s\n" RESET, line, get_source_line(line));
 		fprintf(stderr, "      %*c^\n", col, ' ');
 	}
-	print_verbose_info();
 	free(msg);
 	if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
 		safe_exit(1);
@@ -92,14 +76,13 @@ void error_compile(int line, int col, char* message, ...) {
 		fprintf(stderr, "%5d " RED "%s\n" RESET, line, get_source_line(line));
 		fprintf(stderr, "      %*c^\n", col, ' ');
 	}
-	print_verbose_info();
 	free(msg);
 	if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
 		safe_exit(1);
 	}
 }
 
-void error_runtime(int line, char* message, ...) {
+void error_runtime(struct memory* memory, int line, char* message, ...) {
 	error_flag = true;
 	va_list args;
 	va_start(args, message);
@@ -131,8 +114,15 @@ void error_runtime(int line, char* message, ...) {
 	free(msg);
 	// REPL Don't print call stack unless verbose is on!
 	if (!get_settings_flag(SETTINGS_REPL) || get_settings_flag(SETTINGS_VERBOSE)) {
-		print_call_stack(stderr, -1);
-		print_verbose_info();
+		print_call_stack(memory, stderr, -1);
+		fprintf(stderr, RED "VERBOSE ERROR DUMP\n" RESET);
+		fprintf(stderr, GRN "Limits\n" RESET);
+		fprintf(stderr, "Call Stack Size %zu\n", memory->call_stack_size);
+		fprintf(stderr, "Working Stack Size %zu\n", memory->working_stack_size);
+		fprintf(stderr, GRN "Memory\n" RESET);
+		fprintf(stderr, "FP: %d 0x%X\n", memory->frame_pointer, memory->frame_pointer);
+		fprintf(stderr, "SP: %d 0x%X\n", memory->call_stack_pointer, memory->call_stack_pointer);
+		fprintf(stderr, "AP: %d 0x%X\n", memory->working_stack_pointer, memory->working_stack_pointer);
 	}
 	fflush(stdout);
 	if (get_settings_flag(SETTINGS_STRICT_ERROR)) {

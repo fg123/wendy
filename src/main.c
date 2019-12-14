@@ -209,7 +209,7 @@ int repl(struct vm* vm) {
 	char* source_to_run = safe_malloc(1 * sizeof(char));
 	// ENTER REPL MODE
 	set_settings_flag(SETTINGS_REPL);
-	push_frame("main", 0, 0);
+	push_frame(vm->memory, "main", 0, 0);
 	bool has_run = false;
 	forever {
 		size_t source_size = 1;
@@ -237,22 +237,20 @@ int repl(struct vm* vm) {
 		add_history(source_to_run);
 		run(source_to_run, vm);
 		has_run = true;
-		unwind_stack();
+		unwind_stack(vm->memory);
 	}
 
 cleanup:
 	free_imported_libraries_ll();
 	safe_free(source_to_run);
-	free_memory();
 	if (has_run) {
 		vm_cleanup_if_repl(vm);
 	}
-	check_leak();
+	vm_destroy(vm);
 	return 0;
 }
 
 int main(int argc, char** argv) {
-	init_memory();
 	determine_endianness();
 	struct vm* vm = vm_init();
 	char *option_result;
@@ -270,7 +268,7 @@ int main(int argc, char** argv) {
 	FILE* file = fopen(option_result, "r");
 	if (!file) {
 		// Attempt to run as source string
-		push_frame("main", 0, 0);
+		push_frame(vm->memory, "main", 0, 0);
 		run(option_result, vm);
 		goto wendy_exit;
 	}
@@ -381,7 +379,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	else {
-		push_frame("main", 0, 0);
+		push_frame(vm->memory, "main", 0, 0);
 		vm_run(vm, bytecode_stream, size);
 		if (!last_printed_newline) {
 			printf("\n");
@@ -392,7 +390,6 @@ int main(int argc, char** argv) {
 wendy_exit:
 	free_imported_libraries_ll();
 	free_source();
-	free_memory();
 	vm_destroy(vm);
 	check_leak();
 	return 0;

@@ -3,6 +3,7 @@
 
 #include "global.h"
 #include "token.h"
+
 #include <stdio.h>
 #include <time.h>
 
@@ -49,6 +50,7 @@ enum data_type {
 extern const char* data_string[];
 
 struct data;
+struct memory;
 
 union data_value {
 	double number;
@@ -64,6 +66,7 @@ struct data {
 struct data make_data(enum data_type type, union data_value value);
 struct data copy_data(struct data d);
 void destroy_data(struct data* d);
+void destroy_data_runtime(struct memory* memory, struct data* d);
 
 // This allows us to trace memory leaks to where it's actually allocated
 #define data_value_str(str) data_value_str_impl(safe_strdup(str))

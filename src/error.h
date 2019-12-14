@@ -2,6 +2,8 @@
 #define ERROR_H
 
 #include "token.h"
+#include "memory.h"
+
 #include <stdbool.h>
 
 // errors.h - Felix Guo
@@ -22,7 +24,9 @@ void error_general(char* message, ...);
 
 void error_lexer(int line, int col, char* message, ...);
 
-void error_runtime(int line, char* message, ...);
+// TODO: this probably needs to be synchronised, otherwise printing stuff
+//   will not print properly
+void error_runtime(struct memory* memory, int line, char* message, ...);
 
 void error_compile(int line, int col, char* message, ...);
 

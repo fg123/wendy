@@ -1,6 +1,8 @@
 #include "data.h"
 #include "global.h"
 #include "memory.h"
+#include "error.h"
+
 #include <string.h>
 #include <stdbool.h>
 
@@ -43,9 +45,20 @@ bool data_equal(struct data* a, struct data* b) {
 	}
 }
 
+// This is for RUNTIME DATA DESTRUCTION
+void destroy_data_runtime(struct memory* memory, struct data* d) {
+	if (is_reference(*d)) {
+		refcnt_free(memory, d->value.reference);
+	}
+	else if (!is_numeric(*d)) {
+		safe_free(d->value.string);
+	}
+	d->type = D_EMPTY;
+}
+
 void destroy_data(struct data* d) {
 	if (is_reference(*d)) {
-		refcnt_free(d->value.reference);
+		error_general("Tried to destroy a reference data type without a memory instance!");
 	}
 	else if (!is_numeric(*d)) {
 		safe_free(d->value.string);
@@ -233,6 +246,9 @@ unsigned int print_data_inline(const struct data* t, FILE* buf) {
 
 		p += fprintf(buf, "%s", buffer);
 		safe_free(buffer);
+	}
+	else if (t->type == D_INSTRUCTION_ADDRESS) {
+		p += fprintf(buf, "@0x%X", (int) t->value.number);
 	}
 	else if (is_numeric(*t)) {
 		p += fprintf(buf, "[%s] 0x%X", data_string[t->type],
