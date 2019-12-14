@@ -344,7 +344,9 @@ static struct data native_vm_getRefs(struct vm* vm, struct data* args) {
 		return none_data();
 	}
 	struct refcnt_container* container_info =
-		(void*) arg.value.reference - sizeof(struct refcnt_container);
+		(struct refcnt_container*)(
+			(unsigned char*) arg.value.reference - sizeof(struct refcnt_container)
+		);
 
 	return make_data(D_NUMBER, data_value_num(container_info->refs));
 }

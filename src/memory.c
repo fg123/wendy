@@ -79,12 +79,12 @@ struct data *refcnt_malloc_impl(struct memory * memory, struct data* allocated, 
 		printf("refcnt malloc %p\n", allocated);
 	}
 	// This forces no pointer arithmetic
-	return (void*)allocated + sizeof(struct refcnt_container);
+	return (struct data*)((unsigned char*)allocated + sizeof(struct refcnt_container));
 }
 
 void refcnt_free(struct memory * memory, struct data *ptr) {
 	struct refcnt_container* container_info =
-		(void*)ptr - sizeof(struct refcnt_container);
+		(struct refcnt_container*)((unsigned char*)ptr - sizeof(struct refcnt_container));
 
 	if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
 		printf("refcnt free %p, container %p, count %zd before decrement",
@@ -134,7 +134,7 @@ void refcnt_free(struct memory * memory, struct data *ptr) {
 
 struct data *refcnt_copy(struct data *ptr) {
 	struct refcnt_container* container_info =
-		(void*)ptr - sizeof(struct refcnt_container);
+		(struct refcnt_container*)((unsigned char*)ptr - sizeof(struct refcnt_container));
 	container_info->refs += 1;
 	if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
 		printf("refcnt copy %p, count %zd\n",

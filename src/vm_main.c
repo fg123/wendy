@@ -110,6 +110,7 @@ int main(int argc, char** argv) {
 
 	struct vm* vm = vm_init();
 	push_frame(vm->memory, "main", 0, 0);
+
 	vm_run(vm, bytecode_stream, size);
 	vm_destroy(vm);
 	if (!last_printed_newline) {
