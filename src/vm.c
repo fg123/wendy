@@ -88,7 +88,6 @@ static char* get_print_overload_name(struct vm* vm, struct data a) {
 	return fn_name;
 }
 
-
 void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 	if (get_settings_flag(SETTINGS_DRY_RUN)) {
 		return;
