@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
 	fread(bytecode_stream, sizeof(uint8_t), length, file);
 	fclose(file);
 
-	struct vm* vm = vm_init();
+	struct vm* vm = vm_init("main");
 	push_frame(vm->memory, "main", 0, 0);
 
 	vm_run(vm, bytecode_stream, size);

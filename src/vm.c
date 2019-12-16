@@ -21,7 +21,7 @@ static struct data size_of(struct data a);
 static struct data value_of(struct data a);
 static struct data char_of(struct data a);
 
-struct vm *vm_init() {
+struct vm *vm_init(const char* name) {
 	struct vm* vm = safe_malloc(sizeof(*vm));
 	vm->bytecode = 0;
 	vm->instruction_ptr = 0;
@@ -29,11 +29,14 @@ struct vm *vm_init() {
 	vm->last_pushed_identifier = 0;
 	vm->line = 0;
 	vm->memory = memory_init();
+	vm->memory->vm = vm;
+	vm->name = safe_strdup(name);
 	return vm;
 }
 
 void vm_destroy(struct vm * vm) {
 	memory_destroy(vm->memory);
+	safe_free(vm->name);
 	safe_free(vm);
 }
 
@@ -122,12 +125,17 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 			vm->bytecode[start_at + i] = new_bytecode[i];
 		}
 	}
+	vm->instruction_ptr = start_at;
+	vm_do_run(vm, false);
+}
+
+void vm_do_run(struct vm * vm, bool dispatched) {
 	#define VM_LABEL(x) &&VM_##x,
 	static void* dispatch_table[] = {
 		FOREACH_OPCODE(VM_LABEL)
 	};
 	#define DISPATCH() goto *dispatch_table[vm->bytecode[(vm->instruction_ptr)++]];
-	for (vm->instruction_ptr = start_at;;) {
+	for (;;) {
 		reset_error_flag();
 		enum opcode op = vm->bytecode[vm->instruction_ptr];
 		if (get_settings_flag(SETTINGS_TRACE_VM)) {
@@ -305,8 +313,14 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
             VM_OP_RET: {
 				if (vm->memory->frame_pointer == 0) {
 					// We tried to return from the main function!
-					error_runtime(vm->memory, vm->line, VM_RET_FROM_MAIN);
-					continue;
+					if (!dispatched) {
+						error_runtime(vm->memory, vm->line, VM_RET_FROM_MAIN);
+						continue;
+					}
+					else {
+						// End the VM run
+						return;
+					}
 				}
 				pop_frame(vm->memory, true, &vm->instruction_ptr);
 				DISPATCH();

@@ -30,6 +30,7 @@ struct refcnt_container {
 	struct refcnt_container* next;
 };
 
+struct vm;
 struct memory {
 	struct stack_entry* call_stack;
 	struct data* working_stack;
@@ -46,6 +47,8 @@ struct memory {
 
 	// Pointer to the end of the main() stack frame
 	address main_end_pointer;
+
+	struct vm * vm;
 };
 
 struct memory * memory_init(void);

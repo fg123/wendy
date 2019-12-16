@@ -1,6 +1,7 @@
 #include "memory.h"
 #include "error.h"
 #include "global.h"
+#include "vm.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -300,7 +301,7 @@ bool pop_frame(struct memory * memory, bool is_ret, address* ret) {
 
 void print_call_stack(struct memory * memory, FILE* file, int maxlines) {
 	fprintf(file, "\n" DIVIDER "\n");
-	fprintf(file, "Dump: Stack Trace\n");
+	fprintf(file, "Dump: Stack Trace (%s)\n", memory->vm->name);
 	int start = memory->call_stack_pointer - maxlines;
 	if (start < 0 || maxlines < 0) start = 0;
 	for (size_t i = start; i < memory->call_stack_pointer; i++) {

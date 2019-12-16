@@ -41,9 +41,10 @@ static struct data native_process_execute(struct vm* vm, struct data* args);
 static struct data native_pow(struct vm* vm, struct data* args);
 static struct data native_ln(struct vm* vm, struct data* args);
 static struct data native_log(struct vm* vm, struct data* args);
+static struct data native_bus_register(struct vm* vm, struct data* args);
+static struct data native_bus_post(struct vm* vm, struct data* args);
 
 static struct data native_dispatch(struct vm* vm, struct data* args);
-
 
 static struct native_function native_functions[] = {
 	{ "printCallStack", 1, native_printCallStack },
@@ -64,7 +65,9 @@ static struct native_function native_functions[] = {
 	{ "vm_getRefs", 1, native_vm_getRefs },
 	{ "vm_getAt", 2, native_vm_getAt },
 	{ "process_execute", 1, native_process_execute },
-	{ "dispatch", 1, native_dispatch }
+	{ "dispatch", 1, native_dispatch },
+	{ "bus_register", 1, native_bus_register },
+	{ "bus_post", 1, native_bus_post }
 };
 
 static double native_to_numeric(struct vm* vm, struct data* t) {
@@ -83,12 +86,39 @@ static char* native_to_string(struct vm* vm, struct data* t) {
 	return t->value.string;
 }
 
+static void * dispatch_run_vm(void* _arg) {
+	struct vm *new_vm = vm_init("dispatched");
+	push_frame(new_vm->memory, "main", 0, 0);
+	// Size doesn't actually matter when not using REPL
+	new_vm->bytecode = _arg;
+	new_vm->instruction_ptr = 0;
+
+	// We are expecting to enter a function call, need end marker
+	push_arg(new_vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+	vm_do_run(new_vm, true);
+	vm_destroy(new_vm);
+	return NULL;
+}
+
 static struct data native_dispatch(struct vm* vm, struct data* args) {
 	struct data *fn = &args[0];
 	if (fn->type != D_FUNCTION) {
 		error_runtime(vm->memory, vm->line, "Expected function to dispatch!");
 	}
-	return none_data();
+
+	if (get_settings_flag(SETTINGS_REPL)) {
+		error_runtime(vm->memory, vm->line, "Cannot dispatch function in REPL mode!");
+	}
+
+	// Make a new instance of the VM
+	pthread_t thread;
+
+	if (pthread_create(&thread, NULL, dispatch_run_vm,
+		&vm->bytecode[(address)fn->value.reference[0].value.number])) {
+		error_runtime(vm->memory, vm->line, "Could not create pthread!");
+	}
+	pthread_join(thread, NULL);
+	return noneret_data();
 }
 
 static struct data native_getProgramArgs(struct vm* vm, struct data* args) {

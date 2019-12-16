@@ -5,7 +5,7 @@ WARNING_FLAGS = -Wall -Wextra -Werror -Wstrict-prototypes
 OPT_FLAGS = -fdata-sections -ffunction-sections -Wl,--gc-sections
 GIT_COMMIT = $(shell git rev-parse --short HEAD)
 CFLAGS = -g -std=gnu99 $(WARNING_FLAGS) $(release) $(FLAGS) $(OPT_FLAGS) -DGIT_COMMIT=\"$(GIT_COMMIT)\"
-EXTERNAL_LIBRARIES = -lreadline -lm
+EXTERNAL_LIBRARIES = -lreadline -lm -lpthread
 
 _DEPS = *.h
 DEPS = $(patsubst %,$(SRCDIR)/%,$(_DEPS))

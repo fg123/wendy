@@ -252,7 +252,7 @@ cleanup:
 
 int main(int argc, char** argv) {
 	determine_endianness();
-	struct vm* vm = vm_init();
+	struct vm* vm = vm_init("main");
 	char *option_result;
 	if (process_options(&argv[1], argc - 1, &option_result)) {
 		// User asked for -h / --help
