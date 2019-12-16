@@ -66,8 +66,8 @@ static struct native_function native_functions[] = {
 	{ "vm_getAt", 2, native_vm_getAt },
 	{ "process_execute", 1, native_process_execute },
 	{ "dispatch", 1, native_dispatch },
-	{ "bus_register", 1, native_bus_register },
-	{ "bus_post", 1, native_bus_post }
+	{ "bus_register", 3, native_bus_register },
+	{ "bus_post", 2, native_bus_post }
 };
 
 static double native_to_numeric(struct vm* vm, struct data* t) {

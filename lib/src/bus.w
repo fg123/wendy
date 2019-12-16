@@ -10,9 +10,9 @@
 
 struct Bus => (name) [register, post];
 
-Bus.register => (fn) {
+Bus.register => (fn /* accepting types */) {
     let register => () native bus_register;
-    ret register(this.name, fn);
+    ret register(this.name, fn, arguments);
 };
 
 Bus.post => (msg) {
