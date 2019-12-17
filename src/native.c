@@ -92,6 +92,24 @@ void * dispatch_run_vm(void* _arg) {
 
 	struct vm *new_vm = vm_init("dispatched");
 	push_frame(new_vm->memory, "main", 0, 0);
+	copy_globals(new_vm->memory, arg->parent_vm->memory);
+
+	struct data *list_data = arg->closure.value.reference;
+	size_t size = list_data[0].value.number;
+
+	// Move the pointer to the "first" item, because the 0th item is the list-header
+	list_data += 1;
+	for (size_t i = 0; i < size; i += 2) {
+		if (list_data[i].type != D_IDENTIFIER) {
+			error_runtime(new_vm->memory, new_vm->line, VM_INTERNAL_ERROR, "Did not find a D_IDENTIFIER in function closure");
+			break;
+		}
+		struct stack_entry *entry = push_stack_entry(new_vm->memory,
+			list_data[i].value.string, new_vm->line);
+		entry->val = copy_data(list_data[i + 1]);
+		entry->is_closure = true;
+	}
+
 	// Size doesn't actually matter when not using REPL
 	new_vm->bytecode = arg->bytecode;
 	new_vm->instruction_ptr = arg->instruction_ptr;
@@ -121,9 +139,10 @@ static struct data native_dispatch(struct vm* vm, struct data* args) {
 	pthread_t thread;
 
 	struct function_entry *entry = safe_malloc(sizeof(*entry));
-
+	entry->closure = copy_data(fn->value.reference[1]);
 	entry->bytecode = vm->bytecode;
 	entry->instruction_ptr = (address)fn->value.reference[0].value.number;
+	entry->parent_vm = vm;
 
 	// TODO(fg123): this will leak reference data into new_vm
 	entry->arg = copy_data(args[1]);

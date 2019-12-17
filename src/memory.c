@@ -31,7 +31,8 @@ static inline bool is_at_main(struct memory * memory) {
 }
 
 static inline bool is_identifier_entry(struct memory * memory, int index) {
-	return memory->call_stack[index].id[0] != CHAR(FUNCTION_START) &&
+	return memory->call_stack[index].id &&
+		   memory->call_stack[index].id[0] != CHAR(FUNCTION_START) &&
 		   memory->call_stack[index].id[0] != CHAR(AUTOFRAME_START) &&
 		   memory->call_stack[index].id[0] != CHAR(RA_START);
 }
@@ -171,7 +172,7 @@ struct data *create_closure(struct memory * memory) {
 
 struct memory *memory_init(void) {
 	struct memory *memory = malloc(sizeof(*memory));
-	
+
 	memory->call_stack_size = INITIAL_STACK_SIZE;
 	memory->working_stack_size = INITIAL_WORKING_STACK_SIZE;
 
@@ -187,7 +188,7 @@ struct memory *memory_init(void) {
 	memory->all_containers_start = 0;
 	memory->all_containers_end = 0;
 	memory->main_end_pointer = 0;
-	return memory;	
+	return memory;
 }
 
 void clear_working_stack(struct memory * memory) {
@@ -438,6 +439,16 @@ address get_stack_pos_of_id(struct memory * memory, char* id, int line) {
 struct data* get_value_of_id(struct memory * memory, char* id, int line) {
 	// return get_value_of_address(get_address_of_id(id, line), line);
 	return get_address_of_id(memory, id, line);
+}
+
+void copy_globals(struct memory * dest, struct memory * src) {
+	for (size_t i = 0; i < src->main_end_pointer; i++) {
+		if (is_identifier_entry(src, i)) {
+			struct stack_entry* entry = push_stack_entry(dest, src->call_stack[i].id, 0);
+			entry->val = copy_data(src->call_stack[i].val);
+			entry->is_closure = true;
+		}
+	}
 }
 
 void unwind_stack(struct memory * memory) {

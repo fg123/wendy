@@ -3,6 +3,7 @@
 #include "memory.h"
 #include "source.h"
 #include "vm.h"
+#include "locks.h"
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -83,6 +84,7 @@ void error_compile(int line, int col, char* message, ...) {
 }
 
 void error_runtime(struct memory* memory, int line, char* message, ...) {
+	pthread_mutex_lock(&output_mutex);
 	error_flag = true;
 	va_list args;
 	va_start(args, message);
@@ -125,6 +127,7 @@ void error_runtime(struct memory* memory, int line, char* message, ...) {
 		fprintf(stderr, "AP: %d 0x%X\n", memory->working_stack_pointer, memory->working_stack_pointer);
 	}
 	fflush(stdout);
+	pthread_mutex_unlock(&output_mutex);
 	if (get_settings_flag(SETTINGS_STRICT_ERROR)) {
 		safe_exit(1);
 	}

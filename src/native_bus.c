@@ -1,11 +1,12 @@
 #include "data.h"
 #include "native.h"
 #include "error.h"
+#include "locks.h"
 
 #include <pthread.h>
 
 struct accepting_function {
-	struct function_entry entry;
+	struct data function;
 	struct accepting_function* next;
 };
 
@@ -20,25 +21,11 @@ struct thread {
 	struct thread * next;
 };
 
-static pthread_mutex_t busses_mutex;
 static struct bus * busses = 0;
-
-static pthread_mutex_t threads_mutex;
 static struct thread * threads = 0;
 
 double native_to_numeric(struct vm* vm, struct data* t);
 char* native_to_string(struct vm* vm, struct data* t);
-
-void native_bus_init(void) {
-	if (pthread_mutex_init(&busses_mutex, NULL)) {
-		error_general("Could not initialize global bus mutex!");
-		return;
-	}
-	if (pthread_mutex_init(&threads_mutex, NULL)) {
-		error_general("Could not initialize global threads mutex!");
-		return;
-	}
-}
 
 void native_bus_destroy(void) {
 	pthread_mutex_lock(&busses_mutex);
@@ -46,6 +33,7 @@ void native_bus_destroy(void) {
 		safe_free(busses->name);
 		while (busses->functions) {
 			struct accepting_function* next = busses->functions->next;
+
 			safe_free(busses->functions);
 			busses->functions = next;
 		}
@@ -53,7 +41,6 @@ void native_bus_destroy(void) {
 		safe_free(busses);
 		busses = next;
 	}
-	pthread_mutex_destroy(&busses_mutex);
 	pthread_mutex_lock(&threads_mutex);
 	while (threads) {
 		pthread_join(threads->pthread, NULL);
@@ -61,7 +48,6 @@ void native_bus_destroy(void) {
 		safe_free(threads);
 		threads = next;
 	}
-	pthread_mutex_destroy(&threads_mutex);
 }
 
 static struct bus* find_or_create(char* name) {
@@ -92,8 +78,7 @@ struct data native_bus_register(struct vm* vm, struct data* args) {
 	struct bus * curr = find_or_create(name);
 
 	struct accepting_function* fn = safe_malloc(sizeof(*fn));
-	fn->entry.bytecode = vm->bytecode;
-	fn->entry.instruction_ptr = (address)args[1].value.reference[0].value.number;
+	fn->function = copy_data(args[1]);
 
 	fn->next = curr->functions;
 	curr->functions = fn;
@@ -112,9 +97,14 @@ struct data native_bus_post(struct vm* vm, struct data* args) {
 	struct accepting_function *fn = curr->functions;
 	while (fn) {
 		struct function_entry *entry = safe_malloc(sizeof(*entry));
-		*entry = fn->entry;
+		entry->bytecode = vm->bytecode;
+		entry->instruction_ptr = (address) fn->function.value.reference[0].value.number;
+		entry->closure = copy_data(fn->function.value.reference[1]);
+		entry->parent_vm = vm;
+
 		// TODO(felixguo): this will leak reference, will need to make it deep copy
 		entry->arg = copy_data(args[1]);
+
 		pthread_mutex_lock(&threads_mutex);
 		struct thread * thread = safe_malloc(sizeof(*thread));
 		thread->next = threads;

@@ -2,6 +2,7 @@
 #include "error.h"
 #include "execpath.h"
 #include "global.h"
+#include "locks.h"
 #include "native.h"
 #include "vm.h"
 #include "data.h"
@@ -70,7 +71,7 @@ bool process_options(char** options, int len, char** source) {
 
 int main(int argc, char** argv) {
 	determine_endianness();
-	native_bus_init();
+	init_locks();
 	char *option_result;
 	if (process_options(&argv[1], argc - 1, &option_result)) {
 		// User asked for -h / --help
@@ -121,6 +122,7 @@ int main(int argc, char** argv) {
 	safe_free(bytecode_stream);
 	free_imported_libraries_ll();
 	native_bus_destroy();
+	destroy_locks();
 	check_leak();
 	return 0;
 }

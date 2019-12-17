@@ -5,6 +5,7 @@
 #include "native.h"
 #include "scanner.h"
 #include "ast.h"
+#include "locks.h"
 #include "vm.h"
 #include "codegen.h"
 #include "source.h"
@@ -252,7 +253,7 @@ cleanup:
 
 int main(int argc, char** argv) {
 	determine_endianness();
-	native_bus_init();
+	init_locks();
 	struct vm* vm = vm_init("main");
 	char *option_result;
 	if (process_options(&argv[1], argc - 1, &option_result)) {
@@ -393,6 +394,7 @@ wendy_exit:
 	free_source();
 	vm_destroy(vm);
 	native_bus_destroy();
+	destroy_locks();
 	check_leak();
 	return 0;
 }

@@ -131,4 +131,8 @@ struct data *create_closure(struct memory * memory);
 //   * used after each run in REPL in case REPL leaves the stack in a non-
 //   stable state
 void unwind_stack(struct memory * memory);
+
+// copy_globals() copies all the variables in main from one memory stackframe
+//   to another; used when creating bus threads
+void copy_globals(struct memory * dest, struct memory * src);
 #endif

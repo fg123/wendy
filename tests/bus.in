@@ -1,25 +1,28 @@
 import bus
 
 let TestHandler => (a) {
-	a + 10;
+	Bus("Output").post(a + 10);
 };
 
 let TestHandlerB => (a) {
-	a + 20;
+	Bus("Output").post(a + 20);
 };
 
 let TestHandlerD => (a) {
-	a + 30;
+	Bus("Output").post(a + 30);
 };
 
 let TestHandlerC => (a) {
-	a + 40;
+	Bus("Output").post(a + 40);
 };
 
-Bus("test").register(TestHandler);
-Bus("test").register(TestHandlerB);
-Bus("test2").register(TestHandlerC);
-Bus("test2").register(TestHandlerD);
+Bus("Output").register(#:(x) { x; });
 
-Bus("test").post(1);
-Bus("test2").post(1);
+Bus("Input").register(TestHandler);
+Bus("Input").register(TestHandlerB);
+Bus("Input").register(TestHandlerC);
+Bus("Input").register(TestHandlerD);
+
+for i in 1->100 Bus("Input").post(i);
+
+for true { }
