@@ -74,6 +74,7 @@ bool process_options(char** options, int len, char** source) {
 }
 
 int main(int argc, char** argv) {
+	srand(time(NULL));
 	determine_endianness();
 	init_locks();
 	char *option_result;

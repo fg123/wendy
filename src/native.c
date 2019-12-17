@@ -41,6 +41,7 @@ static struct data native_process_execute(struct vm* vm, struct data* args);
 static struct data native_pow(struct vm* vm, struct data* args);
 static struct data native_ln(struct vm* vm, struct data* args);
 static struct data native_log(struct vm* vm, struct data* args);
+static struct data native_randomString(struct vm* vm, struct data* args);
 
 struct data native_bus_register(struct vm* vm, struct data* args);
 struct data native_bus_post(struct vm* vm, struct data* args);
@@ -68,7 +69,8 @@ static struct native_function native_functions[] = {
 	{ "process_execute", 1, native_process_execute },
 	{ "dispatch", 2, native_dispatch },
 	{ "bus_register", 3, native_bus_register },
-	{ "bus_post", 2, native_bus_post }
+	{ "bus_post", 2, native_bus_post },
+	{ "randomString", 1, native_randomString }
 };
 
 double native_to_numeric(struct vm* vm, struct data* t) {
@@ -122,6 +124,26 @@ void * dispatch_run_vm(void* _arg) {
 	vm_do_run(new_vm, true);
 	vm_destroy(new_vm);
 	return NULL;
+}
+
+static struct data native_randomString(struct vm* vm, struct data* args) {
+	int size = native_to_numeric(vm, &args[0]);
+	char* str = safe_malloc(size + 1);
+	str[0] = 0;
+
+	static char charset[] = "0123456789"
+                     "abcdefghijklmnopqrstuvwxyz"
+                     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                     ":;?@[]^_`{|}";
+
+    for (int i = 0; i < size; i++) {
+        size_t index = (double) rand() / RAND_MAX * (sizeof charset - 1);
+        str[i] = charset[index];
+    }
+    str[size] = '\0';
+    struct data result = make_data(D_STRING, data_value_str(str));
+    safe_free(str);
+    return result;
 }
 
 static struct data native_dispatch(struct vm* vm, struct data* args) {

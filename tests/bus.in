@@ -28,9 +28,11 @@ Bus("Aggregate").register(#:(x) { "Aggregate: " + x; });
 
 Bus("Split").split("Input", "Input2");
 
+
 for i in 1->10 {
 	Bus("Split").post(i);
 //	Bus("Input").post(i);
 //	Bus("Input2").post(i);
 }
+
 

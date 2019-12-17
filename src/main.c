@@ -256,6 +256,7 @@ cleanup:
 }
 
 int main(int argc, char** argv) {
+	srand(time(NULL));
 	determine_endianness();
 	init_locks();
 	struct vm* vm = vm_init("main");

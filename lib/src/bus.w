@@ -9,6 +9,14 @@
 
 struct Bus => (name) [register, post, aggregate, split];
 
+Bus.init => (name) {
+	let randomString => (length) native randomString;
+	if (name.size == 0)
+		name = randomString(20);
+	this.name = name;
+	ret this;
+};
+
 Bus.register => (fn /* accepting types */) {
     let register => (name, fn, args) native bus_register;
     ret register(this.name, fn, arguments);
