@@ -1,6 +1,7 @@
 let dispatch => (fn, arg) native dispatch;
 
-let make_ten => (x) x * 10
+// Return values from these functions don't do anything
+let make_ten => (x) { x * 10; }
 
 "Hello World";
 // Need a more robust IO test to test multithreaded output!

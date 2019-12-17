@@ -134,7 +134,7 @@ void vm_do_run(struct vm * vm, bool dispatched) {
 	static void* dispatch_table[] = {
 		FOREACH_OPCODE(VM_LABEL)
 	};
-	#define DISPATCH() goto *dispatch_table[vm->bytecode[(vm->instruction_ptr)++]];
+	#define DISPATCH() if (!get_settings_flag(SETTINGS_TRACE_VM)) goto *dispatch_table[vm->bytecode[(vm->instruction_ptr)++]];
 	for (;;) {
 		reset_error_flag();
 		enum opcode op = vm->bytecode[vm->instruction_ptr];
