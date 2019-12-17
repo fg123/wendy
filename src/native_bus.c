@@ -100,7 +100,6 @@ struct data native_bus_post(struct vm* vm, struct data* args) {
 		entry->bytecode = vm->bytecode;
 		entry->instruction_ptr = (address) fn->function.value.reference[0].value.number;
 		entry->closure = copy_data(fn->function.value.reference[1]);
-		entry->parent_vm = vm;
 
 		// TODO(felixguo): this will leak reference, will need to make it deep copy
 		entry->arg = copy_data(args[1]);

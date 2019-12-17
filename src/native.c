@@ -92,7 +92,7 @@ void * dispatch_run_vm(void* _arg) {
 
 	struct vm *new_vm = vm_init("dispatched");
 	push_frame(new_vm->memory, "main", 0, 0);
-	copy_globals(new_vm->memory, arg->parent_vm->memory);
+	copy_globals(new_vm->memory, base_vm->memory);
 
 	struct data *list_data = arg->closure.value.reference;
 	size_t size = list_data[0].value.number;
@@ -142,7 +142,6 @@ static struct data native_dispatch(struct vm* vm, struct data* args) {
 	entry->closure = copy_data(fn->value.reference[1]);
 	entry->bytecode = vm->bytecode;
 	entry->instruction_ptr = (address)fn->value.reference[0].value.number;
-	entry->parent_vm = vm;
 
 	// TODO(fg123): this will leak reference data into new_vm
 	entry->arg = copy_data(args[1]);

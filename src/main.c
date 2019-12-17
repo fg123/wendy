@@ -255,6 +255,7 @@ int main(int argc, char** argv) {
 	determine_endianness();
 	init_locks();
 	struct vm* vm = vm_init("main");
+	base_vm = vm;
 	char *option_result;
 	if (process_options(&argv[1], argc - 1, &option_result)) {
 		// User asked for -h / --help

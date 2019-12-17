@@ -1,19 +1,19 @@
 import bus
 
 let TestHandler => (a) {
-	Bus("Output").post(a + 10);
+	Bus("Output").post("A: " + a);
 };
 
 let TestHandlerB => (a) {
-	Bus("Output").post(a + 20);
+	Bus("Output").post("B: " + a);
 };
 
 let TestHandlerD => (a) {
-	Bus("Output").post(a + 30);
+	Bus("Output").post("C: " + a);
 };
 
 let TestHandlerC => (a) {
-	Bus("Output").post(a + 40);
+	Bus("Output").post("D: " + a);
 };
 
 Bus("Output").register(#:(x) { x; });

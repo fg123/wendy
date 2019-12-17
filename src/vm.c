@@ -21,6 +21,8 @@ static struct data size_of(struct data a);
 static struct data value_of(struct data a);
 static struct data char_of(struct data a);
 
+struct vm *base_vm = 0;
+
 struct vm *vm_init(const char* name) {
 	struct vm* vm = safe_malloc(sizeof(*vm));
 	vm->bytecode = 0;

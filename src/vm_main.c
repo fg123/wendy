@@ -111,6 +111,7 @@ int main(int argc, char** argv) {
 	fclose(file);
 
 	struct vm* vm = vm_init("main");
+	base_vm = vm;
 	push_frame(vm->memory, "main", 0, 0);
 
 	vm_run(vm, bytecode_stream, size);

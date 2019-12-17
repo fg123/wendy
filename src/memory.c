@@ -437,7 +437,6 @@ address get_stack_pos_of_id(struct memory * memory, char* id, int line) {
 }
 
 struct data* get_value_of_id(struct memory * memory, char* id, int line) {
-	// return get_value_of_address(get_address_of_id(id, line), line);
 	return get_address_of_id(memory, id, line);
 }
 
@@ -446,7 +445,6 @@ void copy_globals(struct memory * dest, struct memory * src) {
 		if (is_identifier_entry(src, i)) {
 			struct stack_entry* entry = push_stack_entry(dest, src->call_stack[i].id, 0);
 			entry->val = copy_data(src->call_stack[i].val);
-			entry->is_closure = true;
 		}
 	}
 }

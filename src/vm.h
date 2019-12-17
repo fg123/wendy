@@ -21,6 +21,8 @@ struct vm {
     struct memory* memory;
 };
 
+extern struct vm* base_vm;
+
 struct vm *vm_init(const char* name);
 void vm_destroy(struct vm * vm);
 
