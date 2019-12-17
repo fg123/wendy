@@ -736,7 +736,13 @@ void vm_do_run(struct vm * vm, bool dispatched) {
 				if (strcmp(boundName.value.string, "self") != 0) {
 					push_stack_entry(vm->memory, "self", vm->line)->val = copy_data(top);
 				}
-				push_stack_entry(vm->memory, boundName.value.string, vm->line)->val = top;
+
+				if (top.type != D_STRUCT_FUNCTION) {
+					push_stack_entry(vm->memory, boundName.value.string, vm->line)->val = top;
+				}
+				else {
+					destroy_data_runtime(vm->memory, &top);
+				}
 				DISPATCH();
 				break;
 			}

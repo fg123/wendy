@@ -20,11 +20,9 @@ Bus.post => (msg) {
 };
 
 Bus.aggregate => () {
-	let post => (name, msg) native bus_post;
-	let register => (name, fn, args) native bus_register;
 	for bus in arguments {
 		Bus(bus).register(#:(msg) {
-
+			this.post(msg);
 		});
 	}
 };

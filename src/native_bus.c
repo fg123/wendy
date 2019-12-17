@@ -70,7 +70,7 @@ static struct bus* find_or_create(char* name) {
 struct data native_bus_register(struct vm* vm, struct data* args) {
 	// args = name, fn, accepting types (as a list)
 	char* name = native_to_string(vm, &args[0]);
-	if (args[1].type != D_FUNCTION) {
+	if (args[1].type != D_FUNCTION && args[1].type != D_STRUCT_FUNCTION) {
 		error_runtime(vm->memory, vm->line, "Argument to register must be a function!");
 		return noneret_data();
 	}
