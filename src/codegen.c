@@ -767,10 +767,6 @@ static void codegen_statement(void* expre) {
 			break;
 		}
 		case S_LOOP: {
-			if (!state->op.loop_statement.statement_true) {
-				// Don't generate if empty loop body
-				return;
-			}
 			make_scope();
 			struct loop_context *new_ctx = safe_malloc(sizeof(struct loop_context));
 			new_ctx->scope = scope_level;

@@ -25,5 +25,5 @@ Bus("test").post(1);
 Bus("test2").post(1);
 
 for true {
-	@"";
+	// continue;
 }

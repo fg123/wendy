@@ -296,11 +296,11 @@ static struct statement* optimize_statement(struct statement* state) {
 				optimize_expr(state->op.loop_statement.condition);
 			state->op.loop_statement.statement_true =
 				optimize_statement(state->op.loop_statement.statement_true);
-			if (!state->op.loop_statement.statement_true) {
+			/* if (!state->op.loop_statement.statement_true) {
 				// Empty Body
 				traverse_expr(state->op.loop_statement.condition, &optimize_safe_free_impl);
 				return 0;
-			}
+			}*/
 			break;
 		}
 		case S_IMPORT: break;
