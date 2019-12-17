@@ -11,11 +11,11 @@
 struct Bus => (name) [register, post];
 
 Bus.register => (fn /* accepting types */) {
-    let register => () native bus_register;
+    let register => (name, fn, args) native bus_register;
     ret register(this.name, fn, arguments);
 };
 
 Bus.post => (msg) {
-    let post => () native bus_post;
+    let post => (name, msg) native bus_post;
     ret post(this.name, msg);
 };

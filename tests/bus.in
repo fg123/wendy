@@ -1,0 +1,6 @@
+import bus
+
+Bus("test").register(1, 2);
+Bus("win").register(1, 2);
+Bus("test").register(1, 2);
+Bus("win").register(1, 2);

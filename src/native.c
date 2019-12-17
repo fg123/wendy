@@ -41,8 +41,9 @@ static struct data native_process_execute(struct vm* vm, struct data* args);
 static struct data native_pow(struct vm* vm, struct data* args);
 static struct data native_ln(struct vm* vm, struct data* args);
 static struct data native_log(struct vm* vm, struct data* args);
-static struct data native_bus_register(struct vm* vm, struct data* args);
-static struct data native_bus_post(struct vm* vm, struct data* args);
+
+struct data native_bus_register(struct vm* vm, struct data* args);
+struct data native_bus_post(struct vm* vm, struct data* args);
 
 static struct data native_dispatch(struct vm* vm, struct data* args);
 
@@ -65,12 +66,12 @@ static struct native_function native_functions[] = {
 	{ "vm_getRefs", 1, native_vm_getRefs },
 	{ "vm_getAt", 2, native_vm_getAt },
 	{ "process_execute", 1, native_process_execute },
-	{ "dispatch", 1, native_dispatch },
+	{ "dispatch", 2, native_dispatch },
 	{ "bus_register", 3, native_bus_register },
 	{ "bus_post", 2, native_bus_post }
 };
 
-static double native_to_numeric(struct vm* vm, struct data* t) {
+double native_to_numeric(struct vm* vm, struct data* t) {
 	if (t->type != D_NUMBER) {
 		error_runtime(vm->memory, vm->line, VM_INVALID_NATIVE_NUMERICAL_TYPE_ERROR);
 		return 0;
@@ -78,7 +79,7 @@ static double native_to_numeric(struct vm* vm, struct data* t) {
 	return t->value.number;
 }
 
-static char* native_to_string(struct vm* vm, struct data* t) {
+char* native_to_string(struct vm* vm, struct data* t) {
 	if (t->type != D_STRING) {
 		error_runtime(vm->memory, vm->line, VM_INVALID_NATIVE_STRING_TYPE_ERROR);
 		return "";
@@ -86,15 +87,26 @@ static char* native_to_string(struct vm* vm, struct data* t) {
 	return t->value.string;
 }
 
+struct function_entry {
+	uint8_t* bytecode;
+	address instruction_ptr;
+	struct data arg;
+};
+
 static void * dispatch_run_vm(void* _arg) {
+	struct function_entry* arg = (struct function_entry*)_arg;
+
 	struct vm *new_vm = vm_init("dispatched");
 	push_frame(new_vm->memory, "main", 0, 0);
 	// Size doesn't actually matter when not using REPL
-	new_vm->bytecode = _arg;
-	new_vm->instruction_ptr = 0;
+	new_vm->bytecode = arg->bytecode;
+	new_vm->instruction_ptr = arg->instruction_ptr;
 
 	// We are expecting to enter a function call, need end marker
 	push_arg(new_vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+	push_arg(new_vm->memory, arg->arg);
+
+	safe_free(_arg);
 	vm_do_run(new_vm, true);
 	vm_destroy(new_vm);
 	return NULL;
@@ -102,6 +114,7 @@ static void * dispatch_run_vm(void* _arg) {
 
 static struct data native_dispatch(struct vm* vm, struct data* args) {
 	struct data *fn = &args[0];
+
 	if (fn->type != D_FUNCTION) {
 		error_runtime(vm->memory, vm->line, "Expected function to dispatch!");
 	}
@@ -113,8 +126,15 @@ static struct data native_dispatch(struct vm* vm, struct data* args) {
 	// Make a new instance of the VM
 	pthread_t thread;
 
-	if (pthread_create(&thread, NULL, dispatch_run_vm,
-		&vm->bytecode[(address)fn->value.reference[0].value.number])) {
+	struct function_entry *entry = safe_malloc(sizeof(*entry));
+
+	entry->bytecode = vm->bytecode;
+	entry->instruction_ptr = (address)fn->value.reference[0].value.number;
+
+	// TODO(fg123): this will leak reference data into new_vm
+	entry->arg = copy_data(args[1]);
+
+	if (pthread_create(&thread, NULL, dispatch_run_vm, entry)) {
 		error_runtime(vm->memory, vm->line, "Could not create pthread!");
 	}
 	pthread_join(thread, NULL);

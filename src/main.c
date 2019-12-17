@@ -252,6 +252,7 @@ cleanup:
 
 int main(int argc, char** argv) {
 	determine_endianness();
+	native_bus_init();
 	struct vm* vm = vm_init("main");
 	char *option_result;
 	if (process_options(&argv[1], argc - 1, &option_result)) {
@@ -391,6 +392,7 @@ wendy_exit:
 	free_imported_libraries_ll();
 	free_source();
 	vm_destroy(vm);
+	native_bus_destroy();
 	check_leak();
 	return 0;
 }

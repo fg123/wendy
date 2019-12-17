@@ -13,4 +13,7 @@ extern int program_arguments_count;
 
 void native_call(struct vm* vm, char* function_name, int expected_args);
 
+void native_bus_init(void);
+void native_bus_destroy(void);
+
 #endif
