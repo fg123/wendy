@@ -330,10 +330,23 @@ void print_call_stack(struct memory * memory, FILE* file, int maxlines) {
 					fprintf(file, "%5zd      [%s -> ",i,
 							memory->call_stack[i].id);
 				}
-				print_data_inline(&memory->call_stack[i].val, stdout);
+				print_data_inline(&memory->call_stack[i].val, file);
 				fprintf(file, "]\n");
 			}
 		}
+	}
+	fprintf(file, DIVIDER "\n");
+}
+
+void print_working_stack(struct memory * memory, FILE* file, int maxlines) {
+	fprintf(file, "\n" DIVIDER "\n");
+	fprintf(file, "Dump: Working Stack (%s)\n", memory->vm->name);
+	int start = memory->working_stack_pointer - maxlines;
+	if (start < 0 || maxlines < 0) start = 0;
+	for (size_t i = start; i < memory->working_stack_pointer; i++) {
+		fprintf(file, "%5zd      [", i);
+		print_data_inline(&memory->working_stack[i], file);
+		fprintf(file, "]\n");
 	}
 	fprintf(file, DIVIDER "\n");
 }

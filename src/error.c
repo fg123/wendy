@@ -117,14 +117,18 @@ void error_runtime(struct memory* memory, int line, char* message, ...) {
 	// REPL Don't print call stack unless verbose is on!
 	if (!get_settings_flag(SETTINGS_REPL) || get_settings_flag(SETTINGS_VERBOSE)) {
 		print_call_stack(memory, stderr, -1);
-		fprintf(stderr, RED "VERBOSE ERROR DUMP\n" RESET);
-		fprintf(stderr, GRN "Limits\n" RESET);
-		fprintf(stderr, "Call Stack Size %zu\n", memory->call_stack_size);
-		fprintf(stderr, "Working Stack Size %zu\n", memory->working_stack_size);
-		fprintf(stderr, GRN "Memory\n" RESET);
-		fprintf(stderr, "FP: %d 0x%X\n", memory->frame_pointer, memory->frame_pointer);
-		fprintf(stderr, "SP: %d 0x%X\n", memory->call_stack_pointer, memory->call_stack_pointer);
-		fprintf(stderr, "AP: %d 0x%X\n", memory->working_stack_pointer, memory->working_stack_pointer);
+		print_working_stack(memory, stderr, -1);
+
+		if (get_settings_flag(SETTINGS_VERBOSE)) {
+			fprintf(stderr, RED "VERBOSE ERROR DUMP\n" RESET);
+			fprintf(stderr, GRN "Limits\n" RESET);
+			fprintf(stderr, "Call Stack Size %zu\n", memory->call_stack_size);
+			fprintf(stderr, "Working Stack Size %zu\n", memory->working_stack_size);
+			fprintf(stderr, GRN "Memory\n" RESET);
+			fprintf(stderr, "FP: %d 0x%X\n", memory->frame_pointer, memory->frame_pointer);
+			fprintf(stderr, "SP: %d 0x%X\n", memory->call_stack_pointer, memory->call_stack_pointer);
+			fprintf(stderr, "AP: %d 0x%X\n", memory->working_stack_pointer, memory->working_stack_pointer);
+		}
 	}
 	fflush(stdout);
 	pthread_mutex_unlock(&output_mutex);

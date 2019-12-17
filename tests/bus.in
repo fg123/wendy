@@ -20,9 +20,15 @@ Bus("Output").register(#:(x) { x; });
 
 Bus("Input").register(TestHandler);
 Bus("Input").register(TestHandlerB);
-Bus("Input").register(TestHandlerC);
-Bus("Input").register(TestHandlerD);
+Bus("Input2").register(TestHandlerC);
+Bus("Input2").register(TestHandlerD);
 
-for i in 1->100 Bus("Input").post(i);
+Bus("Aggregate").aggregate("Input", "Input2");
+Bus("Aggregate").register(#:(x) { "Aggregate: " + x; });
+
+for i in 1->10 {
+	Bus("Input").post(i);
+	Bus("Input2").post(i);
+}
 
 for true { }

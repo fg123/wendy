@@ -7,8 +7,7 @@
  *   procedures.
  */
 
-
-struct Bus => (name) [register, post];
+struct Bus => (name) [register, post, aggregate];
 
 Bus.register => (fn /* accepting types */) {
     let register => (name, fn, args) native bus_register;
@@ -18,4 +17,14 @@ Bus.register => (fn /* accepting types */) {
 Bus.post => (msg) {
     let post => (name, msg) native bus_post;
     ret post(this.name, msg);
+};
+
+Bus.aggregate => () {
+	let post => (name, msg) native bus_post;
+	let register => (name, fn, args) native bus_register;
+	for bus in arguments {
+		Bus(bus).register(#:(msg) {
+
+		});
+	}
 };
