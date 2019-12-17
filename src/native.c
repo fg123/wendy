@@ -87,13 +87,7 @@ char* native_to_string(struct vm* vm, struct data* t) {
 	return t->value.string;
 }
 
-struct function_entry {
-	uint8_t* bytecode;
-	address instruction_ptr;
-	struct data arg;
-};
-
-static void * dispatch_run_vm(void* _arg) {
+void * dispatch_run_vm(void* _arg) {
 	struct function_entry* arg = (struct function_entry*)_arg;
 
 	struct vm *new_vm = vm_init("dispatched");

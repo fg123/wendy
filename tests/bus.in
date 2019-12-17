@@ -1,6 +1,29 @@
 import bus
 
-Bus("test").register(1, 2);
-Bus("win").register(1, 2);
-Bus("test").register(1, 2);
-Bus("win").register(1, 2);
+let TestHandler => (a) {
+	a + 10;
+};
+
+let TestHandlerB => (a) {
+	a + 20;
+};
+
+let TestHandlerD => (a) {
+	a + 30;
+};
+
+let TestHandlerC => (a) {
+	a + 40;
+};
+
+Bus("test").register(TestHandler);
+Bus("test").register(TestHandlerB);
+Bus("test2").register(TestHandlerC);
+Bus("test2").register(TestHandlerD);
+
+Bus("test").post(1);
+Bus("test2").post(1);
+
+for true {
+	@"";
+}
