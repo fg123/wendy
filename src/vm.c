@@ -139,9 +139,7 @@ void vm_do_run(struct vm * vm, bool dispatched) {
 		reset_error_flag();
 		enum opcode op = vm->bytecode[vm->instruction_ptr];
 		if (get_settings_flag(SETTINGS_TRACE_VM)) {
-			// This branch could slow down the VM but the CPU should branch
-			// predict after one or two iterations.
-			printf(BLU "<+%04X>: " RESET "%s\n", vm->instruction_ptr, opcode_string[op]);
+			printf(BLU "<+%04X>: " RESET "%s from " YEL "%s\n" RESET, vm->instruction_ptr, opcode_string[op], vm->name);
 		}
 		vm->instruction_ptr += 1;
 		switch (op) {
@@ -170,7 +168,7 @@ void vm_do_run(struct vm * vm, bool dispatched) {
 				DISPATCH();
 				break;
 			}
-			case OP_BIN: 
+			case OP_BIN:
 			VM_OP_BIN: {
 				enum operator op = vm->bytecode[vm->instruction_ptr++];
 				struct data a = pop_arg(vm->memory, vm->line);
