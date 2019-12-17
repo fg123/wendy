@@ -15,8 +15,16 @@ struct bus {
     struct bus *next;
 };
 
+struct thread {
+	pthread_t pthread;
+	struct thread * next;
+};
+
 static pthread_mutex_t busses_mutex;
 static struct bus * busses = 0;
+
+static pthread_mutex_t threads_mutex;
+static struct thread * threads = 0;
 
 double native_to_numeric(struct vm* vm, struct data* t);
 char* native_to_string(struct vm* vm, struct data* t);
@@ -24,6 +32,10 @@ char* native_to_string(struct vm* vm, struct data* t);
 void native_bus_init(void) {
 	if (pthread_mutex_init(&busses_mutex, NULL)) {
 		error_general("Could not initialize global bus mutex!");
+		return;
+	}
+	if (pthread_mutex_init(&threads_mutex, NULL)) {
+		error_general("Could not initialize global threads mutex!");
 		return;
 	}
 }
@@ -42,6 +54,14 @@ void native_bus_destroy(void) {
 		busses = next;
 	}
 	pthread_mutex_destroy(&busses_mutex);
+	pthread_mutex_lock(&threads_mutex);
+	while (threads) {
+		pthread_join(threads->pthread, NULL);
+		struct thread * next = threads->next;
+		safe_free(threads);
+		threads = next;
+	}
+	pthread_mutex_destroy(&threads_mutex);
 }
 
 static struct bus* find_or_create(char* name) {
@@ -95,8 +115,12 @@ struct data native_bus_post(struct vm* vm, struct data* args) {
 		*entry = fn->entry;
 		// TODO(felixguo): this will leak reference, will need to make it deep copy
 		entry->arg = copy_data(args[1]);
-		pthread_t thread;
-		if (pthread_create(&thread, NULL, dispatch_run_vm, entry)) {
+		pthread_mutex_lock(&threads_mutex);
+		struct thread * thread = safe_malloc(sizeof(*thread));
+		thread->next = threads;
+		threads = thread;
+		pthread_mutex_unlock(&threads_mutex);
+		if (pthread_create(&thread->pthread, NULL, dispatch_run_vm, entry)) {
 			error_runtime(vm->memory, vm->line, "Could not create pthread!");
 		}
 		fn = fn->next;

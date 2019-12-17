@@ -23,7 +23,3 @@ Bus("test2").register(TestHandlerD);
 
 Bus("test").post(1);
 Bus("test2").post(1);
-
-for true {
-	// continue;
-}
