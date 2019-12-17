@@ -2,7 +2,9 @@
 #include "global.h"
 #include "memory.h"
 #include "error.h"
+#include "locks.h"
 
+#include <pthread.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -158,11 +160,10 @@ struct data list_header_data(int size) {
 	return res;
 }
 
+unsigned int print_data_internal(const struct data* t, FILE* buf, bool withNewline);
+
 void print_data(const struct data* t) {
-	print_data_inline(t, stdout);
-	printf("\n");
-	last_printed_newline = true;
-	fflush(stdout);
+	print_data_internal(t, stdout, true);
 }
 
 unsigned int print_params_if_available(FILE* buf, const struct data* function_data) {
@@ -182,6 +183,11 @@ unsigned int print_params_if_available(FILE* buf, const struct data* function_da
 }
 
 unsigned int print_data_inline(const struct data* t, FILE* buf) {
+	return print_data_internal(t, buf, false);
+}
+
+unsigned int print_data_internal(const struct data* t, FILE* buf, bool withNewline) {
+	pthread_mutex_lock(&output_mutex);
 	unsigned int p = 0;
 	if (t->type == D_OBJ_TYPE) {
 		p += fprintf(buf, "<%s>", t->value.string);
@@ -257,8 +263,12 @@ unsigned int print_data_inline(const struct data* t, FILE* buf) {
 	else {
 		p += fprintf(buf, "%s", t->value.string);
 	}
-	last_printed_newline = false;
+	last_printed_newline = withNewline;
+	if (withNewline) {
+		p += fprintf(buf, "\n");
+	}
 	fflush(buf);
+	pthread_mutex_unlock(&output_mutex);
 	return p;
 }
 

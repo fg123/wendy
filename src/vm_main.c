@@ -21,6 +21,7 @@ void invalid_usage(void) {
 	printf("    --nogc            : disables garbage-collection.\n");
 	printf("    --trace-vm        : traces each VM instruction.\n");
 	printf("    --trace-refcnt    : traces each ref-count action.\n");
+	printf("    --trace-bus       : traces each bus action.\n");
 	printf("    -v, --verbose     : displays information about memory state on error.\n");
 	printf("    --sandbox         : runs the VM in sandboxed mode, ie. no file access and no native execution calls.\n");
 	safe_exit(1);
@@ -46,6 +47,9 @@ bool process_options(char** options, int len, char** source) {
 		}
 		else if (streq("--trace-refcnt", options[i])) {
 			set_settings_flag(SETTINGS_TRACE_REFCNT);
+		}
+		else if (streq("--trace-bus", options[i])) {
+			set_settings_flag(SETTINGS_TRACE_BUS);
 		}
 		else if (streq("--sandbox", options[i])) {
 			set_settings_flag(SETTINGS_SANDBOXED);
@@ -115,6 +119,8 @@ int main(int argc, char** argv) {
 	push_frame(vm->memory, "main", 0, 0);
 
 	vm_run(vm, bytecode_stream, size);
+
+	native_bus_wait_threads();
 	vm_destroy(vm);
 	if (!last_printed_newline) {
 		printf("\n");

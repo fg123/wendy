@@ -55,6 +55,7 @@ void invalid_usage(void) {
 	printf("    --optimize        : enables optimization algorithm (this will destroy overloaded primitive operators).\n");
 	printf("    --trace-vm        : traces each VM instruction.\n");
 	printf("    --trace-refcnt    : traces each ref-count action.\n");
+	printf("    --trace-bus       : traces each bus action.\n");
     printf("    --dry-run         : compiles but does not write to a file or invoke the VM.\n");
 	printf("    -c, --compile     : compiles the given file but does not run.\n");
 	printf("    -v, --verbose     : displays information about memory state on error.\n");
@@ -94,6 +95,9 @@ bool process_options(char** options, int len, char** source) {
 		}
 		else if (streq("--trace-refcnt", options[i])) {
 			set_settings_flag(SETTINGS_TRACE_REFCNT);
+		}
+		else if (streq("--trace-bus", options[i])) {
+			set_settings_flag(SETTINGS_TRACE_BUS);
 		}
         else if (streq("--dry-run", options[i])) {
             set_settings_flag(SETTINGS_DRY_RUN);
@@ -388,6 +392,7 @@ int main(int argc, char** argv) {
 			printf("\n");
 		}
 	}
+	native_bus_wait_threads();
 	safe_free(bytecode_stream);
 
 wendy_exit:

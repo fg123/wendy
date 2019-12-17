@@ -1,4 +1,6 @@
 #include "global.h"
+#include "locks.h"
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -54,6 +56,7 @@ bool get_settings_flag(enum settings_flags flag) {
 }
 
 static void attach_to_list(struct malloc_node* new_node) {
+	pthread_mutex_lock(&malloc_mutex);
 	if (!malloc_node_end && !malloc_node_start) {
 		malloc_node_start = new_node;
 		malloc_node_end = new_node;
@@ -66,12 +69,15 @@ static void attach_to_list(struct malloc_node* new_node) {
 	new_node->next = malloc_node_start;
 
 	malloc_node_end = new_node;
+	pthread_mutex_unlock(&malloc_mutex);
 }
 
 static void remove_from_list(struct malloc_node* node) {
+	pthread_mutex_lock(&malloc_mutex);
 	if (node == malloc_node_start && node == malloc_node_end) {
 		malloc_node_start = 0;
 		malloc_node_end = 0;
+		pthread_mutex_unlock(&malloc_mutex);
 		return;
 	}
 	node->prev->next = node->next;
@@ -84,6 +90,7 @@ static void remove_from_list(struct malloc_node* node) {
 	}
 	node->prev = 0;
 	node->next = 0;
+	pthread_mutex_unlock(&malloc_mutex);
 }
 
 void* safe_malloc_impl(size_t size, char* filename, int line_num) {
@@ -130,6 +137,7 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
 			" line %d.\n", filename, line_num);
 	}
 	// Relink Node
+	pthread_mutex_lock(&malloc_mutex);
 	struct malloc_node* moved_node = new_ptr;
 	moved_node->prev->next = new_ptr;
 	moved_node->next->prev = new_ptr;
@@ -144,6 +152,7 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
 
 	moved_node->ptr = new_ptr + sizeof(struct malloc_node);
 	moved_node->size = size;
+	pthread_mutex_unlock(&malloc_mutex);
 	return moved_node->ptr;
 }
 

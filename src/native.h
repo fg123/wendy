@@ -21,5 +21,5 @@ struct function_entry {
 };
 
 void native_bus_destroy(void);
-
+void native_bus_wait_threads(void);
 #endif
