@@ -59,6 +59,7 @@ void invalid_usage(void) {
 	printf("    -v, --verbose     : displays information about memory state on error.\n");
 	printf("    --ast             : prints out the constructed AST.\n");
 	printf("    -t, --token-list  : prints out the parsed tokens.\n");
+	printf("    --toronto         : toronto slang mode.\n");
 	printf("    -d --disassemble  : prints out the disassembled bytecode.\n");
 	printf("    --dependencies    : prints out the module dependencies of the file.\n");
 	printf("    --sandbox         : runs the VM in sandboxed mode, ie. no file access and no native execution calls.\n");
@@ -99,6 +100,9 @@ bool process_options(char** options, int len, char** source) {
         }
 		else if (streq("--ast", options[i])) {
 			set_settings_flag(SETTINGS_ASTPRINT);
+		}
+		else if (streq("--toronto", options[i])) {
+			set_settings_flag(SETTINGS_TORONTO);
 		}
 		else if (streq("--dependencies", options[i])) {
 			set_settings_flag(SETTINGS_OUTPUT_DEPENDENCIES);

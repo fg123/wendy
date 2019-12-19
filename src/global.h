@@ -51,6 +51,7 @@ enum settings_flags {
 	SETTINGS_TRACE_VM,
 	SETTINGS_TRACE_REFCNT,
     SETTINGS_DRY_RUN,
+    SETTINGS_TORONTO,
 	SETTINGS_COUNT };
 
 void set_settings_flag(enum settings_flags flag);

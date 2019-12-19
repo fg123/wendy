@@ -173,6 +173,47 @@ static void handle_string(char endChar) {
 	add_token_with_value(T_STRING, make_data_str(value));
 }
 
+static bool toronto_identifier(char* text) {
+	if (streq(text, "ting")) {
+		add_token(T_NONE);
+	}
+	else if (streq(text, "fam")) {
+		add_token(T_SEMICOLON);
+	}
+	else if (streq(text, "geez")) {
+		add_token(T_LET);
+	}
+	else if (streq(text, "and")) {
+		add_token(T_COMMA);
+	}
+	else if (streq(text, "takes")) {
+		add_token(T_DEFFN);
+		add_token(T_LEFT_PAREN);
+	}
+	else if (streq(text, "is")) {
+		add_token(T_EQUAL);
+	}
+	else if (streq(text, "styll")) {
+		add_token(T_RIGHT_PAREN);
+	}
+	else if (streq(text, "with")) {
+		add_token(T_LEFT_PAREN);
+	}
+	else if (streq(text, "bare")) {
+		add_token(T_LEFT_BRACK);
+	}
+	else if (streq(text, "tings")) {
+		add_token(T_RIGHT_BRACK);
+	}
+	else if (streq(text, "reach")) {
+		// no-op
+	}
+	else {
+		return false;
+	}
+	return true;
+}
+
 // identifier() processes the next identifier and also handles wendyScript
 //   keywords
 static void identifier(void) {
@@ -182,7 +223,8 @@ static void identifier(void) {
 	memcpy(text, &source[start], current - start);
 	text[current - start] = '\0';
 
-	if (streq(text, "and"))       { add_token(T_AND); }
+	if (get_settings_flag(SETTINGS_TORONTO) && toronto_identifier(text)) {}
+	else if (streq(text, "and"))       { add_token(T_AND); }
 	else if (streq(text, "else")) { add_token(T_ELSE); }
 	else if (streq(text, "false")){ add_token(T_FALSE); }
 	else if (streq(text, "if"))   { add_token(T_IF); }

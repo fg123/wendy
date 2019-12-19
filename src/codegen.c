@@ -991,6 +991,15 @@ static void codegen_expr(void* expre) {
 		write_address_at(size, doneJumpLoc);
 	}
 	else if (expression->type == E_ASSIGN) {
+		if (get_settings_flag(SETTINGS_TORONTO) &&
+			expression->op.assign_expr.rvalue->type == E_LITERAL &&
+			expression->op.assign_expr.rvalue->op.lit_expr.type == D_IDENTIFIER &&
+			streq("facts", expression->op.assign_expr.rvalue->op.lit_expr.value.string)) {
+			codegen_expr(expression->op.assign_expr.lvalue);
+			write_opcode(OP_RET);
+			return;
+		}
+
         enum operator op = expression->op.assign_expr.operator;
 
 		codegen_expr(expression->op.assign_expr.rvalue);
