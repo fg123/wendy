@@ -65,6 +65,7 @@ struct data {
 
 struct data make_data(enum data_type type, union data_value value);
 struct data copy_data(struct data d);
+struct data deep_copy_data(struct memory * memory, struct data d);
 void destroy_data(struct data* d);
 void destroy_data_runtime(struct memory* memory, struct data* d);
 

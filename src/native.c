@@ -91,8 +91,7 @@ char* native_to_string(struct vm* vm, struct data* t) {
 
 void * dispatch_run_vm(void* _arg) {
 	struct function_entry* arg = (struct function_entry*)_arg;
-
-	struct vm *new_vm = vm_init("dispatched");
+	struct vm *new_vm = arg->vm;
 	push_frame(new_vm->memory, "main", 0, 0);
 	copy_globals(new_vm->memory, base_vm->memory);
 
@@ -161,6 +160,7 @@ static struct data native_dispatch(struct vm* vm, struct data* args) {
 	pthread_t thread;
 
 	struct function_entry *entry = safe_malloc(sizeof(*entry));
+	entry->vm = vm_init("dispatched");
 	entry->closure = copy_data(fn->value.reference[1]);
 	entry->bytecode = vm->bytecode;
 	entry->instruction_ptr = (address)fn->value.reference[0].value.number;

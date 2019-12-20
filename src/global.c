@@ -171,7 +171,9 @@ void safe_free_impl(void* ptr, char* filename, int line_num) {
 
 void check_leak() {
 	struct malloc_node* curr = malloc_node_start;
-	if (!curr) return;
+	if (!curr) {
+		return;
+	}
 	do {
 		fprintf(stderr, "Memory Leak: %zd bytes (%p), allocated from %s at line %d.\n",
 			curr->size, curr->ptr, curr->filename, curr->line_num);
@@ -183,13 +185,18 @@ void check_leak() {
 
 void free_alloc() {
 	// Should have an empty list!
+	pthread_mutex_lock(&malloc_mutex);
 	struct malloc_node* curr = malloc_node_start;
-	if (!curr) return;
+	if (!curr) {
+		pthread_mutex_unlock(&malloc_mutex);
+		return;
+	}
 	do {
 		struct malloc_node* next = curr->next;
 		free((void*)curr);
 		curr = next;
 	} while (curr != malloc_node_start);
+	pthread_mutex_unlock(&malloc_mutex);
 	return;
 }
 

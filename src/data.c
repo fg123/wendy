@@ -20,6 +20,14 @@ struct data make_data(enum data_type type, union data_value value) {
 	return _data;
 }
 
+struct data deep_copy_data(struct memory * memory, struct data d) {
+	if (is_reference(d)) {
+		return make_data(d.type, data_value_ptr(
+			refcnt_deep_copy(memory, d.value.reference)));
+	}
+	return copy_data(d);
+}
+
 struct data copy_data(struct data d) {
 	if (is_numeric(d)) {
 		return make_data(d.type, data_value_num(d.value.number));

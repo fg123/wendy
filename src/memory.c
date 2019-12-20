@@ -54,6 +54,19 @@ void ensure_working_stack_size(struct memory * memory, size_t additional) {
 	}
 }
 
+struct data *refcnt_deep_copy(struct memory * memory, struct data *ptr) {
+	struct refcnt_container* container_info =
+		(struct refcnt_container*)((unsigned char*)ptr - sizeof(struct refcnt_container));
+	if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
+		printf("RefcntDeepCopy: %p size %ld\n", ptr, container_info->count);
+	}
+	struct data * new = refcnt_malloc(memory, container_info->count);
+	for (size_t i = 0; i < container_info->count; i++) {
+		new[i] = deep_copy_data(memory, ptr[i]);
+	}
+	return new;
+}
+
 struct data *refcnt_malloc_impl(struct memory * memory, struct data* allocated, size_t count) {
 	// We allocate:
 	// | refcnt_container | data         |
@@ -78,7 +91,7 @@ struct data *refcnt_malloc_impl(struct memory * memory, struct data* allocated, 
 
 	memory->all_containers_end = container_info;
 	if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
-		printf("refcnt malloc %p\n", allocated);
+		printf("refcnt malloc %p size %ld\n", allocated, count);
 	}
 	// This forces no pointer arithmetic
 	return (struct data*)((unsigned char*)allocated + sizeof(struct refcnt_container));
@@ -171,7 +184,7 @@ struct data *create_closure(struct memory * memory) {
 }
 
 struct memory *memory_init(void) {
-	struct memory *memory = malloc(sizeof(*memory));
+	struct memory *memory = safe_malloc(sizeof(*memory));
 
 	memory->call_stack_size = INITIAL_STACK_SIZE;
 	memory->working_stack_size = INITIAL_WORKING_STACK_SIZE;
@@ -242,6 +255,8 @@ void memory_destroy(struct memory* memory) {
 			break;
 		}
 	}
+
+	safe_free(memory);
 }
 
 void push_frame(struct memory * memory, char* name, address ret, int line) {

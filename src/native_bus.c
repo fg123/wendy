@@ -52,16 +52,17 @@ void native_bus_wait_threads(void) {
 			// No new threads were added, everyone is joined
 			done = true;
 		}
-		else {
-			pthread_mutex_unlock(&threads_mutex);
-		}
+	    pthread_mutex_unlock(&threads_mutex);
 	}
+    
+	pthread_mutex_lock(&threads_mutex);
 	while (threads) {
 		struct thread* next = threads->next;
 		safe_free(threads->name);
 		safe_free(threads);
 		threads = next;
 	}
+	pthread_mutex_unlock(&threads_mutex);
 }
 
 void native_bus_destroy(void) {
@@ -78,6 +79,7 @@ void native_bus_destroy(void) {
 		safe_free(busses);
 		busses = next;
 	}
+	pthread_mutex_unlock(&busses_mutex);
 }
 
 static struct bus* find_or_create(char* name) {
@@ -134,12 +136,12 @@ struct data native_bus_post(struct vm* vm, struct data* args) {
 	pthread_mutex_unlock(&busses_mutex);
 	while (fn) {
 		struct function_entry *entry = safe_malloc(sizeof(*entry));
+        entry->vm = vm_init(fn->function.value.reference[2].value.string);
 		entry->bytecode = vm->bytecode;
 		entry->instruction_ptr = (address) fn->function.value.reference[0].value.number;
-		entry->closure = copy_data(fn->function.value.reference[1]);
-
-		// TODO(felixguo): this will leak reference, will need to make it deep copy
-		entry->arg = copy_data(args[1]);
+        // TODO: deep copying closure might be a lot of overhead
+		entry->closure = deep_copy_data(entry->vm->memory, fn->function.value.reference[1]);
+		entry->arg = deep_copy_data(entry->vm->memory, args[1]);
 
 		pthread_mutex_lock(&threads_mutex);
 		struct thread * thread = safe_malloc(sizeof(*thread));

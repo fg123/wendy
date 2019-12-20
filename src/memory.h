@@ -71,6 +71,9 @@ void ensure_working_stack_size(struct memory *, size_t additional);
 		(count) * sizeof(struct data) + sizeof(struct refcnt_container), 1), count)
 struct data *refcnt_malloc_impl(struct memory *, struct data* allocated, size_t count);
 
+// deep copies a reference counted structure
+struct data *refcnt_deep_copy(struct memory * memory, struct data *ptr);
+
 // refcnt_free() reduces the refcount by 1, and frees the heap memory
 //   if the refcount is 0
 void refcnt_free(struct memory * memory, struct data *ptr);

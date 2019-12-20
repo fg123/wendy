@@ -14,6 +14,7 @@ extern int program_arguments_count;
 void native_call(struct vm* vm, char* function_name, int expected_args);
 
 struct function_entry {
+	struct vm *vm;
 	uint8_t* bytecode;
 	address instruction_ptr;
 	struct data arg;
