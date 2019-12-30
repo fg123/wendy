@@ -56,6 +56,7 @@ void invalid_usage(void) {
 	printf("    --trace-vm        : traces each VM instruction.\n");
 	printf("    --trace-refcnt    : traces each ref-count action.\n");
 	printf("    --trace-bus       : traces each bus action.\n");
+	printf("    --trace-alloc     : traces each allocation.\n");
     printf("    --dry-run         : compiles but does not write to a file or invoke the VM.\n");
 	printf("    -c, --compile     : compiles the given file but does not run.\n");
 	printf("    -v, --verbose     : displays information about memory state on error.\n");
@@ -104,6 +105,9 @@ bool process_options(char** options, int len, char** source) {
         }
 		else if (streq("--ast", options[i])) {
 			set_settings_flag(SETTINGS_ASTPRINT);
+		}
+		else if (streq("--trace-alloc", options[i])) {
+			set_settings_flag(SETTINGS_TRACE_ALLOC);
 		}
 		else if (streq("--dependencies", options[i])) {
 			set_settings_flag(SETTINGS_OUTPUT_DEPENDENCIES);
@@ -401,7 +405,7 @@ wendy_exit:
 	free_source();
 	vm_destroy(vm);
 	native_bus_destroy();
-	destroy_locks();
 	check_leak();
+	destroy_locks();
 	return 0;
 }

@@ -472,7 +472,7 @@ void copy_globals(struct memory * dest, struct memory * src) {
 	for (size_t i = 0; i < src->main_end_pointer; i++) {
 		if (is_identifier_entry(src, i)) {
 			struct stack_entry* entry = push_stack_entry(dest, src->call_stack[i].id, 0);
-			entry->val = copy_data(src->call_stack[i].val);
+			entry->val = deep_copy_data(dest, src->call_stack[i].val);
 		}
 	}
 }
