@@ -385,15 +385,16 @@ int main(int argc, char** argv) {
 			}
 			if (compile_path) safe_free(compile_path);
 		}
+		native_bus_wait_threads();
 	}
 	else {
 		push_frame(vm->memory, "main", 0, 0);
 		vm_run(vm, bytecode_stream, size);
+		native_bus_wait_threads();
 		if (!last_printed_newline) {
 			printf("\n");
 		}
 	}
-	native_bus_wait_threads();
 	safe_free(bytecode_stream);
 
 wendy_exit:
