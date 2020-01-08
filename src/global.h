@@ -51,6 +51,7 @@ enum settings_flags {
 	SETTINGS_SANDBOXED,
 	SETTINGS_TRACE_VM,
 	SETTINGS_TRACE_REFCNT,
+	SETTINGS_TRACE_ALLOC,
 	SETTINGS_TRACE_BUS,
     SETTINGS_DRY_RUN,
 	SETTINGS_COUNT };
@@ -112,6 +113,7 @@ void* safe_release_realloc(void* ptr, size_t size);
 
 void free_alloc(void);
 void check_leak(void);
+void check_integrity(void);
 void safe_exit(int code);
 
 #ifdef _WIN32

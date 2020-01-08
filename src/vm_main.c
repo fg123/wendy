@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
 	safe_free(bytecode_stream);
 	free_imported_libraries_ll();
 	native_bus_destroy();
-	destroy_locks();
 	check_leak();
+	destroy_locks();
 	return 0;
 }

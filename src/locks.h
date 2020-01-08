@@ -10,4 +10,11 @@ extern pthread_mutex_t malloc_mutex;
 
 void init_locks(void);
 void destroy_locks(void);
+
+#define safe_lock(m) safe_lock_impl(m)
+#define safe_unlock(m) safe_unlock_impl(m)
+
+void safe_lock_impl(pthread_mutex_t *mutex);
+void safe_unlock_impl(pthread_mutex_t *mutex);
+
 #endif
