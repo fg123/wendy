@@ -126,7 +126,14 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 	static void* dispatch_table[] = {
 		FOREACH_OPCODE(VM_LABEL)
 	};
-	#define DISPATCH() goto *dispatch_table[vm->bytecode[(vm->instruction_ptr)++]];
+	#define DISPATCH() { \
+		if (get_error_flag()) { \
+			clear_working_stack(vm->memory); \
+			break; \
+		} \
+		goto *dispatch_table[vm->bytecode[(vm->instruction_ptr)++]]; \
+	}
+
 	for (vm->instruction_ptr = start_at;;) {
 		reset_error_flag();
 		enum opcode op = vm->bytecode[vm->instruction_ptr];
@@ -162,7 +169,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				DISPATCH();
 				break;
 			}
-			case OP_BIN: 
+			case OP_BIN:
 			VM_OP_BIN: {
 				enum operator op = vm->bytecode[vm->instruction_ptr++];
 				struct data a = pop_arg(vm->memory, vm->line);
