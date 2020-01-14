@@ -13,7 +13,6 @@ cd lib/src/
 for f in *.w ; do
 	../../bin/wendy "$f" --dependencies > ${f%.w}.d
 	filestems+=(${f%.w})
-	rm ${f%.w}.d
 done
 
 build_order="$(../../bin/dependency-resolve ${filestems[*]})"
