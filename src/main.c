@@ -62,7 +62,8 @@ void invalid_usage(void) {
 	printf("    -t, --token-list  : prints out the parsed tokens.\n");
 	printf("    -d --disassemble  : prints out the disassembled bytecode.\n");
 	printf("    --dependencies    : prints out the module dependencies of the file.\n");
-	printf("    --optimize-locals : assign local variables during compile tile.\n");
+	printf("    --debug           : enables debug mode.\n");
+	printf("    --optimize-locals : assign local variables during compile time.\n");
 	printf("    --sandbox         : runs the VM in sandboxed mode, ie. no file access and no native execution calls.\n");
 	printf("\nWendy will enter REPL mode if no parameters are supplied.\n");
 	safe_exit(1);
@@ -92,6 +93,9 @@ bool process_options(char** options, int len, char** source) {
 		}
 		else if (streq("--optimize-locals", options[i])) {
 			set_settings_flag(SETTINGS_OPTIMIZE_LOCALS);
+		}
+		else if (streq("--debug", options[i])) {
+			set_settings_flag(SETTINGS_DEBUG);
 		}
 		else if (streq("--trace-vm", options[i])) {
 			set_settings_flag(SETTINGS_TRACE_VM);
@@ -152,11 +156,14 @@ void run(char* input_string, struct vm * vm) {
 	if (get_settings_flag(SETTINGS_OPTIMIZE)) {
 		ast = optimize_ast(ast);
 	}
-	if (get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
-		ast = assign_locals(ast);
-	}
 	if (get_settings_flag(SETTINGS_ASTPRINT)) {
 		print_ast(ast);
+	}
+	if (get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+		ast = assign_locals(ast);
+		if (get_settings_flag(SETTINGS_ASTPRINT)) {
+			print_ast(ast);
+		}
 	}
 	if(!ast_error_flag()) {
 		size_t size;
@@ -317,12 +324,16 @@ int main(int argc, char** argv) {
 		if (get_settings_flag(SETTINGS_OPTIMIZE)) {
 			ast = optimize_ast(ast);
 		}
-		if (get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
-			ast = assign_locals(ast);
-		}
 		if (get_settings_flag(SETTINGS_ASTPRINT)) {
 			print_ast(ast);
 		}
+		if (get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+			ast = assign_locals(ast);
+			if (get_settings_flag(SETTINGS_ASTPRINT)) {
+				print_ast(ast);
+			}
+		}
+
 
 		if (get_settings_flag(SETTINGS_OUTPUT_DEPENDENCIES)) {
 			// Perform static analysis to output dependencies
@@ -365,7 +376,7 @@ int main(int argc, char** argv) {
 	}
 	fclose(file);
 	if (get_settings_flag(SETTINGS_DISASSEMBLE)) {
-		print_bytecode(bytecode_stream, length, stdout);
+		print_bytecode(bytecode_stream, size, stdout);
 	}
 	if (get_settings_flag(SETTINGS_COMPILE)) {
 		if (is_compiled) {

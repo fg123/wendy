@@ -78,7 +78,8 @@ struct statement {
 			struct {    enum opcode        operator;
 						struct expr*       operand; }          operation_statement;
 			struct {    char*              lvalue;
-						struct expr*       rvalue; }           let_statement;
+						struct expr*       rvalue;
+						struct data        lvalue_offset; }    let_statement;
 			struct {    char*              name;
 						struct expr_list*  instance_members;
 						struct expr_list*  static_members;
@@ -88,7 +89,8 @@ struct statement {
 						struct statement*  statement_false; }  if_statement;
 			struct {    char*              index_var;
 						struct expr*       condition;
-						struct statement*  statement_true; }   loop_statement;
+						struct statement*  statement_true;
+						int                loop_var_offset; }   loop_statement;
 			struct {    char*              name;
 						struct expr_list*  values;
 						struct expr*       init_fn;        }   enum_statement;
@@ -101,7 +103,9 @@ struct statement {
 };
 
 struct statement_list {
-	struct statement*              elem;
+	bool is_first;
+	bool is_last;
+	struct statement* elem;
 	struct statement_list*  next;
 };
 
@@ -134,6 +138,8 @@ void free_ast(struct statement_list* ast);
 
 // print_ast(ast) prints the tree in post order
 void print_ast(struct statement_list* ast);
+
+bool verify_function_parameters(struct expr_list* parameter_list);
 
 // ast_error_flag() returns true if the AST module encountered an error, and
 //   false otherwise

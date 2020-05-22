@@ -47,6 +47,8 @@ bool get_error_flag(void);
 // AST Messages:
 #define AST_EXPECTED_TOKEN SCAN_EXPECTED_TOKEN
 #define AST_EXPECTED_IDENTIFIER "Expected identifier in identifier list!"
+#define AST_MEMBER_LOOKUP_MUST_BE_LITERAL_IDENTIFIER "Member lookup must be literal identifier!"
+#define AST_INVALID_FUNCTION_PARAMETER_LIST "Function parameter list must be literals or assignment expressions!"
 #define AST_EXPECTED_PRIMARY "Expected primary expression!"
 #define AST_EXPECTED_IDENTIFIER_LOOP "Expected identifier in place of loop variable."
 #define AST_STRUCT_NAME_IDENTIFIER "Struct name must be an identifier!"
@@ -58,9 +60,7 @@ bool get_error_flag(void);
 #define OPTIMIZER_NO_STATEMENT_BLOCK "Identifier declared outside of statement block!?"
 
 // CodeGen Messages:
-#define CODEGEN_LVALUE_EXPECTED_IDENTIFIER "Expected identifier in lvalue expression."
-#define CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL_IDENTIFIER \
-	"Right parameter of member access binary operator must be a valid identifier, found %s."
+#define CODEGEN_LVALUE_EXPECTED_IDENTIFIER "Expected identifier in LValue expression, found %s."
 #define CODEGEN_NAMED_ARGUMENT_NOT_LITERAL "Named arguments must be a valid LITERAL identifier."
 #define CODEGEN_UNEXPECTED_FUNCTION_PARAMETER \
 	"Unexpected function parameter declaration."
@@ -100,6 +100,7 @@ bool get_error_flag(void);
 #define MEMORY_REGISTER_STACK_OVERFLOW "Internal memory stack overflowed."
 
 // VM Errors:
+#define VM_PRINTING_NULL "Printing uninitialized memory!"
 #define VM_RET_FROM_MAIN "Illegal return statement called at the top level."
 #define VM_INVALID_OPCODE "Invalid enum opcode encountered (0x%X at 0x%X)."
 #define VM_VAR_DECLARED_ALREADY "Identifier '%s' was already declared!"

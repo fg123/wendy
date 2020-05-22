@@ -133,12 +133,16 @@ static inline void write_opcode(enum opcode op) {
 }
 
 static void make_scope(void) {
-	write_opcode(OP_FRM);
+	if (!get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+		write_opcode(OP_FRM);
+	}
 	scope_level += 1;
 }
 
 static void end_scope(void) {
-	write_opcode(OP_END);
+	if (!get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+		write_opcode(OP_END);
+	}
 	scope_level -= 1;
 	if (scope_level < 0) {
 		error_general("Scope level below 0! make_scope and end_scope not aligned!");
@@ -149,35 +153,38 @@ static void codegen_expr(void* expre);
 static void codegen_statement(void* expre);
 static void codegen_statement_list(void* expre);
 
-static bool is_literal_identifier(struct expr *e) {
+static bool is_member_identifier(struct expr *e) {
 	return e->type == E_LITERAL &&
-		(e->op.lit_expr.type == D_IDENTIFIER ||
-		 e->op.lit_expr.type == D_MEMBER_IDENTIFIER);
+		(e->op.lit_expr.type == D_MEMBER_IDENTIFIER);
 }
 
 static void codegen_lvalue_expr(struct expr* expression) {
 	if (expression->type == E_LITERAL) {
-		// Better be a identifier eh
-		if (expression->op.lit_expr.type != D_IDENTIFIER) {
-			error_lexer(expression->line, expression->col,
-				CODEGEN_LVALUE_EXPECTED_IDENTIFIER);
-			return;
+		// Better be identifier, or offsets
+		if (expression->op.lit_expr.type == D_IDENTIFIER) {
+			write_opcode(OP_WHERE);
+			write_string(expression->op.lit_expr.value.string);
 		}
-		write_opcode(OP_WHERE);
-		write_string(expression->op.lit_expr.value.string);
+		else if (expression->op.lit_expr.type == D_IDENTIFIER_LOCAL_OFFSET) {
+			write_opcode(OP_LOFFSET);
+			write_address(expression->op.lit_expr.value.number);
+		}
+		else if (expression->op.lit_expr.type == D_IDENTIFIER_GLOBAL_OFFSET) {
+			write_opcode(OP_GOFFSET);
+			write_address(expression->op.lit_expr.value.number);
+		}
+		else {
+			error_lexer(expression->line, expression->col,
+				CODEGEN_LVALUE_EXPECTED_IDENTIFIER,
+				data_string[expression->op.lit_expr.type]);
+		}
 	}
 	else if (expression->type == E_BINARY) {
 		// Left side in memory reg
 		codegen_expr(expression->op.bin_expr.left);
 
 		if (expression->op.bin_expr.operator == O_MEMBER) {
-			if (!is_literal_identifier(expression->op.bin_expr.right)) {
-				error_lexer(expression->line, expression->col,
-					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL_IDENTIFIER,
-					data_string[expression->op.bin_expr.right->op.lit_expr.type]);
-				return;
-			}
-			//expression->op.bin_expr.right->op.lit_expr.t_type = T_MEMBER;
+			assert(is_member_identifier(expression->op.bin_expr.right));
 			write_opcode(OP_MEMPTR);
 			write_string(expression->op.bin_expr.right->op.lit_expr.value.string);
 		}
@@ -345,6 +352,8 @@ static bool codegen_one_instruction(struct token *tokens, size_t _size, size_t *
 		case OP_OUTL:
 			// NO ARGS
 			break;
+		case OP_GOFFSET:
+		case OP_LOFFSET:
 		case OP_JMP:
 		case OP_JIF:
 		case OP_SRC: {
@@ -446,8 +455,20 @@ static void codegen_statement(void* expre) {
 		case S_LET: {
 			codegen_expr(state->op.let_statement.rvalue);
 			// Request Memory
-			write_opcode(OP_DECL);
-			write_string(state->op.let_statement.lvalue);
+			if (get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+				if (state->op.let_statement.lvalue_offset.type == D_IDENTIFIER_LOCAL_OFFSET) {
+					write_opcode(OP_LOFFSET);
+					write_address(state->op.let_statement.lvalue_offset.value.number);
+				}
+				else if (state->op.let_statement.lvalue_offset.type == D_IDENTIFIER_GLOBAL_OFFSET) {
+					write_opcode(OP_GOFFSET);
+					write_address(state->op.let_statement.lvalue_offset.value.number);
+				}
+			}
+			else {
+				write_opcode(OP_DECL);
+				write_string(state->op.let_statement.lvalue);
+			}
 			write_opcode(OP_WRITE);
 			break;
 		}
@@ -486,8 +507,10 @@ static void codegen_statement(void* expre) {
 				error_general("Internal error, scope (%d) < current loop (%d)!",
 					scope_level, current_loop_context->scope);
 			}
-			for (int j = scope_level; j != current_loop_context->scope; j--) {
-				write_opcode(OP_END);
+			if (!get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+				for (int j = scope_level; j != current_loop_context->scope; j--) {
+					write_opcode(OP_END);
+				}
 			}
 			write_opcode(OP_JMP);
 
@@ -506,8 +529,10 @@ static void codegen_statement(void* expre) {
 				error_general("Internal error, scope (%d) < current loop (%d)!",
 					scope_level, current_loop_context->scope);
 			}
-			for (int j = scope_level; j != current_loop_context->scope; j--) {
-				write_opcode(OP_END);
+			if (!get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+				for (int j = scope_level; j != current_loop_context->scope; j--) {
+					write_opcode(OP_END);
+				}
 			}
 			write_opcode(OP_JMP);
 
@@ -918,13 +943,7 @@ static void codegen_expr(void* expre) {
 			return;
 		}
 		else if (expression->op.bin_expr.operator == O_MEMBER) {
-			if (!is_literal_identifier(expression->op.bin_expr.right)) {
-				error_lexer(expression->line, expression->col,
-					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL_IDENTIFIER,
-					data_string[expression->op.bin_expr.right->op.lit_expr.type]);
-				return;
-			}
-			expression->op.bin_expr.right->op.lit_expr.type = D_MEMBER_IDENTIFIER;
+			assert(is_member_identifier(expression->op.bin_expr.right));
 			write_opcode(OP_PUSH);
 			write_data(copy_data(
                 expression->op.bin_expr.right->op.lit_expr));
@@ -1024,7 +1043,9 @@ static void codegen_expr(void* expre) {
 
 			// Encase this in a seperate frame in case we use imports and it's
 			//   already declared.
-			write_opcode(OP_FRM);
+			if (!get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+				write_opcode(OP_FRM);
+			}
 			made_new_frame = true;
 			char temp_variable[30];
 			sprintf(temp_variable, "$mem_call_tmp%zd", global_member_call_id++);
@@ -1045,7 +1066,9 @@ static void codegen_expr(void* expre) {
 		codegen_expr(expression->op.call_expr.function);
 		write_opcode(OP_CALL);
 		if (made_new_frame) {
-			write_opcode(OP_END);
+			if (!get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+				write_opcode(OP_END);
+			}
 		}
 	}
 	else if (expression->type == E_LIST) {
@@ -1062,6 +1085,8 @@ static void codegen_expr(void* expre) {
 		write_integer(count + 1);
 	}
 	else if (expression->type == E_FUNCTION) {
+		assert(verify_function_parameters(expression->op.func_expr.parameters));
+
 		write_opcode(OP_JMP);
 		int writeSizeLoc = size;
 		size += sizeof(address);
@@ -1107,7 +1132,7 @@ static void codegen_expr(void* expre) {
 							param->elem->col,
 							CODEGEN_FUNCTION_DEFAULT_VALUES_AT_END);
 					}
-					if (param->elem->op.lit_expr.type != D_IDENTIFIER) {
+					if (param->elem->op.lit_expr.type != D_PARAM_IDENTIFIER) {
 						error_lexer(param->elem->line,
 							param->elem->col,
 							CODEGEN_UNEXPECTED_FUNCTION_PARAMETER);
@@ -1256,10 +1281,6 @@ address get_address(uint8_t* bytecode, unsigned int* end) {
 }
 
 void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer) {
-	fprintf(buffer, RED "WendyVM ByteCode Disassembly\n" GRN ".header\n");
-	fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: ", &bytecode[0], 0);
-	fprintf(buffer, YEL WENDY_VM_HEADER);
-	fprintf(buffer, GRN "\n.code\n");
 	int max_len = 12;
 	int baseaddr = 0;
 	UNUSED(baseaddr);
@@ -1267,6 +1288,11 @@ void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer) {
 	if (!get_settings_flag(SETTINGS_REPL)) {
 		i = verify_header(bytecode, length);
 	}
+
+	fprintf(buffer, RED "WendyVM ByteCode Disassembly\n" GRN ".header\n");
+	fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: ", &bytecode[0], 0);
+	fprintf(buffer, YEL WENDY_VM_HEADER);
+	fprintf(buffer, GRN "\n.code\n");
 	forever {
 		unsigned int start = i;
 		fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
@@ -1334,7 +1360,25 @@ void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer) {
 				p += fprintf(buffer, "%.*s", max_len, c);
 				break;
 			}
-			default: break;
+			case OP_RET:
+			case OP_WRITE:
+			case OP_IN:
+			case OP_OUT:
+			case OP_OUTL:
+			case OP_FRM:
+			case OP_END:
+			case OP_HALT:
+			case OP_ARGCLN:
+			case OP_CLOSURE:
+			case OP_NTHPTR:
+			case OP_INC:
+			case OP_DEC:
+			case OP_CALL:
+				break;
+			case OP_LOFFSET:
+			case OP_GOFFSET: {
+				p += fprintf(buffer, "%d", get_address(bytecode + i, &i));
+			}
 		}
 		while (p++ < 30) {
 			fprintf(buffer, " ");

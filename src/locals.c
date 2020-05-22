@@ -1,10 +1,6 @@
 #include "locals.h"
 #include "error.h"
 
-// TODO(felixguo): This shares a lot of structure with optimizer
-//   ideally it should share structure.
-
-
 // Linked list node of identifiers within a struct statement block
 struct id_node {
 	char* id_name;
@@ -15,6 +11,8 @@ struct id_node {
 // struct statement scope block to simulate function calls and checking if identifiers exist.
 struct statement_block {
 	struct id_node* id_list;
+	bool closure_boundary;
+	int offset;
 	struct statement_block* next;
 };
 
@@ -41,20 +39,36 @@ static void free_id_nodes(struct id_node* node) {
 	safe_free(node);
 }
 
-static void add_node(char* id) {
+static void debug_print(void) {
+	fprintf(stderr, "DEBUG PRINT ===\n");
+	struct statement_block* curr = curr_statement_block;
+	while (curr) {
+		fprintf(stderr, "Block (%p): \n", curr);
+		struct id_node* list = curr->id_list;
+		while (list) {
+			fprintf(stderr, "\t%s: %d\n", list->id_name, list->offset);
+			list = list->next;
+		}
+		curr = curr->next;
+	}
+	fprintf(stderr, "===============\n");
+}
+
+static struct id_node* add_node(char* id) {
 	if (!curr_statement_block) {
 		// TODO: locals error here instead
-		error_general(OPTIMIZER_NO_STATEMENT_BLOCK);
-		return;
+		error_general(OPTIMIZER_NO_STATEMENT_BLOCK ": %s", id);
+		return NULL;
 	}
 	struct id_node* new_node = safe_malloc(sizeof(struct id_node));
 	new_node->id_name = id;
-	new_node->offset = 0;
+	new_node->offset = curr_statement_block->offset;
 	if (curr_statement_block->id_list) {
 		new_node->offset = curr_statement_block->id_list->offset + 1;
 	}
 	new_node->next = curr_statement_block->id_list;
 	curr_statement_block->id_list = new_node;
+	return new_node;
 }
 
 struct offset_return {
@@ -62,52 +76,79 @@ struct offset_return {
 	int offset;
 };
 
-static struct offset_return get_offset_of_identifier(char* id) {
+static struct offset_return get_offset_of_identifier(char* id, int line, int col) {
 	// TODO(felixguo): Do Closures
 	if (!curr_statement_block) {
 		// TODO: locals error here instead
-		error_general(OPTIMIZER_NO_STATEMENT_BLOCK);
-		return;
+		error_general(OPTIMIZER_NO_STATEMENT_BLOCK ": %s", id);
+		return (struct offset_return) { false, -1 };
 	}
-	struct id_node* curr = curr_statement_block->id_list;
-	while (curr) {
-		if (streq(curr->id_name, id)) {
-			return { false, curr->offset };
+	if (streq(id, "this")) {
+		return (struct offset_return) { false, -1 };
+	}
+	struct statement_block* curr_block = curr_statement_block;
+	while (curr_block != global_statement_block) {
+		struct id_node* curr = curr_block->id_list;
+		while (curr) {
+			if (streq(curr->id_name, id)) {
+				return (struct offset_return){ false, curr->offset };
+			}
+			curr = curr->next;
 		}
-		curr = curr->next;
+		if (curr_block->closure_boundary) break;
+		curr_block = curr_block->next;
 	}
 	// Search Global Too
-	curr = global_statement_block->id_list;
+	struct id_node* curr = global_statement_block->id_list;
 	while (curr) {
 		if (streq(curr->id_name, id)) {
-			return { true, curr->offset };
+			return (struct offset_return){ true, curr->offset };
 		}
 		curr = curr->next;
 	}
-	return { false, -1 };
+	// TODO: make error message
+	error_lexer(line, col, MEMORY_ID_NOT_FOUND, id);
+	return (struct offset_return){ false, -1 };
 }
 
-static void make_new_block(void) {
+static void make_new_block(bool closure_boundary) {
+	fprintf(stderr, "Make new block\n");
 	struct statement_block* new_block = safe_malloc(sizeof(struct statement_block));
 	new_block->next = curr_statement_block;
 	new_block->id_list = 0;
+	new_block->closure_boundary = closure_boundary;
+
+	if (!closure_boundary && curr_statement_block) {
+		new_block->offset = curr_statement_block->offset;
+	}
+	else {
+		new_block->offset = 2;
+	}
+
 	if (!curr_statement_block) {
 		// First Ever is the Global Block
 		global_statement_block = new_block;
 	}
 	curr_statement_block = new_block;
+
+	debug_print();
 }
 
 static void delete_block(void) {
-	struct statement_block* next = curr_statement_block->next;
-	free_statement_block(curr_statement_block);
-	curr_statement_block = next;
+	fprintf(stderr, "Delete block\n");
+	if (curr_statement_block) {
+		struct statement_block* next = curr_statement_block->next;
+		free_statement_block(curr_statement_block);
+		curr_statement_block = next;
+	}
+	debug_print();
 }
 
 void assign_statement_list_pre(struct statement_list* list,
 						       struct traversal_algorithm *algo) {
 	UNUSED(algo);
 	UNUSED(list);
+	if (list->is_first) make_new_block(false);
 	return;
 }
 
@@ -115,7 +156,21 @@ void assign_statement_pre(struct statement* state,
 					      struct traversal_algorithm *algo) {
 	if (state->type == S_LET) {
 		// Create a new id_node
-		add_node(state->op.let_statement.lvalue);
+		struct id_node* node = add_node(state->op.let_statement.lvalue);
+		state->op.let_statement.lvalue_offset = make_data(
+				curr_statement_block == global_statement_block ? D_IDENTIFIER_GLOBAL_OFFSET : D_IDENTIFIER_LOCAL_OFFSET,
+				data_value_num(node->offset));
+	}
+	else if (state->type == S_LOOP) {
+		make_new_block(false);
+		if (state->op.loop_statement.index_var) {
+			// Add 3 slots for list usage
+			add_node(":::1");
+			add_node(":::2");
+			add_node(":::3");
+			state->op.loop_statement.loop_var_offset = get_offset_of_identifier(":::1", 0, 0).offset;
+			add_node(state->op.loop_statement.index_var);
+		}
 	}
 	UNUSED(algo);
 	return;
@@ -124,19 +179,35 @@ void assign_statement_pre(struct statement* state,
 void assign_expr_pre(struct expr* expression,
 				     struct traversal_algorithm *algo) {
 	UNUSED(algo);
-	UNUSED(expression);
 	if (expression->type == E_LITERAL) {
 		if (expression->op.lit_expr.type == D_IDENTIFIER) {
-			char* id = expression=>op.lit_expr.value.string;
-			struct offset_return oret = get_offset_of_identifier(id);
+			char* id = expression->op.lit_expr.value.string;
+			struct offset_return oret = get_offset_of_identifier(id,
+				expression->line, expression->col);
 			if (oret.offset < 0) {
-				error_runtime(expression->line, MEMORY_ID_NOT_FOUND, id);
 				return;
 			}
 			destroy_data(&expression->op.lit_expr);
 			expression->op.lit_expr = make_data(
 				oret.is_global ? D_IDENTIFIER_GLOBAL_OFFSET : D_IDENTIFIER_LOCAL_OFFSET,
 				data_value_num(oret.offset));
+		}
+	}
+	else if (expression->type == E_FUNCTION) {
+		// Make collapsible extra block to store parameters
+		make_new_block(true);
+		// Add 2 because codegen pushes self and fn and arguments
+		curr_statement_block->offset += 3;
+		struct expr_list* param_list = expression->op.func_expr.parameters;
+		while (param_list) {
+			struct expr* e = param_list->elem;
+			if (e->type == E_LITERAL) {
+				add_node(e->op.lit_expr.value.string);
+			}
+			else {
+				add_node(e->op.assign_expr.lvalue->op.lit_expr.value.string);
+			}
+			param_list = param_list->next;
 		}
 	}
 	return;
@@ -153,22 +224,25 @@ void assign_statement_list_post(struct statement_list* list,
 						        struct traversal_algorithm *algo) {
 	UNUSED(algo);
 	UNUSED(list);
-	make_new_block();
+	if (list->is_last) delete_block();
 	return;
 }
 
 void assign_statement_post(struct statement* state,
 					       struct traversal_algorithm *algo) {
-	UNUSED(state);
 	UNUSED(algo);
+	if (state->type == S_LOOP) {
+		delete_block();
+	}
 	return;
 }
 
 void assign_expr_post(struct expr* expression,
 				      struct traversal_algorithm *algo) {
 	UNUSED(algo);
-	UNUSED(expression);
-	delete_block();
+	if (expression->type == E_FUNCTION) {
+		delete_block();
+	}
 	return;
 }
 

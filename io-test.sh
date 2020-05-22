@@ -26,5 +26,17 @@ for f in tests/*.in ; do
 		echo ============================
 	fi
 done
+# echo Running Tests with Optimize Local Flag...
+# for f in tests/*.in ; do
+#	bin/wendy "$f" --optimize-locals > file.tmp
+#	if diff "${f%.in}.expect" file.tmp > /dev/null ; then
+#		echo Test $(basename $f):optimize-locals passed.
+#	else
+#		cp file.tmp "${f%.in}.err"
+#		echo Test $(basename $f):optimize-locals failed.
+#		diff -c "${f%.in}.expect" file.tmp
+#		echo ============================
+#	fi
+# done
 rm file.tmp
 echo Tests Done

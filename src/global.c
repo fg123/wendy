@@ -37,6 +37,7 @@ char* safe_concat_impl(char *first, ...) {
 }
 
 inline bool streq(const char* a, const char* b) {
+	if (!a || !b) return false;
 	return strcmp(a, b) == 0;
 }
 
@@ -84,6 +85,13 @@ static void remove_from_list(struct malloc_node* node) {
 	}
 	node->prev = 0;
 	node->next = 0;
+}
+
+void assert_impl(bool condition, char* filename, int line_num) {
+	if (!condition) {
+		fprintf(stderr, "Assertion failed at %s:%d. Exiting! \n", filename, line_num);
+		safe_exit(2);
+	}
 }
 
 void* safe_malloc_impl(size_t size, char* filename, int line_num) {
@@ -148,10 +156,8 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
 }
 
 void safe_free_impl(void* ptr, char* filename, int line_num) {
-	UNUSED(filename);
-	UNUSED(line_num);
 	if (!ptr) {
-		fprintf(stderr, "Free Error: Attempted to free a null pointer.\n");
+		fprintf(stderr, "Free Error: Attempted to free a null pointer at %s at line %d\n", filename, line_num);
 		return;
 	}
 	struct malloc_node* node_ptr = ptr - sizeof(struct malloc_node);

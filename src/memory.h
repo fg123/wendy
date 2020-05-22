@@ -103,6 +103,9 @@ bool id_exist(struct memory * memory, char* id, bool search_main);
 // get_address_of_id(id, line) returns address of the id given
 //   requires: id exist in the stackframe
 struct data* get_address_of_id(struct memory * memory, char* id, int line);
+struct data* get_address_of_offset(struct memory * memory, size_t offset, bool is_global);
+
+char* get_name_of_offset(struct memory * memory, size_t offset, bool is_global);
 
 // get_value_of_id(id, line) returns the value of the id given
 //   requires: id exist in the stackframe

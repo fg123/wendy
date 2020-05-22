@@ -122,17 +122,25 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 			vm->bytecode[start_at + i] = new_bytecode[i];
 		}
 	}
+
 	#define VM_LABEL(x) &&VM_##x,
 	static void* dispatch_table[] = {
 		FOREACH_OPCODE(VM_LABEL)
 	};
-	#define DISPATCH() { \
+	#define DISPATCH() do { \
 		if (get_error_flag()) { \
 			clear_working_stack(vm->memory); \
 			break; \
 		} \
+		if (get_settings_flag(SETTINGS_TRACE_VM)) { \
+			op = vm->bytecode[vm->instruction_ptr]; \
+			printf(BLU "<+%04X>: " RESET "%s\n", vm->instruction_ptr, opcode_string[op]); \
+		} \
+		if (get_settings_flag(SETTINGS_DEBUG)) { \
+        	print_call_stack(vm->memory, stdout, 100); \
+        } \
 		goto *dispatch_table[vm->bytecode[(vm->instruction_ptr)++]]; \
-	}
+	} while (0)
 
 	for (vm->instruction_ptr = start_at;;) {
 		reset_error_flag();
@@ -160,11 +168,32 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 						}
 						d = copy_data(*value);
 					}
+					vm->last_pushed_identifier = t.value.string;
+				}
+				else if	(t.type == D_IDENTIFIER_LOCAL_OFFSET) {
+					struct data* value = get_address_of_offset(vm->memory,
+						(size_t) t.value.number, false);
+					if (!value) {
+						break;
+					}
+					d = copy_data(*value);
+					vm->last_pushed_identifier = get_name_of_offset(vm->memory,
+						(size_t) t.value.number, false);
+				}
+				else if (t.type == D_IDENTIFIER_GLOBAL_OFFSET) {
+					struct data* value = get_address_of_offset(vm->memory,
+						(size_t) t.value.number, true);
+					if (!value) {
+						break;
+					}
+					d = copy_data(*value);
+					vm->last_pushed_identifier = get_name_of_offset(vm->memory,
+						(size_t) t.value.number, true);
 				}
 				else {
 					d = copy_data(t);
+					vm->last_pushed_identifier = t.value.string;
 				}
-				vm->last_pushed_identifier = t.value.string;
 				push_arg(vm->memory, d);
 				DISPATCH();
 				break;
@@ -348,6 +377,26 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					continue;
 				}
 				arg->value.number -= 1;
+				DISPATCH();
+				break;
+			}
+			case OP_GOFFSET:
+			VM_OP_GOFFSET: {
+				void* ad = &vm->bytecode[vm->instruction_ptr];
+				address offset = get_address(ad, &vm->instruction_ptr);
+				struct data* value = get_address_of_offset(vm->memory, offset, true);
+				vm->last_pushed_identifier = get_name_of_offset(vm->memory, offset, true);
+				push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(value)));
+				DISPATCH();
+				break;
+			}
+			case OP_LOFFSET:
+			VM_OP_LOFFSET: {
+				void* ad = &vm->bytecode[vm->instruction_ptr];
+				address offset = get_address(ad, &vm->instruction_ptr);
+				struct data* value = get_address_of_offset(vm->memory, offset, false);
+				vm->last_pushed_identifier = get_name_of_offset(vm->memory, offset, false);
+				push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(value)));
 				DISPATCH();
 				break;
 			}
@@ -816,21 +865,26 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
             VM_OP_OUT: {
 				struct data t = pop_arg(vm->memory, vm->line);
 				if (t.type != D_NONERET) {
-					char* fn_name = get_print_overload_name(vm, t);
-					if (id_exist(vm->memory, fn_name, true)) {
-						push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
-						push_arg(vm->memory, t);
-						push_arg(vm->memory, copy_data(*get_value_of_id(vm->memory, fn_name, vm->line)));
-						safe_free(fn_name);
-						/* This i-- allows the overloaded function to return
-						 * a string / object and have that be the printed
-						 * output, i.e. it will call function and execute
-						 * the OP_OUT again */
-						vm->instruction_ptr--;
-						goto wendy_vm_call;
+					if (t.type == D_EMPTY) {
+						error_runtime(vm->memory, vm->line, VM_PRINTING_NULL);
 					}
-					safe_free(fn_name);
-					print_data(&t);
+					else {
+						char* fn_name = get_print_overload_name(vm, t);
+						if (id_exist(vm->memory, fn_name, true)) {
+							push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+							push_arg(vm->memory, t);
+							push_arg(vm->memory, copy_data(*get_value_of_id(vm->memory, fn_name, vm->line)));
+							safe_free(fn_name);
+							/* This i-- allows the overloaded function to return
+							 * a string / object and have that be the printed
+							 * output, i.e. it will call function and execute
+							 * the OP_OUT again */
+							vm->instruction_ptr--;
+							goto wendy_vm_call;
+						}
+						safe_free(fn_name);
+						print_data(&t);
+					}
 				}
 				destroy_data_runtime(vm->memory, &t);
 				DISPATCH();
@@ -840,21 +894,26 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
             VM_OP_OUTL: {
 				struct data t = pop_arg(vm->memory, vm->line);
 				if (t.type != D_NONERET) {
-					char* fn_name = get_print_overload_name(vm, t);
-					if (id_exist(vm->memory, fn_name, true)) {
-						push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
-						push_arg(vm->memory, t);
-						push_arg(vm->memory, copy_data(*get_value_of_id(vm->memory, fn_name, vm->line)));
-						safe_free(fn_name);
-						/* This i-- allows the overloaded function to return
-						 * a string / object and have that be the printed
-						 * output, i.e. it will call function and execute
-						 * the OP_OUT again */
-						vm->instruction_ptr--;
-						goto wendy_vm_call;
+					if (t.type == D_EMPTY) {
+						error_runtime(vm->memory, vm->line, VM_PRINTING_NULL);
 					}
-					safe_free(fn_name);
-					print_data_inline(&t, stdout);
+					else {
+						char* fn_name = get_print_overload_name(vm, t);
+						if (id_exist(vm->memory, fn_name, true)) {
+							push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+							push_arg(vm->memory, t);
+							push_arg(vm->memory, copy_data(*get_value_of_id(vm->memory, fn_name, vm->line)));
+							safe_free(fn_name);
+							/* This i-- allows the overloaded function to return
+							 * a string / object and have that be the printed
+							 * output, i.e. it will call function and execute
+							 * the OP_OUT again */
+							vm->instruction_ptr--;
+							goto wendy_vm_call;
+						}
+						safe_free(fn_name);
+						print_data_inline(&t, stdout);
+					}
 				}
 				destroy_data_runtime(vm->memory, &t);
 				DISPATCH();

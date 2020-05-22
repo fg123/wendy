@@ -33,6 +33,54 @@ static bool check(enum token_type t);
 static struct token advance(void);
 static struct token previous(void);
 
+// Constructing Methods
+static struct statement* make_let_statement(char* id, struct expr* value) {
+	struct statement* sm = safe_malloc(sizeof(struct statement));
+	sm->type = S_LET;
+	sm->op.let_statement.lvalue = safe_strdup(id);
+	sm->op.let_statement.rvalue = value;
+	return sm;
+}
+
+static struct expr* make_identifier_expr(char* id) {
+	return lit_expr_from_data(make_data(D_IDENTIFIER, data_value_str(id)));
+}
+
+static struct expr* make_get_size_of_expr(char* id) {
+	struct token op = make_token(T_DOT, make_data_str("."));
+
+	struct expr* result = make_bin_expr(make_identifier_expr(id), op,
+		lit_expr_from_data(make_data(D_MEMBER_IDENTIFIER, data_value_str("size"))));
+
+	destroy_token(op);
+	return result;
+}
+
+static struct statement* make_inc_statement(char* id) {
+	struct statement* sm = safe_malloc(sizeof(struct statement));
+	sm->type = S_OPERATION;
+	sm->op.operation_statement.operator = OP_INC;
+	sm->op.operation_statement.operand = make_identifier_expr(id);
+	return sm;
+}
+
+static struct expr* make_array_access_expr(char* id, char* internal) {
+	struct token op = make_token(T_LEFT_BRACK, make_data_str("["));
+
+	struct expr* result = make_bin_expr(make_identifier_expr(id), op,
+		make_identifier_expr(internal));
+
+	destroy_token(op);
+	return result;
+}
+
+static struct statement* make_expr_statement(struct expr* e) {
+	struct statement* sm = safe_malloc(sizeof(struct statement));
+	sm->type = S_EXPR;
+	sm->op.expr_statement = e;
+	return sm;
+}
+
 // Public Methods
 // Wrapping safe_free macro for use as a function pointer.
 
@@ -65,6 +113,7 @@ void ast_safe_free_s(struct statement* ptr, struct traversal_algorithm* algo) {
 			if (ptr->op.let_statement.lvalue) {
 				safe_free(ptr->op.let_statement.lvalue);
 			}
+			destroy_data(&ptr->op.let_statement.lvalue_offset);
 			break;
 		case S_BREAK:
 		case S_CONTINUE:
@@ -248,6 +297,29 @@ static struct expr* lvalue(void) {
 	return exp;
 }
 
+bool verify_function_parameters(struct expr_list* parameter_list) {
+	while (parameter_list) {
+		struct expr* e = parameter_list->elem;
+		// Must be lit identifier or lit = expr
+		bool is_literal_identifier = e->type == E_LITERAL && (
+			e->op.lit_expr.type == D_IDENTIFIER || e->op.lit_expr.type == D_PARAM_IDENTIFIER);
+		bool is_assignment = e->type == E_ASSIGN && e->op.assign_expr.lvalue->type == E_LITERAL &&
+			(e->op.assign_expr.lvalue->op.lit_expr.type == D_IDENTIFIER ||
+			e->op.assign_expr.lvalue->op.lit_expr.type == D_PARAM_IDENTIFIER);
+
+		if (!(is_literal_identifier || is_assignment)) return false;
+
+		if (e->type == E_LITERAL) {
+			e->op.lit_expr.type = D_PARAM_IDENTIFIER;
+		}
+		else {
+			e->op.assign_expr.lvalue->op.lit_expr.type = D_PARAM_IDENTIFIER;
+		}
+		parameter_list = parameter_list->next;
+	}
+	return true;
+}
+
 static struct expr* primary(void) {
 	if (match(T_STRING, T_NUMBER, T_TRUE, T_FALSE, T_NONE, T_IDENTIFIER,
 			T_OBJ_TYPE)) {
@@ -268,6 +340,12 @@ static struct expr* primary(void) {
 		consume(T_LEFT_PAREN);
 		struct expr_list* list = expression_list(T_RIGHT_PAREN);
 		consume(T_RIGHT_PAREN);
+		if (!verify_function_parameters(list)) {
+			struct token t = previous();
+			error_lexer(t.t_line, t.t_col, AST_INVALID_FUNCTION_PARAMETER_LIST);
+			error_thrown = true;
+			return 0;
+		}
 		struct statement* fn_body = parse_statement();
 		return make_func_expr(list, fn_body);
 	}
@@ -306,6 +384,12 @@ static struct expr* access(void) {
 		}
 		else {
 			right = primary();
+			if (!(right->type == E_LITERAL && right->op.lit_expr.type == D_IDENTIFIER)) {
+				error_lexer(op.t_line, op.t_col, AST_MEMBER_LOOKUP_MUST_BE_LITERAL_IDENTIFIER);
+				error_thrown = true;
+				return 0;
+			}
+			right->op.lit_expr.type = D_MEMBER_IDENTIFIER;
 			left = make_bin_expr(left, op, right);
 		}
 	}
@@ -320,6 +404,7 @@ static struct expr* unary(void) {
 	}
 	return access();
 }
+
 static struct expr* factor(void) {
 	struct expr* left = unary();
 	while (match(T_STAR, T_SLASH, T_INTSLASH, T_PERCENT, T_MOD_EQUAL)) {
@@ -388,6 +473,12 @@ static struct expr* assignment(void) {
 		consume(T_LEFT_PAREN);
 		struct expr_list* parameters = expression_list(T_RIGHT_PAREN);
 		consume(T_RIGHT_PAREN);
+		if (!verify_function_parameters(parameters)) {
+			struct token t = previous();
+			error_lexer(t.t_line, t.t_col, AST_INVALID_FUNCTION_PARAMETER_LIST);
+			error_thrown = true;
+			return 0;
+		}
 		struct expr* rvalue;
 		if (match(T_NATIVE)) {
 			// Native Binding
@@ -494,6 +585,12 @@ static struct statement* parse_statement(void) {
 				consume(T_LEFT_PAREN);
 				struct expr_list* parameters = expression_list(T_RIGHT_PAREN);
 				consume(T_RIGHT_PAREN);
+				if (!verify_function_parameters(parameters)) {
+					struct token t = previous();
+					error_lexer(t.t_line, t.t_col, AST_INVALID_FUNCTION_PARAMETER_LIST);
+					error_thrown = true;
+					return 0;
+				}
 				if (match(T_NATIVE)) {
 					// Native Binding
 					consume(T_IDENTIFIER);
@@ -554,11 +651,108 @@ static struct statement* parse_statement(void) {
 				index_var = 0;
 				a_index = 0;
 			}
+
 			struct statement* run_if_true = parse_statement();
-			sm->type = S_LOOP;
-			sm->op.loop_statement.condition = condition;
-			sm->op.loop_statement.index_var = a_index;
-			sm->op.loop_statement.statement_true = run_if_true;
+
+			if (a_index) {
+				// Construct AST replacement for ranged based for loop:
+
+				// let internalCounter = 0;
+				// let container = <expr>;
+				// let size = container.size;
+				// let <ident>;
+				// for internalCounter < size {
+				//     <ident> = container[internalCounter]
+				//     <statement>
+				//     internalCounter++
+				// }
+
+				sm->type = S_BLOCK;
+				struct statement_list* curr;
+				struct statement_list* block = safe_malloc(sizeof(struct statement_list));
+				block->is_first = true;
+				block->is_last = false;
+				block->elem = make_let_statement(":i",
+					lit_expr_from_data(make_data(D_NUMBER, data_value_num(0))));
+				block->next = safe_malloc(sizeof(struct statement_list));
+				curr = block->next;
+
+				curr->is_first = false;
+				curr->is_last = false;
+				curr->elem = make_let_statement(":c", condition);
+				curr->next = safe_malloc(sizeof(struct statement_list));
+				curr = curr->next;
+
+				curr->is_first = false;
+				curr->is_last = false;
+				curr->elem = make_let_statement(":s", make_get_size_of_expr(":c"));
+				curr->next = safe_malloc(sizeof(struct statement_list));
+				curr = curr->next;
+
+				curr->is_first = false;
+				curr->is_last = false;
+				curr->elem = make_let_statement(a_index, lit_expr_from_data(none_data()));
+				curr->next = safe_malloc(sizeof(struct statement_list));
+				curr = curr->next;
+
+				curr->is_first = false;
+				curr->is_last = true;
+				curr->elem = safe_malloc(sizeof(struct statement));
+				curr->next = 0;
+				struct statement* loop_outer = curr->elem;
+				loop_outer->type = S_LOOP;
+				loop_outer->op.loop_statement.index_var = 0;
+
+				struct token op = make_token(T_LESS, make_data_str("<"));
+				loop_outer->op.loop_statement.condition = make_bin_expr(
+					make_identifier_expr(":i"), op,
+					make_identifier_expr(":s"));
+				destroy_token(op);
+
+				loop_outer->op.loop_statement.statement_true = safe_malloc(sizeof(struct statement));
+				struct statement* loop_inner = loop_outer->op.loop_statement.statement_true;
+				loop_inner->type = S_BLOCK;
+
+					struct statement_list* inner_block = safe_malloc(sizeof(struct statement_list));
+					inner_block->is_first = true;
+					inner_block->is_last = false;
+					struct token equal = make_token(T_EQUAL, make_data_str("="));
+					inner_block->elem = make_expr_statement(
+						make_assign_expr(
+							make_identifier_expr(a_index),
+							make_array_access_expr(":c", ":i"),
+							equal
+						)
+					);
+
+					destroy_token(equal);
+
+					// Attach Loop Body after assigning identifier
+					inner_block->next = safe_malloc(sizeof(struct statement_list));
+
+					curr = inner_block->next;
+					curr->is_first = false;
+					curr->is_last = false;
+					curr->elem = run_if_true;
+					curr->next = safe_malloc(sizeof(struct statement_list));
+
+					curr = curr->next;
+					curr->is_first = false;
+					curr->is_last = true;
+					curr->next = 0;
+					curr->elem = make_inc_statement(":i");
+
+				loop_inner->op.block_statement = inner_block;
+
+				sm->op.block_statement = block;
+				safe_free(a_index);
+			}
+			else {
+				sm->type = S_LOOP;
+				sm->op.loop_statement.condition = condition;
+				sm->op.loop_statement.index_var = a_index;
+				sm->op.loop_statement.statement_true = run_if_true;
+			}
 			break;
 		}
 		case T_ENUM: {
@@ -593,6 +787,7 @@ static struct statement* parse_statement(void) {
 			struct expr* left = lit_expr_from_data(make_data(D_IDENTIFIER,
 							data_value_str("this")));
 			struct expr* right = make_lit_expr(num_token);
+			right->op.lit_expr.type = D_MEMBER_IDENTIFIER;
 
 			struct token op = make_token(T_DOT, make_data_str("."));
 			// This isn't very clean, having to make a fake token to
@@ -619,6 +814,8 @@ static struct statement* parse_statement(void) {
 			struct expr_list* param_list = safe_malloc(sizeof(struct expr_list));
 			param_list->next = 0;
 			param_list->elem = make_lit_expr(num_token);
+
+			verify_function_parameters(param_list);
 			struct expr* function_const = make_func_expr(param_list, function_body);
 
 			sm->type = S_ENUM;
@@ -669,6 +866,7 @@ static struct statement* parse_statement(void) {
 				struct expr* left = lit_expr_from_data(make_data(D_IDENTIFIER,
 								data_value_str("this")));
 				struct expr* right = copy_lit_expr(tmp_ins->elem);
+				right->op.lit_expr.type = D_MEMBER_IDENTIFIER;
 
 				struct token op = make_token(T_DOT, make_data_str("."));
                 // This isn't very clean, having to make a fake token to
@@ -702,6 +900,9 @@ static struct statement* parse_statement(void) {
 			struct statement* function_body = safe_malloc(sizeof(struct statement));
 			function_body->type = S_BLOCK;
 			function_body->op.block_statement = init_fn;
+
+			verify_function_parameters(parameters);
+
 			// init_fn is now the list of statements, to make it a function
 			struct expr* function_const = make_func_expr(parameters, function_body);
 
@@ -779,13 +980,18 @@ static struct statement* parse_statement(void) {
 static struct statement_list* parse_statement_list(void) {
 	struct statement_list* ast = safe_malloc(sizeof(struct statement_list));
 	ast->next = 0;
+	ast->is_first = true;
+	ast->is_last = true;
 	struct statement** curr = &ast->elem;
 	struct statement_list* curr_ast = ast;
 	while (true) {
 		*curr = parse_statement();
 		if (!is_at_end() && peek().t_type != T_RIGHT_BRACE) {
 			curr_ast->next = safe_malloc(sizeof(struct statement_list));
+			curr_ast->is_last = false;
 			curr_ast = curr_ast->next;
+			curr_ast->is_first = false;
+			curr_ast->is_last = true;
 			curr_ast->next = 0;
 			curr = &curr_ast->elem;
 		} else break;
@@ -1002,7 +1208,7 @@ static void print_s(struct statement* state, struct traversal_algorithm* algo) {
 		}
 		case S_OPERATION: {
 			printf("Operation statement " GRN "%s\n" RESET,
-				operator_string[state->op.operation_statement.operator]);
+				opcode_string[state->op.operation_statement.operator]);
 			break;
 		}
 		case S_EXPR: {
@@ -1080,6 +1286,7 @@ static struct expr* make_lit_expr(struct token t) {
 	node->col = t.t_col;
 	return node;
 }
+
 static struct expr* make_bin_expr(struct expr* left, struct token op, struct expr* right) {
 	struct expr* node = safe_malloc(sizeof(struct expr));
 	node->line = op.t_line;
@@ -1090,6 +1297,7 @@ static struct expr* make_bin_expr(struct expr* left, struct token op, struct exp
 	node->op.bin_expr.right = right;
 	return node;
 }
+
 static struct expr* make_if_expr(struct expr* condition, struct expr* if_true, struct expr* if_false) {
 	struct token t = tokens[curr_index];
 	struct expr* node = safe_malloc(sizeof(struct expr));

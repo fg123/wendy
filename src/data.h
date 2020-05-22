@@ -37,11 +37,14 @@
 	OP(D_TRUE) \
 	OP(D_FALSE) \
 	OP(D_MEMBER_IDENTIFIER) \
+	OP(D_PARAM_IDENTIFIER) \
 	OP(D_NAMED_ARGUMENT_NAME) \
 	OP(D_END_OF_ARGUMENTS) \
 	OP(D_SPREAD) \
 	OP(D_LIST_RANGE_LVALUE) \
-	OP(D_ANY) // No way for client to construct this, can only have a type <any>
+	OP(D_IDENTIFIER_LOCAL_OFFSET) \
+	OP(D_IDENTIFIER_GLOBAL_OFFSET) \
+	OP(D_ANY) /* No way for client to construct this, can only have a type <any> */
 
 enum data_type {
 	FOREACH_DATA(ENUM)

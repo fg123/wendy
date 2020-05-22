@@ -170,7 +170,7 @@ struct data *create_closure(struct memory * memory) {
 
 struct memory *memory_init(void) {
 	struct memory *memory = malloc(sizeof(*memory));
-	
+
 	memory->call_stack_size = INITIAL_STACK_SIZE;
 	memory->working_stack_size = INITIAL_WORKING_STACK_SIZE;
 
@@ -186,7 +186,7 @@ struct memory *memory_init(void) {
 	memory->all_containers_start = 0;
 	memory->all_containers_end = 0;
 	memory->main_end_pointer = 0;
-	return memory;	
+	return memory;
 }
 
 void clear_working_stack(struct memory * memory) {
@@ -413,6 +413,34 @@ struct data* get_address_of_id(struct memory * memory, char* id, int line) {
 		return 0;
 	}
 	return &memory->call_stack[stack_entry].val;
+}
+
+char* get_name_of_offset(struct memory * memory, size_t offset, bool is_global) {
+	if (!is_global) {
+		offset += memory->frame_pointer;
+	}
+	return memory->call_stack[offset].id;
+}
+
+struct data* get_address_of_offset(struct memory * memory, size_t offset, bool is_global) {
+	if (!is_global) {
+		offset += get_fn_frame_ptr(memory);
+	}
+
+	// Grow call stack organically.
+	if (offset > memory->call_stack_pointer) {
+		size_t old_ptr = memory->call_stack_pointer;
+		memory->call_stack_pointer = offset + 1;
+
+		check_memory(memory);
+
+		for (size_t t = old_ptr; t < offset + 1; t++) {
+			if (!memory->call_stack[t].id) {
+				memory->call_stack[t].id = safe_strdup("$");
+			}
+		}
+	}
+	return &memory->call_stack[offset].val;
 }
 
 address get_stack_pos_of_id(struct memory * memory, char* id, int line) {
