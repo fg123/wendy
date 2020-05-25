@@ -9,7 +9,7 @@
  *   how codegen generates code.
  */
 
-struct statement_list* assign_locals(struct statement_list* ast);
+struct statement_list* assign_locals(struct statement_list* ast, id_list* id_list_out);
 
 
 #endif

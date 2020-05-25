@@ -428,16 +428,14 @@ struct data* get_address_of_offset(struct memory * memory, size_t offset, bool i
 	}
 
 	// Grow call stack organically.
-	if (offset > memory->call_stack_pointer) {
+	if (offset >= memory->call_stack_pointer) {
 		size_t old_ptr = memory->call_stack_pointer;
 		memory->call_stack_pointer = offset + 1;
 
 		check_memory(memory);
 
 		for (size_t t = old_ptr; t < offset + 1; t++) {
-			if (!memory->call_stack[t].id) {
-				memory->call_stack[t].id = safe_strdup("$");
-			}
+			memory->call_stack[t].id = safe_strdup("=>OPT");
 		}
 	}
 	return &memory->call_stack[offset].val;

@@ -107,6 +107,7 @@ bool is_numeric(struct data t) {
 	return t.type == D_NUMBER ||
 		t.type == D_INSTRUCTION_ADDRESS ||
 		t.type == D_LIST_HEADER ||
+		t.type == D_CLOSURE_HEADER ||
 		t.type == D_STRUCT_HEADER||
 		t.type == D_STRUCT_INSTANCE_HEADER ||
 		t.type == D_EMPTY ||
@@ -217,6 +218,9 @@ unsigned int print_data_inline(const struct data* t, FILE* buf) {
 	}
 	else if (t->type == D_LIST_HEADER) {
 		p += fprintf(buf, "<lhd size %d>", (int)(t->value.number));
+	}
+	else if (t->type == D_CLOSURE_HEADER) {
+		p += fprintf(buf, "<chd size %d>", (int)(t->value.number));
 	}
 	else if (t->type == D_STRUCT_HEADER) {
 		p += fprintf(buf, "<meta size %d>", (int)(t->value.number));

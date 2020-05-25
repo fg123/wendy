@@ -44,6 +44,7 @@
 	OP(D_LIST_RANGE_LVALUE) \
 	OP(D_IDENTIFIER_LOCAL_OFFSET) \
 	OP(D_IDENTIFIER_GLOBAL_OFFSET) \
+	OP(D_CLOSURE_HEADER) \
 	OP(D_ANY) /* No way for client to construct this, can only have a type <any> */
 
 enum data_type {
@@ -85,6 +86,7 @@ bool is_vm_internal_type(struct data t);
 #define time_data() make_data(D_NUMBER, data_value_num(time(NULL)))
 #define noneret_data() make_data(D_NONERET, data_value_str("<noneret>"))
 #define none_data() make_data(D_NONE, data_value_str("<none>"))
+#define empty_data() make_data(D_EMPTY, data_value_num(0));
 #define false_data() make_data(D_FALSE, data_value_str("<false>"))
 #define any_data() make_data(D_ANY, data_value_str("ANYYYYTHING"))
 #define true_data() make_data(D_TRUE, data_value_str("<true>"))

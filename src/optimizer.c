@@ -180,8 +180,16 @@ static void add_node(char* id, struct expr* value) {
 	struct id_node* new_node = safe_malloc(sizeof(struct id_node));
 	new_node->id_name = id;
 	new_node->value = value;
-	new_node->modified_count = 0;
-	new_node->usage_count = 0;
+
+	if (id[0] == ':') {
+		// Prevent special loop variables from being optimized out
+		new_node->modified_count = 1;
+		new_node->usage_count = 1;
+	}
+	else {
+		new_node->modified_count = 0;
+		new_node->usage_count = 0;
+	}
 	new_node->next = curr_statement_block->id_list;
 	curr_statement_block->id_list = new_node;
 }

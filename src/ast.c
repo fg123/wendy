@@ -39,6 +39,7 @@ static struct statement* make_let_statement(char* id, struct expr* value) {
 	sm->type = S_LET;
 	sm->op.let_statement.lvalue = safe_strdup(id);
 	sm->op.let_statement.rvalue = value;
+	sm->op.let_statement.lvalue_offset = empty_data();
 	return sm;
 }
 
@@ -88,8 +89,16 @@ static struct statement* make_expr_statement(struct expr* e) {
 // are exposed so optimizer can use them to properly free.
 void ast_safe_free_e(struct expr* ptr, struct traversal_algorithm* algo) {
     UNUSED(algo);
-    if (ptr->type == E_FUNCTION && ptr->op.func_expr.is_native) {
-        safe_free(ptr->op.func_expr.native_name);
+    if (ptr->type == E_FUNCTION) {
+    	if (ptr->op.func_expr.is_native) {
+        	safe_free(ptr->op.func_expr.native_name);
+        }
+    	struct closure_mapping* curr = ptr->op.func_expr.closure;
+    	while (curr) {
+    		struct closure_mapping* next = curr->next;
+    		safe_free(curr);
+    		curr = next;
+    	}
     } else if (ptr->type == E_LITERAL) {
         destroy_data(&ptr->op.lit_expr);
     }
@@ -608,6 +617,10 @@ static struct statement* parse_statement(void) {
 			}
 			sm->type = S_LET;
 			sm->op.let_statement.lvalue = lvalue;
+			if (rvalue->type == E_FUNCTION) {
+				rvalue->op.func_expr.bind_name = lvalue;
+			}
+			sm->op.let_statement.lvalue_offset = empty_data();
 			sm->op.let_statement.rvalue = rvalue;
 			break;
 		}
@@ -715,7 +728,7 @@ static struct statement* parse_statement(void) {
 
 					struct statement_list* inner_block = safe_malloc(sizeof(struct statement_list));
 					inner_block->is_first = true;
-					inner_block->is_last = false;
+					inner_block->is_last = true;
 					struct token equal = make_token(T_EQUAL, make_data_str("="));
 					inner_block->elem = make_expr_statement(
 						make_assign_expr(
@@ -734,13 +747,9 @@ static struct statement* parse_statement(void) {
 					curr->is_first = false;
 					curr->is_last = false;
 					curr->elem = run_if_true;
-					curr->next = safe_malloc(sizeof(struct statement_list));
-
-					curr = curr->next;
-					curr->is_first = false;
-					curr->is_last = true;
 					curr->next = 0;
-					curr->elem = make_inc_statement(":i");
+
+					loop_outer->op.loop_statement.post_loop = make_inc_statement(":i");
 
 				loop_inner->op.block_statement = inner_block;
 
@@ -752,6 +761,7 @@ static struct statement* parse_statement(void) {
 				sm->op.loop_statement.condition = condition;
 				sm->op.loop_statement.index_var = a_index;
 				sm->op.loop_statement.statement_true = run_if_true;
+				sm->op.loop_statement.post_loop = 0;
 			}
 			break;
 		}
@@ -1068,6 +1078,7 @@ void traverse_statement(struct statement* state, struct traversal_algorithm* alg
 		case S_LOOP: {
 			traverse_expr(state->op.loop_statement.condition, algo);
 			traverse_statement(state->op.loop_statement.statement_true, algo);
+			traverse_statement(state->op.loop_statement.post_loop, algo);
 			break;
 		}
 		case S_IMPORT: break;
@@ -1183,6 +1194,17 @@ static void print_e(struct expr* expression, struct traversal_algorithm* algo) {
 		}
 		case E_FUNCTION: {
 			printf("Function Expression\n");
+			algo->level += 1;
+			struct closure_mapping* mapping = expression->op.func_expr.closure;
+			while (mapping) {
+				printf(RESET);
+				print_indent(algo);
+				printf(GRN "Closure offset %d to local %d\n",
+					mapping->parent_offset,
+					mapping->offset);
+				mapping = mapping->next;
+			}
+			algo->level -= 1;
 			break;
 		}
 		case E_ASSIGN: {
@@ -1381,6 +1403,8 @@ static struct expr* make_func_expr(struct expr_list* parameters, struct statemen
 	node->type = E_FUNCTION;
 	node->op.func_expr.parameters = parameters;
 	node->op.func_expr.body = body;
+	node->op.func_expr.bind_name = 0;
+	node->op.func_expr.closure = 0;
 	node->op.func_expr.is_native = false;
 	node->line = t.t_line;
 	node->col = t.t_col;

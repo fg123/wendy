@@ -138,6 +138,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 		} \
 		if (get_settings_flag(SETTINGS_DEBUG)) { \
         	print_call_stack(vm->memory, stdout, 100); \
+        	fprintf(stdout, "SP: %u\n", vm->memory->call_stack_pointer); \
         } \
 		goto *dispatch_table[vm->bytecode[(vm->instruction_ptr)++]]; \
 	} while (0)
@@ -329,8 +330,15 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				// We need to re-write the list counter
 				extra_args[0].value.number = count;
 				// Assign "arguments" variable with rest of the arguments.
-				push_stack_entry(vm->memory, "arguments", vm->line)->val =
-					make_data(D_LIST, data_value_ptr(extra_args));
+				if (!get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+					push_stack_entry(vm->memory, "arguments", vm->line)->val =
+						make_data(D_LIST, data_value_ptr(extra_args));
+				}
+				else {
+					struct data* loc = get_address_of_offset(vm->memory, 3, false);
+					destroy_data_runtime(vm->memory, loc);
+					*loc = make_data(D_LIST, data_value_ptr(extra_args));
+				}
 				// Pop End of Arguments
 				struct data eoargs = pop_arg(vm->memory, vm->line);
 				destroy_data_runtime(vm->memory, &eoargs);
@@ -757,28 +765,47 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					push_stack_entry(vm->memory, "this", vm->line)->val = instance;
 				}
 
-				// Push closure variables
+				// Push Closure Variables
 				struct data *list_data = top.value.reference[1].value.reference;
 				size_t size = list_data[0].value.number;
-
-				// Move the pointer to the "first" item, because the 0th item is the list-header
 				list_data += 1;
-				for (size_t i = 0; i < size; i += 2) {
-					if (list_data[i].type != D_IDENTIFIER) {
-						error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "Did not find a D_IDENTIFIER in function closure");
-						destroy_data_runtime(vm->memory, &top);
-						break;
-					}
-					struct stack_entry *entry = push_stack_entry(vm->memory, list_data[i].value.string, vm->line);
-					entry->val = copy_data(list_data[i + 1]);
-					entry->is_closure = true;
-				}
 
-				// At this point, we put `top` back into the stack, so no need to destroy it
-				if (strcmp(boundName.value.string, "self") != 0) {
-					push_stack_entry(vm->memory, "self", vm->line)->val = copy_data(top);
+				if (!get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+					// Move the pointer to the "first" item, because the 0th item is the list-header
+					for (size_t i = 0; i < size; i += 2) {
+						if (list_data[i].type != D_IDENTIFIER) {
+							error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "Did not find a D_IDENTIFIER in function closure");
+							destroy_data_runtime(vm->memory, &top);
+							break;
+						}
+						struct stack_entry *entry = push_stack_entry(vm->memory, list_data[i].value.string, vm->line);
+						entry->val = copy_data(list_data[i + 1]);
+						entry->is_closure = true;
+					}
+					// At this point, we put `top` back into the stack, so no need to destroy it
+					if (strcmp(boundName.value.string, "self") != 0) {
+	                    push_stack_entry(vm->memory, "self", vm->line)->val = copy_data(top);
+                    }
+                    push_stack_entry(vm->memory, boundName.value.string, vm->line)->val = top;
 				}
-				push_stack_entry(vm->memory, boundName.value.string, vm->line)->val = top;
+				else {
+					for (size_t i = 0; i < size; i += 2) {
+						if (list_data[i].type != D_NUMBER) {
+							error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "Did not find a offset in function closure");
+							destroy_data_runtime(vm->memory, &top);
+							break;
+						}
+						printf("Loading closure var to offset %d", (int)list_data[i].value.number);
+						print_data_inline(&list_data[i + 1], stdout);
+						printf("\n");
+						struct data* loc = get_address_of_offset(vm->memory, list_data[i].value.number, false);
+						destroy_data_runtime(vm->memory, loc);
+						*loc = copy_data(list_data[i + 1]);
+					}
+					struct data* loc = get_address_of_offset(vm->memory, 2, false);
+					destroy_data_runtime(vm->memory, loc);
+					*loc = top;
+				}
 				DISPATCH();
 				break;
 			}
@@ -812,7 +839,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					destroy_data_runtime(vm->memory, &ptr.value.reference[0]);
 					*(ptr.value.reference) = value;
 
-					if (ptr.value.reference->type == D_FUNCTION) {
+					if (ptr.value.reference->type == D_FUNCTION && !get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
 						// Write Name to Function
 						char* bind_name = vm->last_pushed_identifier;
 						struct data* fn_data = ptr.value.reference->value.reference;

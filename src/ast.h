@@ -30,6 +30,12 @@
 //                      "#:" "(" identifier_list ")" "{" struct statement_list "}"
 // Inspired by https://lambda.uta.edu/cse5317/notes/node26.html
 
+struct closure_mapping {
+	int parent_offset;
+	int offset;
+	struct closure_mapping* next;
+};
+
 struct expr {
 	enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_ASSIGN, E_IF }
 		type;
@@ -52,7 +58,11 @@ struct expr {
 			struct {    struct expr_list*   parameters;
 						struct statement*   body;
 						bool                is_native;
-						char*               native_name; }  func_expr;
+						char*               native_name;
+						struct closure_mapping* closure;
+						// bind_name is stolen from LET statement's lvalue,
+						//   no need to allocate or free separately
+						char*               bind_name;  }  func_expr;
 			struct {    struct expr*        condition;
 						struct expr*        expr_true;
 						struct expr*        expr_false; }   if_expr;
@@ -90,6 +100,7 @@ struct statement {
 			struct {    char*              index_var;
 						struct expr*       condition;
 						struct statement*  statement_true;
+						struct statement*  post_loop;
 						int                loop_var_offset; }   loop_statement;
 			struct {    char*              name;
 						struct expr_list*  values;

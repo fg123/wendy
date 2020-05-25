@@ -8,6 +8,7 @@
 #include "source.h"
 #include "data.h"
 #include "imports.h"
+#include "locals.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -878,6 +879,7 @@ static void codegen_statement(void* expre) {
 			}
 			codegen_statement(state->op.loop_statement.statement_true);
 			address continue_addr = size;
+			codegen_statement(state->op.loop_statement.post_loop);
 			if (is_iterating_loop) {
 				write_opcode(OP_WHERE);
 				write_string(loop_index_name);
@@ -1125,6 +1127,14 @@ static void codegen_expr(void* expre) {
 			struct expr_list* param = expression->op.func_expr.parameters;
 			bool has_encountered_default = false;
 			int i = 0;
+			size_t closure_count = 0;
+			struct closure_mapping* curr = expression->op.func_expr.closure;
+
+			while (curr) {
+				closure_count++;
+				curr = curr->next;
+			}
+
 			while (param) {
 				if (param->elem->type == E_LITERAL) {
 					if (has_encountered_default) {
@@ -1138,8 +1148,13 @@ static void codegen_expr(void* expre) {
 							CODEGEN_UNEXPECTED_FUNCTION_PARAMETER);
 					}
 					struct data t = param->elem->op.lit_expr;
-					write_opcode(OP_DECL);
-					write_string(t.value.string);
+					if (!get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+						write_opcode(OP_DECL);
+						write_string(t.value.string);
+					} else {
+						write_opcode(OP_LOFFSET);
+						write_integer(i + 4);
+					}
 					write_opcode(OP_WRITE);
 					param_names[i++] = t.value.string;
 				}
@@ -1188,7 +1203,35 @@ static void codegen_expr(void* expre) {
 		write_address_at(size, writeSizeLoc);
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_INSTRUCTION_ADDRESS, data_value_num(startAddr)));
-		write_opcode(OP_CLOSURE);
+
+		if (get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
+			// The Closure List must be generated after the function PTR has been written
+			// Generate Closure List for Function
+			// The list looks like: Offset 1, Value 1, Offset 2, Value 2, ...
+			struct closure_mapping* curr = expression->op.func_expr.closure;
+			size_t count = 0;
+			while (curr) {
+				count += 2;
+				curr = curr->next;
+			}
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_CLOSURE_HEADER, data_value_num(count)));
+			curr = expression->op.func_expr.closure;
+			while (curr) {
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_NUMBER, data_value_num(curr->offset)));
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_IDENTIFIER_LOCAL_OFFSET, data_value_num(curr->parent_offset)));
+				curr = curr->next;
+			}
+			write_opcode(OP_MKREF);
+			write_byte(D_CLOSURE);
+			write_integer(count + 1);
+		}
+		else {
+			write_opcode(OP_CLOSURE);
+		}
+
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_STRING, data_value_str("self")));
 
@@ -1216,7 +1259,8 @@ static void codegen_expr(void* expre) {
 	}
 }
 
-uint8_t* generate_code(struct statement_list* _ast, size_t* size_ptr) {
+uint8_t* generate_code(struct statement_list* _ast, size_t* size_ptr, id_list global_list) {
+	UNUSED(global_list);
 	if (current_loop_context) {
 		error_general("Loop context exists already going into code generation!");
 	}
@@ -1232,6 +1276,12 @@ uint8_t* generate_code(struct statement_list* _ast, size_t* size_ptr) {
 	free_imported_libraries_ll();
 	write_opcode(OP_HALT);
 	*size_ptr = size;
+
+	if (global_list) {
+		for (size_t i = 0; global_list[i]; i++) {
+			safe_free(global_list[i]);
+		}
+	}
 	return bytecode;
 }
 

@@ -11,7 +11,7 @@ filestems=()
 # Dependency Resolver can only work within the directory for now
 cd lib/src/
 for f in *.w ; do
-	../../bin/wendy "$f" --dependencies > ${f%.w}.d
+	../../bin/wendy "$f" --dependencies > ${f%.w}.d || echo "Error compiling $f"
 	filestems+=(${f%.w})
 done
 

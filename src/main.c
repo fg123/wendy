@@ -143,6 +143,7 @@ bool process_options(char** options, int len, char** source) {
 }
 
 void run(char* input_string, struct vm * vm) {
+	id_list globals_list = 0;
 	size_t alloc_size = 0;
 	struct token* tokens;
 	size_t tokens_count;
@@ -160,14 +161,14 @@ void run(char* input_string, struct vm * vm) {
 		print_ast(ast);
 	}
 	if (get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
-		ast = assign_locals(ast);
+		ast = assign_locals(ast, &globals_list);
 		if (get_settings_flag(SETTINGS_ASTPRINT)) {
 			print_ast(ast);
 		}
 	}
 	if(!ast_error_flag()) {
 		size_t size;
-		uint8_t* bytecode = generate_code(ast, &size);
+		uint8_t* bytecode = generate_code(ast, &size, globals_list);
 		if (get_settings_flag(SETTINGS_DISASSEMBLE)) {
 			print_bytecode(bytecode, size, stdout);
 		}
@@ -312,6 +313,7 @@ int main(int argc, char** argv) {
 		size_t alloc_size = 0;
 		struct token* tokens;
 		size_t tokens_count;
+		id_list globals_list = 0;
 
 		// Scanning and Tokenizing
 		tokens_count = scan_tokens(buffer, &tokens, &alloc_size);
@@ -328,7 +330,7 @@ int main(int argc, char** argv) {
 			print_ast(ast);
 		}
 		if (get_settings_flag(SETTINGS_OPTIMIZE_LOCALS)) {
-			ast = assign_locals(ast);
+			ast = assign_locals(ast, &globals_list);
 			if (get_settings_flag(SETTINGS_ASTPRINT)) {
 				print_ast(ast);
 			}
@@ -344,7 +346,7 @@ int main(int argc, char** argv) {
 		}
 		else {
 			// Generate Bytecode
-			bytecode_stream = generate_code(ast, &size);
+			bytecode_stream = generate_code(ast, &size, globals_list);
 		}
 		free_token_list(tokens, tokens_count);
 		free_ast(ast);

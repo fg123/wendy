@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
 // global.h - Felix Guo
 // This file contains global information and utility functions.
@@ -75,7 +76,7 @@ extern bool last_printed_newline;
 
 char* safe_strdup_impl(const char* s, char* allocated);
 
-
+typedef char** id_list;
 
 /* We safe_malloc in the call so we get the right allocation location */
 #define safe_strdup(x) safe_strdup_impl(x, safe_malloc(strlen(x) + 1))
