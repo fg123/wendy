@@ -1270,6 +1270,23 @@ uint8_t* generate_code(struct statement_list* _ast, size_t* size_ptr, id_list gl
 	size = 0;
 	if (!get_settings_flag(SETTINGS_REPL)) {
 		write_string(WENDY_VM_HEADER);
+		int globalListLoc = size;
+		size += sizeof(address);
+
+		if (global_list) {
+			size_t i = 0;
+			for (size_t i = 0; global_list[i]; i++) {
+				write_
+				safe_free(global_list[i]);
+			}
+			write_address_at(0, globalListLoc);
+		}
+		else {
+			write_address_at(0, globalListLoc);
+		}
+	}
+	if (global_list) {
+		safe_free(global_list);
 	}
 	free_imported_libraries_ll();
 	codegen_statement_list(_ast);

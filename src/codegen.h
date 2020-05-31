@@ -17,6 +17,8 @@
 //   instruction. The header:
 // =============================================================================
 // WendyVM Bytecode (17 bytes, null terminated)
+// Number of Global Declarations (n) (8 bytes)
+// List of global declarations, null terminated strings in order of offset.
 // =============================================================================
 // https://docs.felixguo.me/architecture/wendy/slim-vm.md
 // https://docs.felixguo.me/architecture/wendy/inline-bytecode.md
