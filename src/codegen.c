@@ -1275,11 +1275,11 @@ uint8_t* generate_code(struct statement_list* _ast, size_t* size_ptr, id_list gl
 
 		if (global_list) {
 			size_t i = 0;
-			for (size_t i = 0; global_list[i]; i++) {
-				write_
+			for (; global_list[i]; i++) {
+				write_string(global_list[i]);
 				safe_free(global_list[i]);
 			}
-			write_address_at(0, globalListLoc);
+			write_address_at(i, globalListLoc);
 		}
 		else {
 			write_address_at(0, globalListLoc);
