@@ -110,6 +110,7 @@ bool is_numeric(struct data t) {
 		t.type == D_STRUCT_HEADER||
 		t.type == D_STRUCT_INSTANCE_HEADER ||
 		t.type == D_EMPTY ||
+		t.type == D_RANGE ||
 		t.type == D_END_OF_ARGUMENTS ||
 		// This is actually a "reference" type, but because the
 		// corresponding pointer is not ref-counted, we label it
@@ -132,25 +133,23 @@ bool is_vm_internal_type(struct data t) {
 }
 
 struct data range_data(int start, int end) {
-	struct data res = make_data(D_RANGE, data_value_str(""));
-	size_t s = snprintf(NULL, 0, "%d|%d", start, end);
-	res.value.string = safe_realloc(res.value.string, s + 1);
-	sprintf(res.value.string, "%d|%d", start, end);
+	// Box 2 integers into the space of the double
+	struct data res = make_data(D_RANGE, data_value_num(0));
+	int* start_ptr = (int*) &res.value.number;
+	int* end_ptr = (int*)((void*)&res.value.number + sizeof(int));
+	*start_ptr = start;
+	*end_ptr = end;
 	return res;
 }
 
 int range_start(struct data r) {
-	int start = 0;
-	int end = 0;
-	sscanf(r.value.string, "%d|%d", &start, &end);
-	return start;
+	int* start_ptr = (int*) &r.value.number;
+	return *start_ptr;
 }
 
 int range_end(struct data r) {
-	int start = 0;
-	int end = 0;
-	sscanf(r.value.string, "%d|%d", &start, &end);
-	return end;
+	int* end_ptr = (int*)((void*)&r.value.number + sizeof(int));
+	return *end_ptr;
 }
 
 struct data list_header_data(int size) {
