@@ -882,10 +882,6 @@ static void codegen_statement_list(void* expre) {
 	struct statement_list* list = (struct statement_list*) expre;
 	while (list) {
 		codegen_statement(list->elem);
-		if (bytecode[size - 1] == OP_RET) {
-			/* Stop generating if last struct statement was a return */
-			break;
-		}
 		list = list->next;
 	}
 }
