@@ -638,17 +638,38 @@ static struct statement* parse_statement(void) {
 			struct expr_list* static_members = 0;
 			struct expr_list* instance_members = 0;
 			int saved_before_iden = 0;
-			while (match(T_LEFT_PAREN, T_LEFT_BRACK)) {
+			while (match(T_LEFT_PAREN, T_LEFT_BRACK, T_LEFT_BRACE)) {
 				if (previous().t_type == T_LEFT_PAREN) {
 					saved_before_iden = curr_index;
 					if (match(T_RIGHT_PAREN)) continue;
 					instance_members = identifier_list();
 					consume(T_RIGHT_PAREN);
 				}
-				else {
+				else if (previous().t_type == T_LEFT_BRACK) {
 					if (match(T_RIGHT_BRACK)) continue;
 					static_members = expression_list(T_RIGHT_BRACK);
 					consume(T_RIGHT_BRACK);
+				}
+				else if (previous().t_type == T_LEFT_BRACE) {
+					if (match(T_RIGHT_BRACE)) continue;
+					// Struct functions:
+					//   fn => (params) { function };
+					// Write this into static member list as
+					//   as an assign_expression
+					while (match(T_IDENTIFIER)) {
+						struct expr* lvalue = make_lit_expr(previous());
+						consume(T_DEFFN);
+						consume(T_LEFT_PAREN);
+						struct expr_list* parameters = expression_list(T_RIGHT_PAREN);
+						consume(T_RIGHT_PAREN);
+						struct statement* fnbody = parse_statement();
+						struct expr* fn = make_func_expr(parameters, fnbody);
+						struct expr_list* new_static = safe_malloc(sizeof(struct expr_list));
+						new_static->next = static_members;
+						static_members = new_static;
+						new_static->elem = make_assign_expr(lvalue, fn, make_token(T_EQUAL, make_data_num(0)));
+					}
+					consume(T_RIGHT_BRACE);
 				}
 			}
 			// Default Initiation Function

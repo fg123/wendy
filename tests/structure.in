@@ -22,3 +22,14 @@ shape.init => (x) {
 
 let otherShape = shape(50)
 otherShape.print()
+
+
+// New method of declaring static members
+struct shape1 => (x, y) {
+	print => () {
+		"Shape at (" + this.x + ", " + this.y + ")"
+	};
+};
+
+let myGenericShape2 = shape1(10, 20)
+myGenericShape2.print()
