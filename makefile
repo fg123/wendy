@@ -14,7 +14,7 @@ MAINS = $(SRCDIR)/main.o $(SRCDIR)/vm_main.o
 SRC = $(wildcard $(SRCDIR)/*.c)
 OBJ = $(filter-out $(MAINS), $(SRC:%.c=%.o))
 
-all: setup main vm_main libraries test
+all: test
 
 release: release += -DRELEASE
 release: clean all
@@ -25,20 +25,20 @@ $(SRCDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 setup:
 	mkdir -p $(BINDIR)
 
-vm_main: $(OBJ) $(SRCDIR)/vm_main.o
-	$(CC) -o $(BINDIR)/wvm $^ $(EXTERNAL_LIBRARIES) $(CFLAGS) -O3
+vm_main: $(OBJ) $(SRCDIR)/vm_main.o setup
+	$(CC) -o $(BINDIR)/wvm $(OBJ) $(SRCDIR)/vm_main.o $(EXTERNAL_LIBRARIES) $(CFLAGS) -O3
 
-main: $(OBJ) $(SRCDIR)/main.o
-	$(CC) -o $(BINDIR)/wendy $^ $(EXTERNAL_LIBRARIES) $(CFLAGS)
+main: $(OBJ) $(SRCDIR)/main.o setup
+	$(CC) -o $(BINDIR)/wendy $(OBJ) $(SRCDIR)/main.o $(EXTERNAL_LIBRARIES) $(CFLAGS)
 	ln -f $(BINDIR)/wendy $(BINDIR)/windu
 	$(MAKE) -C tools/
 
 .PHONY: clean
 
-libraries:
+libraries: vm_main main
 	@bash ./build-libraries.sh
 
-test:
+test: libraries
 	@bash ./io-test.sh
 
 clean:
