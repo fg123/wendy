@@ -19,7 +19,11 @@ struct data make_data(enum data_type type, union data_value value) {
 }
 
 struct data copy_data(struct data d) {
-	if (is_numeric(d)) {
+	if (d.type == D_LIST_HEADER) {
+		struct list_header* header = (struct list_header*) d.value.reference;
+		return list_header_data(header->size, header->capacity);
+	}
+	else if (is_numeric(d)) {
 		return make_data(d.type, data_value_num(d.value.number));
 	}
 	else if (is_reference(d)) {
@@ -47,17 +51,24 @@ bool data_equal(struct data* a, struct data* b) {
 
 // This is for RUNTIME DATA DESTRUCTION
 void destroy_data_runtime(struct memory* memory, struct data* d) {
-	if (is_reference(*d)) {
+	if (d->type == D_LIST_HEADER) {
+		safe_free(d->value.reference);
+	}
+	else if (is_reference(*d)) {
 		refcnt_free(memory, d->value.reference);
 	}
 	else if (!is_numeric(*d)) {
 		safe_free(d->value.string);
 	}
+	
 	d->type = D_EMPTY;
 }
 
 void destroy_data(struct data* d) {
-	if (is_reference(*d)) {
+	if (d->type == D_LIST_HEADER) {
+		safe_free(d->value.reference);
+	}
+	else if (is_reference(*d)) {
 		error_general("Tried to destroy a reference data type without a memory instance!");
 	}
 	else if (!is_numeric(*d)) {
@@ -152,8 +163,11 @@ int range_end(struct data r) {
 	return *end_ptr;
 }
 
-struct data list_header_data(int size) {
-	struct data res = make_data(D_LIST_HEADER, data_value_num(size));
+struct data list_header_data(size_t size, size_t capacity) {
+	struct list_header* header = safe_malloc(sizeof(struct list_header));
+	header->size = size;
+	header->capacity = capacity;
+	struct data res = make_data(D_LIST_HEADER, data_value_ptr((struct data*) header));
 	return res;
 }
 
@@ -220,7 +234,7 @@ unsigned int print_data_inline(const struct data* t, FILE* buf) {
 	}
 	else if (t->type == D_LIST || t->type == D_CLOSURE) {
 		// Special case here because closures are implemented as lists
-		size_t size = t->value.reference->value.number;
+		size_t size = wendy_list_size(t);
 		p += fprintf(buf, "[");
 		for (size_t i = 0; i < size; i++) {
 			if (i != 0) p += fprintf(buf, ", ");

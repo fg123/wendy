@@ -1047,7 +1047,9 @@ static void codegen_expr(void* expre) {
 	else if (expression->type == E_LIST) {
 		int count = expression->op.list_expr.length;
 		write_opcode(OP_PUSH);
-		write_data(make_data(D_LIST_HEADER, data_value_num(count)));
+		// Push the size of the list here, VM will create correct list header
+		// D_LIST_HEADER
+		write_data(make_data(D_NUMBER, data_value_num(count)));
 		struct expr_list* param = expression->op.list_expr.contents;
 		while (param) {
 			codegen_expr(param->elem);
@@ -1166,7 +1168,9 @@ static void codegen_expr(void* expre) {
 		/* Make a list of parameters names */
 		if (!get_settings_flag(SETTINGS_OPTIMIZE)) {
 			write_opcode(OP_PUSH);
-			write_data(make_data(D_LIST_HEADER, data_value_num(count)));
+			// Push the size of the list here, VM will create correct list header
+			// D_LIST_HEADER
+			write_data(make_data(D_NUMBER, data_value_num(count)));
 			for (int i = 0; i < count; i++) {
 				write_opcode(OP_PUSH);
 				write_data(make_data(D_STRING, data_value_str(param_names[i])));

@@ -298,7 +298,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					}
 				}
 				// We need to re-write the list counter
-				extra_args[0].value.number = count;
+				((struct list_header*) extra_args[0].value.reference)->size = count;
 				// Assign "arguments" variable with rest of the arguments.
 				push_stack_entry(vm->memory, "arguments", vm->line)->val =
 					make_data(D_LIST, data_value_ptr(extra_args));
@@ -393,6 +393,12 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					}
 				}
 
+				// Make this valid, codegen generates a number instead of a pointer
+				if (type == D_LIST) {
+					size_t list_size = storage[0].value.number;
+					storage[0] = list_header_data(list_size, list_size);
+				}
+				
 				if (has_spread) {
 					struct data* new_storage =
 						refcnt_malloc(vm->memory, size + additional_space);
@@ -401,7 +407,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 						if (storage[i].type == D_SPREAD) {
 							struct data spread = storage[i].value.reference[0];
 							if (spread.type == D_LIST) {
-								for (size_t k = 0; k < spread.value.reference[0].value.number; k++) {
+								for (size_t k = 0; k < wendy_list_size(&spread); k++) {
 									new_storage[j++] = copy_data(spread.value.reference[k + 1]);
 								}
 							}
@@ -429,7 +435,8 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					storage = new_storage;
 					if (storage[0].type == D_LIST_HEADER) {
 						// - 1 for header
-						storage[0].value.number = size + additional_space - 1;
+						storage[0] = list_header_data(size + additional_space - 1, 
+							size + additional_space - 1);
 					}
 				}
 
@@ -455,7 +462,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "List doesn't point to list header!");
 					goto nthptr_cleanup;
 				}
-				size_t list_size = list_data->value.number;
+				size_t list_size = wendy_list_size(&list);
 				if (number.type == D_NUMBER) {
 					if (number.value.number >= list_size) {
 						error_runtime(vm->memory, vm->line, VM_LIST_REF_OUT_RANGE);
@@ -667,7 +674,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 							struct data og_spread = vm->memory->working_stack[og_ptr];
 							struct data spread = og_spread.value.reference[0];
 							if (spread.type == D_LIST) {
-								for (size_t k = 0; k < spread.value.reference[0].value.number; k++) {
+								for (size_t k = 0; k < wendy_list_size(&spread); k++) {
 									vm->memory->working_stack[new_ptr--] = copy_data(spread.value.reference[k + 1]);
 								}
 							}
@@ -710,7 +717,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 
 				// Push closure variables
 				struct data *list_data = top.value.reference[1].value.reference;
-				size_t size = list_data[0].value.number;
+				size_t size = wendy_list_size(&top.value.reference[1]);
 
 				// Move the pointer to the "first" item, because the 0th item is the list-header
 				list_data += 1;
@@ -785,11 +792,12 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					//   occur between NTHPTR and WRITE (I hope)...
 
 					if (value.type == D_LIST) {
-						int needed_size = abs(start - end);
+						size_t needed_size = abs(start - end);
+						size_t list_size = wendy_list_size(&value);
 						struct data* value_data = value.value.reference;
-						if (value_data->value.number != needed_size) {
+						if (list_size != needed_size) {
 							error_runtime(vm->memory, vm->line, VM_LIST_RANGE_ASSIGN_SIZE_MISMATCH,
-								needed_size, (int) value_data->value.number);
+								needed_size, list_size);
 							goto write_list_range_lvalue_cleanup;
 						}
 						int i = 0;
@@ -920,7 +928,7 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 			list_size = abs(range_end(a) - range_start(a));
 		}
 		else {
-			list_size = a.value.reference->value.number;
+			list_size = wendy_list_size(&a);
 		}
 
 		if (b.type != D_NUMBER && b.type != D_RANGE) {
@@ -1185,15 +1193,15 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 
 	if (a.type == D_LIST || b.type == D_LIST) {
 		if (a.type == D_LIST && b.type == D_LIST) {
-			int size_a = a.value.reference->value.number;
-			int size_b = b.value.reference->value.number;
+			size_t size_a = wendy_list_size(&a);
+			size_t size_b = wendy_list_size(&b);
 
 			switch (op) {
 				case O_EQ: {
 					if (size_a != size_b) {
 						return false_data();
 					}
-					for (int i = 0; i < size_a; i++) {
+					for (size_t i = 0; i < size_a; i++) {
 						if (!data_equal(&a.value.reference[i + 1],
 										&b.value.reference[i + 1])) {
 							return false_data();
@@ -1205,7 +1213,7 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 					if (size_a != size_b) {
 						return true_data();
 					}
-					for (int i = 0; i < size_a; i++) {
+					for (size_t i = 0; i < size_a; i++) {
 						if (data_equal(&a.value.reference[i + 1],
 										&b.value.reference[i + 1])) {
 							return false_data();
@@ -1214,13 +1222,13 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 					return true_data();
 				}
 				case O_ADD: {
-					int new_size = size_a + size_b;
+					size_t new_size = size_a + size_b;
 					struct data* new_list = wendy_list_malloc(vm->memory, new_size);
-					int n = 1; // first is the header
-					for (int i = 0; i < size_a; i++) {
+					size_t n = 1; // first is the header
+					for (size_t i = 0; i < size_a; i++) {
 						new_list[n++] = copy_data(a.value.reference[i + 1]);
 					}
-					for (int i = 0; i < size_b; i++) {
+					for (size_t i = 0; i < size_b; i++) {
 						new_list[n++] = copy_data(b.value.reference[i + 1]);
 					}
 					return make_data(D_LIST, data_value_ptr(new_list));
@@ -1235,11 +1243,11 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 					return copy_data(a);
 				}
 				// list + element
-				int size_a = a.value.reference->value.number;
+				size_t size_a = wendy_list_size(&a);
 
 				struct data* new_list = wendy_list_malloc(vm->memory, size_a + 1);
-				int n = 1;
-				for (int i = 0; i < size_a; i++) {
+				size_t n = 1;
+				for (size_t i = 0; i < size_a; i++) {
 					new_list[n++] = copy_data(a.value.reference[i + 1]);
 				}
 				new_list[n++] = copy_data(b);
@@ -1247,13 +1255,13 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 			}
 			else if (op == O_MUL && b.type == D_NUMBER) {
 				// list * number
-				int size_a = a.value.reference->value.number;
+				size_t size_a = wendy_list_size(&a);
 				// Size expansion
-				int new_size = size_a * (int)b.value.number;
+				size_t new_size = size_a * (int)b.value.number;
 				struct data* new_list = wendy_list_malloc(vm->memory, new_size);
 				// Copy all Elements n times
-				int n = 1;
-				for (int i = 0; i < new_size; i++) {
+				size_t n = 1;
+				for (size_t i = 0; i < new_size; i++) {
 					new_list[n++] = copy_data(a.value.reference[(i % size_a) + 1]);
 				}
 				return make_data(D_LIST, data_value_ptr(new_list));
@@ -1263,7 +1271,7 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 			}
 		}
 		else if (b.type == D_LIST) {
-			int size_b = b.value.reference->value.number;
+			size_t size_b = wendy_list_size(&b);
 
 			if (op == O_ADD) {
 				if (a.type == D_NONERET) {
@@ -1271,29 +1279,29 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 				}
 				// element + list
 				struct data* new_list = wendy_list_malloc(vm->memory, size_b + 1);
-				int n = 1;
+				size_t n = 1;
 				new_list[n++] = copy_data(a);
-				for (int i = 0; i < size_b; i++) {
+				for (size_t i = 0; i < size_b; i++) {
 					new_list[n++] = copy_data(b.value.reference[i + 1]);
 				}
 				return make_data(D_LIST, data_value_ptr(new_list));
 			}
 			else if (op == O_MUL && a.type == D_NUMBER) {
 				// number * list
-				int size_b = b.value.reference->value.number;
+				size_t size_b = wendy_list_size(&b);
 				// Size expansion
-				int new_size = size_b * (int)a.value.number;
+				size_t new_size = size_b * (int)a.value.number;
 				struct data* new_list = wendy_list_malloc(vm->memory, new_size);
 				// Copy all Elements n times
-				int n = 1;
-				for (int i = 0; i < new_size; i++) {
+				size_t n = 1;
+				for (size_t i = 0; i < new_size; i++) {
 					new_list[n++] = copy_data(b.value.reference[(i % size_b) + 1]);
 				}
 				return make_data(D_LIST, data_value_ptr(new_list));
 			}
 			else if (op == O_IN) {
 				// element in list
-				for (int i = 0; i < size_b; i++) {
+				for (size_t i = 0; i < size_b; i++) {
 					if (data_equal(&a, &b.value.reference[i + 1])) {
 						return true_data();
 					}
@@ -1438,7 +1446,7 @@ static struct data size_of(struct data a) {
 		size = strlen(a.value.string);
 	}
 	else if (a.type == D_LIST) {
-		size = a.value.reference->value.number;
+		size = wendy_list_size(&a);
 	}
 	else if (a.type == D_RANGE) {
 		size = abs(range_end(a) - range_start(a));
@@ -1492,10 +1500,10 @@ static struct data eval_uniop(struct vm * vm, enum operator op, struct data a) {
 		// struct or struct instances
 		if (a.type == D_LIST) {
 			// We make a copy of the list as pointed to A.
-			int list_size = a.value.reference->value.number;
+			size_t list_size = wendy_list_size(&a);
 			struct data* new_a = wendy_list_malloc(vm->memory, list_size);
 			int n = 1;
-			for (int i = 0; i < list_size; i++) {
+			for (size_t i = 0; i < list_size; i++) {
 				new_a[n++] = copy_data(a.value.reference[i + 1]);
 			}
 			return make_data(D_LIST, data_value_ptr(new_a));

@@ -63,6 +63,11 @@ struct data {
 	union data_value value;
 };
 
+struct list_header {
+	size_t size;
+	size_t capacity;
+};
+
 struct data make_data(enum data_type type, union data_value value);
 struct data copy_data(struct data d);
 void destroy_data(struct data* d);
@@ -83,13 +88,13 @@ bool is_vm_internal_type(struct data t);
 #define noneret_data() make_data(D_NONERET, data_value_str("<noneret>"))
 #define none_data() make_data(D_NONE, data_value_str("<none>"))
 #define false_data() make_data(D_FALSE, data_value_str("<false>"))
-#define any_data() make_data(D_ANY, data_value_str("ANYYYYTHING"))
+#define any_data() make_data(D_ANY, data_value_str(""))
 #define true_data() make_data(D_TRUE, data_value_str("<true>"))
 
 struct data range_data(int start, int end);
 int range_start(struct data r);
 int range_end(struct data r);
-struct data list_header_data(int size);
+struct data list_header_data(size_t size, size_t capacity);
 void print_data(const struct data *t);
 bool data_equal(struct data *a, struct data *b);
 

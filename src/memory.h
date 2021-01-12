@@ -79,6 +79,7 @@ struct data *refcnt_copy(struct data *ptr);
 //   list but also inserting a header
 #define wendy_list_malloc(memory, size) wendy_list_malloc_impl(refcnt_malloc(memory, (size) + 1), (size))
 struct data* wendy_list_malloc_impl(struct data* allocated, size_t size);
+size_t wendy_list_size(const struct data* list_ref);
 
 // push_frame(name) creates a new stack frame (when starting a function call)
 void push_frame(struct memory * memory, char* name, address ret, int line);

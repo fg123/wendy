@@ -143,9 +143,22 @@ struct data *refcnt_copy(struct data *ptr) {
 	return ptr;
 }
 
+
 struct data* wendy_list_malloc_impl(struct data* allocated, size_t size) {
-	allocated[0] = make_data(D_LIST_HEADER, data_value_num(size));
+	allocated[0] = list_header_data(size, size);
 	return allocated;
+}
+
+size_t wendy_list_size(const struct data* list_ref) {
+	if (list_ref->type != D_LIST && list_ref->type != D_CLOSURE) {
+		error_general("wendy_list_size but not D_LIST");
+	}
+	struct data* list_data = list_ref->value.reference;
+	if (list_data->type != D_LIST_HEADER) {
+		error_general("wendy_list_size but not D_LIST_HEADER");
+	}
+	struct list_header* hdr = (struct list_header*)list_data->value.reference;
+	return hdr->size;
 }
 
 struct data *create_closure(struct memory * memory) {
