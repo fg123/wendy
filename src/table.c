@@ -17,6 +17,7 @@ struct table* table_create(void) {
     for (size_t i = 0; i < table->bucket_count; i++) {
         table->buckets[i] = 0;
     }
+    table->size = 0;
     return table;
 }
 
@@ -64,7 +65,12 @@ struct data* table_insert(struct table* table, const char* key) {
     new_entry->key = safe_strdup(key);
     new_entry->next = table->buckets[bucket];
     table->buckets[bucket] = new_entry;
+    table->size += 1;
     return &new_entry->value;
+}
+
+size_t table_size(struct table* table) {
+    return table->size;
 }
 
 struct data* table_find(struct table* table, const char* key) {

@@ -7,6 +7,8 @@ let b = {
     d: #:(wow) { wow + 2 }
 };
 
+b.size;
+
 b.a;
 b.b;
 b.c;

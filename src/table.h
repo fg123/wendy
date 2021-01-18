@@ -15,6 +15,7 @@ struct entry {
 struct table {
     struct entry** buckets;
     size_t bucket_count;
+    size_t size;
 };
 
 size_t get_string_hash(const char* str);
@@ -25,6 +26,7 @@ struct table* table_copy(struct table*);
 
 struct data* table_insert(struct table* table, const char* key);
 struct data* table_find(struct table* table, const char* key);
+size_t table_size(struct table* table);
 bool table_exist(struct table* table, const char* key);
 
 #endif

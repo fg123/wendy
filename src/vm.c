@@ -1069,19 +1069,15 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 		}
 		if (a.type == D_TABLE) {
 			struct table* table = (struct table*) a.value.reference[0].value.reference;
-			if (!table_exist(table, b.value.string)) {
-				struct data type = type_of(a);
-				error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_EXIST, b.value.string, type.value.string);
-				destroy_data_runtime(vm->memory, &type);
-				return false_data();
+			if (table_exist(table, b.value.string)) {
+				struct data result = copy_data(*table_find(table, b.value.string));
+				if (result.type == D_FUNCTION) {
+					// Hack because OP_CALL will send a reference to the table as the
+					//   first argument
+					result.type = D_STRUCT_FUNCTION;
+				}
+				return result;
 			}
-			struct data result = copy_data(*table_find(table, b.value.string));
-			if (result.type == D_FUNCTION) {
-				// Hack because OP_CALL will send a reference to the table as the
-				//   first argument
-				result.type = D_STRUCT_FUNCTION;
-			}
-			return result;
 		}
 		if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
 			// Either will be allowed to look through static parameters.
@@ -1517,6 +1513,9 @@ static struct data size_of(struct data a) {
 	}
 	else if (a.type == D_LIST) {
 		size = wendy_list_size(&a);
+	}
+	else if (a.type == D_TABLE) {
+		size = table_size((struct table*) a.value.reference[0].value.reference);
 	}
 	else if (a.type == D_RANGE) {
 		size = abs(range_end(a) - range_start(a));
