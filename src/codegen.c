@@ -1070,6 +1070,22 @@ static void codegen_expr(void* expre) {
 		write_byte(D_LIST);
 		write_integer(count + 1);
 	}
+	else if (expression->type == E_TABLE) {
+		struct expr_list* key = expression->op.table_expr.keys;
+		struct expr_list* val = expression->op.table_expr.values;
+		size_t count = 0;
+		while (key && val) {
+			// key should be a Literal Identifier
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_TABLE_KEY, data_value_str(key->elem->op.lit_expr.value.string)));
+			codegen_expr(val->elem);
+			count += 1;
+			key = key->next;
+			val = val->next;
+		}
+		write_opcode(OP_MKTBL);
+		write_address(count);
+	}
 	else if (expression->type == E_FUNCTION) {
 		write_opcode(OP_JMP);
 		int writeSizeLoc = size;

@@ -1,0 +1,20 @@
+${
+    push D_TABLE_KEY "apple"
+    push D_TABLE_KEY "banana"
+    push D_TABLE_KEY "cat"
+    mktbl 3
+    decl a
+    write
+};
+
+a.apple;
+a.banana;
+a.cat;
+
+a.apple = 10;
+a.banana = "hello";
+a.cat = false;
+
+a.apple;
+a.banana;
+a.cat;

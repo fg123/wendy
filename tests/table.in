@@ -1,20 +1,25 @@
-${
-    push D_TABLE_KEY "apple"
-    push D_TABLE_KEY "banana"
-    push D_TABLE_KEY "cat"
-    mktbl 3
-    decl a
-    write
+let a = {};
+
+let b = {
+    a: 1,
+    b: false,
+    c: "hello",
+    d: #:(wow) { wow + 2 }
 };
 
-a.apple;
-a.banana;
-a.cat;
+b.a;
+b.b;
+b.c;
+b.d(10);
 
-a.apple = 10;
-a.banana = "hello";
-a.cat = false;
+let c = {
+    a : {
+        hello: "world"
+    },
+    b: {
+        world: "hello"
+    }
+}
 
-a.apple;
-a.banana;
-a.cat;
+c.b.world;
+c.a.hello;

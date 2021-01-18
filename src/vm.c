@@ -344,14 +344,24 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				struct data* table_storage = refcnt_malloc(vm->memory, 1);
 				table_storage[0] = make_data(D_TABLE_INTERNAL_POINTER, data_value_ptr((struct data*) table));
 				for (size_t i = 0; i < size; i++) {
-					struct data next = pop_arg(vm->memory, vm->line);
-					if (next.type != D_TABLE_KEY) {
-						error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "MKTBL entry is not an Table Key type");
-						continue;
+					struct data key = pop_arg(vm->memory, vm->line);
+					struct data data;
+					if (key.type != D_TABLE_KEY) {
+						// next is the value at the key
+						data = key;
+						key = pop_arg(vm->memory, vm->line);
+						if (key.type != D_TABLE_KEY) {
+							error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "MKTBL entry is not an Table Key type");
+							continue;
+						}
 					}
-					struct data* data = table_insert(table, next.value.string);
-					*data = none_data();
-					destroy_data_runtime(vm->memory, &next);
+					else {
+						data = none_data();
+					}
+					
+					struct data* _data = table_insert(table, key.value.string);
+					*_data = data;
+					destroy_data_runtime(vm->memory, &key);
 				}
 				struct data reference = make_data(D_TABLE, data_value_ptr(table_storage));
 				push_arg(vm->memory, reference);
@@ -748,7 +758,9 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					// Either we pushed the new instance on the stack on top, or
 					//   codegen generated the instance on the top.
 					struct data instance = pop_arg(vm->memory, vm->line);
-					if (instance.type != D_STRUCT_INSTANCE && instance.type != D_STRUCT) {
+					if (instance.type != D_STRUCT_INSTANCE &&
+						instance.type != D_STRUCT &&
+						instance.type != D_TABLE) {
 						error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "D_STRUCT_FUNCTION encountered but top of stack is not a instance nor a struct.");
 						destroy_data_runtime(vm->memory, &top);
 						destroy_data_runtime(vm->memory, &instance);
@@ -1063,7 +1075,13 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 				destroy_data_runtime(vm->memory, &type);
 				return false_data();
 			}
-			return copy_data(*table_find(table, b.value.string));
+			struct data result = copy_data(*table_find(table, b.value.string));
+			if (result.type == D_FUNCTION) {
+				// Hack because OP_CALL will send a reference to the table as the
+				//   first argument
+				result.type = D_STRUCT_FUNCTION;
+			}
+			return result;
 		}
 		if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
 			// Either will be allowed to look through static parameters.

@@ -495,6 +495,11 @@ static struct expr* optimize_expr(struct expr* expression) {
 				optimize_statement(expression->op.func_expr.body);
 			break;
 		}
+		case E_TABLE: {
+			expression->op.table_expr.values =
+				optimize_expr_list(expression->op.table_expr.values);
+			break;
+		}
 		case E_ASSIGN: {
 			if (expression->op.assign_expr.lvalue->type == E_LITERAL &&
 				expression->op.assign_expr.lvalue->op.lit_expr.type == D_IDENTIFIER) {
@@ -658,6 +663,10 @@ static void scan_expr(struct expr* expression) {
 			}
 			scan_statement(expression->op.func_expr.body);
 			delete_block();
+			break;
+		}
+		case E_TABLE: {
+			scan_expr_list(expression->op.table_expr.values);
 			break;
 		}
 		case E_ASSIGN: {

@@ -22,6 +22,7 @@ static struct expr* make_una_expr(struct token op, struct expr* operand);
 static struct expr* make_call_expr(struct expr* left, struct expr_list* arg_list);
 static struct expr* make_list_expr(struct expr_list* list);
 static struct expr* make_func_expr(struct expr_list* parameters, struct statement* body);
+static struct expr* make_table_expr(struct expr_list* keys, struct expr_list* values);
 static struct expr* make_native_func_expr(struct expr_list* parameters, struct token name);
 static struct expr* make_assign_expr(struct expr* left, struct expr* right, struct token op);
 static struct expr* make_if_expr(struct expr* condition, struct expr* if_true, struct expr* if_false);
@@ -270,6 +271,39 @@ static struct expr* primary(void) {
 		consume(T_RIGHT_PAREN);
 		struct statement* fn_body = parse_statement();
 		return make_func_expr(list, fn_body);
+	}
+	else if (match(T_LEFT_BRACE)) {
+		if (peek().t_type == T_RIGHT_BRACE) {
+			consume(T_RIGHT_BRACE);
+			return make_table_expr(NULL, NULL);
+		}
+		struct expr_list* keys = safe_malloc(sizeof(struct expr_list));
+		struct expr_list* values = safe_malloc(sizeof(struct expr_list));
+		keys->next = 0;
+		values->next = 0;
+		struct expr** curr_keys = &keys->elem;
+		struct expr** curr_values = &values->elem;
+		struct expr_list* curr_key_list = keys;
+		struct expr_list* curr_val_list = values;
+		forever {
+			consume(T_IDENTIFIER);
+			*curr_keys = make_lit_expr(previous());
+			consume(T_COLON);
+			*curr_values = expression();
+			if (match(T_COMMA)) {
+				curr_key_list->next = safe_malloc(sizeof(struct expr_list));
+				curr_key_list = curr_key_list->next;
+				curr_key_list->next = 0;
+				curr_keys = &curr_key_list->elem;
+
+				curr_val_list->next = safe_malloc(sizeof(struct expr_list));
+				curr_val_list = curr_val_list->next;
+				curr_val_list->next = 0;
+				curr_values = &curr_val_list->elem;
+			} else break;
+		}
+		consume(T_RIGHT_BRACE);
+		return make_table_expr(keys, values);
 	}
 	else if (match(T_IF)) {
 		struct expr* condition = expression();
@@ -932,6 +966,11 @@ void traverse_expr(struct expr* expression, struct traversal_algorithm* algo) {
 			traverse_statement(expression->op.func_expr.body, algo);
 			break;
 		}
+		case E_TABLE: {
+			traverse_expr_list(expression->op.table_expr.keys, algo);
+			traverse_expr_list(expression->op.table_expr.values, algo);
+			break;
+		}
 		case E_ASSIGN: {
 			traverse_expr(expression->op.assign_expr.lvalue, algo);
 			traverse_expr(expression->op.assign_expr.rvalue, algo);
@@ -998,6 +1037,10 @@ static void print_e(struct expr* expression, struct traversal_algorithm* algo) {
 		}
 		case E_FUNCTION: {
 			printf("Function Expression\n");
+			break;
+		}
+		case E_TABLE: {
+			printf("Table Expression\n");
 			break;
 		}
 		case E_ASSIGN: {
@@ -1197,6 +1240,13 @@ static struct expr* make_func_expr(struct expr_list* parameters, struct statemen
 	node->op.func_expr.is_native = false;
 	node->line = t.t_line;
 	node->col = t.t_col;
+	return node;
+}
+static struct expr* make_table_expr(struct expr_list* keys, struct expr_list* values) {
+	struct expr* node = safe_malloc(sizeof(struct expr));
+	node->type = E_TABLE;
+	node->op.table_expr.keys = keys;
+	node->op.table_expr.values = values;
 	return node;
 }
 static struct expr* make_native_func_expr(struct expr_list* parameters, struct token name) {
