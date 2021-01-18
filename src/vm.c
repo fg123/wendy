@@ -7,6 +7,8 @@
 #include "global.h"
 #include "native.h"
 #include "imports.h"
+#include "table.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -335,6 +337,27 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				DISPATCH();
 				break;
 			}
+			case OP_MKTBL:
+            VM_OP_MKTBL: {
+				size_t size = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
+				struct table* table = table_create();
+				struct data* table_storage = refcnt_malloc(vm->memory, 1);
+				table_storage[0] = make_data(D_TABLE_INTERNAL_POINTER, data_value_ptr((struct data*) table));
+				for (size_t i = 0; i < size; i++) {
+					struct data next = pop_arg(vm->memory, vm->line);
+					if (next.type != D_TABLE_KEY) {
+						error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "MKTBL entry is not an Table Key type");
+						continue;
+					}
+					struct data* data = table_insert(table, next.value.string);
+					*data = none_data();
+					destroy_data_runtime(vm->memory, &next);
+				}
+				struct data reference = make_data(D_TABLE, data_value_ptr(table_storage));
+				push_arg(vm->memory, reference);
+				DISPATCH();
+				break;
+			}
 			case OP_DEC:
             VM_OP_DEC: {
 				struct data ptr = pop_arg(vm->memory, vm->line);
@@ -507,7 +530,9 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				// Either will be allowed to look through static parameters.
 				struct data instance = pop_arg(vm->memory, vm->line);
 				char* member = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
-				if (instance.type != D_STRUCT && instance.type != D_STRUCT_INSTANCE) {
+				if (instance.type != D_STRUCT &&	
+					instance.type != D_STRUCT_INSTANCE &&
+					instance.type != D_TABLE) {
 					if (instance.type == D_NONERET) {
 						error_runtime(vm->memory, vm->line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
 					} else {
@@ -516,44 +541,61 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					destroy_data_runtime(vm->memory, &instance);
 					break;
 				}
-				struct data* metadata = instance.value.reference;
-				if (instance.type == D_STRUCT_INSTANCE) {
-					// metadata actually points to the STRUCT_INSTANCE_HEAD
-					//   right now.
-					metadata = metadata[1].value.reference;
-					// TODO: assert metadata is a metadata
-				}
-				enum data_type struct_type = instance.type;
-				bool found = false;
-				int params_passed = 0;
-				int size = metadata[0].value.number;
-				for (int i = 0; i < size; i++) {
-					struct data mdata = metadata[i + 1];
-					if (mdata.type == D_STRUCT_SHARED &&
-						streq(mdata.value.string, member)) {
-						// Found the static member we were looking for.
-						push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(&metadata[i + 2])));
-						found = true;
+				if (instance.type == D_TABLE) {
+					struct table* table = (struct table*) instance.value.reference[0].value.reference;
+					if (!table_exist(table, member)) {
+						struct data type = type_of(instance);
+						error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_EXIST, member, type.value.string);
+						destroy_data_runtime(vm->memory, &type);
 						break;
 					}
-					else if (mdata.type == D_STRUCT_PARAM) {
-						if (struct_type == D_STRUCT_INSTANCE &&
+					push_arg(vm->memory,
+						make_data(D_INTERNAL_POINTER, data_value_ptr(
+								table_find(table, member)
+							)
+						)
+					);
+				}
+				else {
+					struct data* metadata = instance.value.reference;
+					if (instance.type == D_STRUCT_INSTANCE) {
+						// metadata actually points to the STRUCT_INSTANCE_HEAD
+						//   right now.
+						metadata = metadata[1].value.reference;
+						// TODO: assert metadata is a metadata
+					}
+					enum data_type struct_type = instance.type;
+					bool found = false;
+					int params_passed = 0;
+					int size = metadata[0].value.number;
+					for (int i = 0; i < size; i++) {
+						struct data mdata = metadata[i + 1];
+						if (mdata.type == D_STRUCT_SHARED &&
 							streq(mdata.value.string, member)) {
-							// Found the instance member we were looking for.
-							// Address of the STRUCT_INSTANCE_HEADER offset by
-							//   params_passed + 1;
-							push_arg(vm->memory, make_data(D_INTERNAL_POINTER,
-								data_value_ptr(&instance.value.reference[params_passed + 2])));
+							// Found the static member we were looking for.
+							push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(&metadata[i + 2])));
 							found = true;
 							break;
 						}
-						params_passed++;
+						else if (mdata.type == D_STRUCT_PARAM) {
+							if (struct_type == D_STRUCT_INSTANCE &&
+								streq(mdata.value.string, member)) {
+								// Found the instance member we were looking for.
+								// Address of the STRUCT_INSTANCE_HEADER offset by
+								//   params_passed + 1;
+								push_arg(vm->memory, make_data(D_INTERNAL_POINTER,
+									data_value_ptr(&instance.value.reference[params_passed + 2])));
+								found = true;
+								break;
+							}
+							params_passed++;
+						}
 					}
-				}
-				if (!found) {
-					struct data type = type_of(instance);
-					error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_EXIST, member, type.value.string);
-					destroy_data_runtime(vm->memory, &type);
+					if (!found) {
+						struct data type = type_of(instance);
+						error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_EXIST, member, type.value.string);
+						destroy_data_runtime(vm->memory, &type);
+					}
 				}
 				destroy_data_runtime(vm->memory, &instance);
 				DISPATCH();
@@ -1012,6 +1054,16 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 		if (b.type != D_MEMBER_IDENTIFIER) {
 			error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_IDEN);
 			return false_data();
+		}
+		if (a.type == D_TABLE) {
+			struct table* table = (struct table*) a.value.reference[0].value.reference;
+			if (!table_exist(table, b.value.string)) {
+				struct data type = type_of(a);
+				error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_EXIST, b.value.string, type.value.string);
+				destroy_data_runtime(vm->memory, &type);
+				return false_data();
+			}
+			return copy_data(*table_find(table, b.value.string));
 		}
 		if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
 			// Either will be allowed to look through static parameters.
@@ -1484,6 +1536,8 @@ static struct data type_of(struct data a) {
 			return make_data(D_OBJ_TYPE, data_value_str("spread"));
 		case D_OBJ_TYPE:
 			return make_data(D_OBJ_TYPE, data_value_str("type"));
+		case D_TABLE:
+			return make_data(D_OBJ_TYPE, data_value_str("table"));
 		case D_ANY:
 			return make_data(D_OBJ_TYPE, data_value_str("any"));
 		case D_STRUCT_INSTANCE:

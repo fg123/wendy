@@ -2,6 +2,7 @@
 #include "global.h"
 #include "memory.h"
 #include "error.h"
+#include "table.h"
 
 #include <string.h>
 #include <stdbool.h>
@@ -22,6 +23,13 @@ struct data copy_data(struct data d) {
 	if (d.type == D_LIST_HEADER) {
 		struct list_header* header = (struct list_header*) d.value.reference;
 		return list_header_data(header->size, header->capacity);
+	}
+	else if (d.type == D_TABLE_INTERNAL_POINTER) {
+		error_general("Can't copy a D_TABLE_INTERNAL_POINTER!\n");
+		return none_data();
+		// return make_data(d.type, data_value_ptr((struct data*) table_copy(
+		// 	(struct table*) d.value.reference
+		// )));
 	}
 	else if (is_numeric(d)) {
 		return make_data(d.type, data_value_num(d.value.number));
@@ -54,6 +62,9 @@ void destroy_data_runtime(struct memory* memory, struct data* d) {
 	if (d->type == D_LIST_HEADER) {
 		safe_free(d->value.reference);
 	}
+	else if (d->type == D_TABLE_INTERNAL_POINTER) {
+		table_destroy(memory, (struct table*)d->value.reference);
+	}
 	else if (is_reference(*d)) {
 		refcnt_free(memory, d->value.reference);
 	}
@@ -67,6 +78,9 @@ void destroy_data_runtime(struct memory* memory, struct data* d) {
 void destroy_data(struct data* d) {
 	if (d->type == D_LIST_HEADER) {
 		safe_free(d->value.reference);
+	}
+	else if (d->type == D_TABLE_INTERNAL_POINTER) {
+		error_general("Tried to destroy a table without a memory instance!");
 	}
 	else if (is_reference(*d)) {
 		error_general("Tried to destroy a reference data type without a memory instance!");
@@ -109,6 +123,7 @@ bool is_reference(struct data t) {
 		t.type == D_STRUCT_METADATA ||
 		t.type == D_CLOSURE ||
 		t.type == D_SPREAD ||
+		t.type == D_TABLE ||
 		t.type == D_STRUCT_INSTANCE ||
 		t.type == D_STRUCT_FUNCTION ||
 		t.type == D_LIST_RANGE_LVALUE;
@@ -117,12 +132,18 @@ bool is_reference(struct data t) {
 bool is_numeric(struct data t) {
 	return t.type == D_NUMBER ||
 		t.type == D_INSTRUCTION_ADDRESS ||
-		t.type == D_LIST_HEADER ||
 		t.type == D_STRUCT_HEADER||
 		t.type == D_STRUCT_INSTANCE_HEADER ||
 		t.type == D_EMPTY ||
 		t.type == D_RANGE ||
 		t.type == D_END_OF_ARGUMENTS ||
+		
+		// This uses "reference" to point to a struct list_header
+		t.type == D_LIST_HEADER ||
+
+		// This uses "reference" to point to a table
+		t.type == D_TABLE_INTERNAL_POINTER ||
+
 		// This is actually a "reference" type, but because the
 		// corresponding pointer is not ref-counted, we label it
 		// as numeric.
@@ -231,6 +252,9 @@ unsigned int print_data_inline(const struct data* t, FILE* buf) {
 	}
 	else if (t->type == D_STRUCT_HEADER) {
 		p += fprintf(buf, "<meta size %d>", (int)(t->value.number));
+	}
+	else if (t->type == D_TABLE) {
+		p += fprintf(buf, "<table>");
 	}
 	else if (t->type == D_LIST || t->type == D_CLOSURE) {
 		// Special case here because closures are implemented as lists

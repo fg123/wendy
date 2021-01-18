@@ -41,7 +41,10 @@
 	OP(D_END_OF_ARGUMENTS) \
 	OP(D_SPREAD) \
 	OP(D_LIST_RANGE_LVALUE) \
-	OP(D_ANY) // No way for client to construct this, can only have a type <any>
+	OP(D_ANY) /* No way for client to construct this, can only have a type <any> */ \
+	OP(D_TABLE) \
+	OP(D_TABLE_INTERNAL_POINTER) \
+	OP(D_TABLE_KEY)
 
 enum data_type {
 	FOREACH_DATA(ENUM)

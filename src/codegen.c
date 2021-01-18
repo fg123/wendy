@@ -420,6 +420,17 @@ static bool codegen_one_instruction(struct token *tokens, size_t _size, size_t *
 			}
 			break;
 		}
+		case OP_MKTBL: {
+			assert_one(_size, ptr);
+			struct token arg = tokens[(*ptr)++];
+			if (arg.t_type == T_NUMBER) {
+				write_address(arg.t_data.number);
+			}
+			else {
+				error_general("Invalid arg2 for MKTABLE");
+			}
+			break;
+		}
 		case OP_NTHPTR:
 		case OP_MEMPTR:
 		case OP_INC:
@@ -1315,6 +1326,12 @@ void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer) {
 				p += fprintf(buffer, "%s", data_string[t]);
 				address a = get_address(bytecode + i, &i);
 				p += fprintf(buffer, " %d", a);
+				break;
+			}
+			case OP_MKTBL: {
+				address a = get_address(bytecode + i, &i);
+				p += fprintf(buffer, "%d", a);
+				printSourceLine = a;
 				break;
 			}
 			case OP_SRC: {
