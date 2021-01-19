@@ -19,7 +19,7 @@ bool get_error_flag() {
 	return error_flag;
 }
 
-char* error_message(char* message, va_list args) {
+char* error_message(const char* message, va_list args) {
 	char* result;
 	vasprintf(&result, message, args);
 	return result;
@@ -82,13 +82,26 @@ void error_compile(int line, int col, char* message, ...) {
 	}
 }
 
+void assert_impl(bool condition, const char* condition_str, const char* filename, size_t line_number, const char* message, ...) {
+	if (!condition) {
+		error_flag = true;
+		va_list args;
+		va_start(args, message);
+		char* msg = error_message(message, args);
+		fprintf(stderr, RED "Fatal Error: " RESET "assertion (%s) failed on %s:%ld: " RESET "%s\n", condition_str, filename, line_number, msg);
+		// Cannot be safe, because vasprintf uses malloc!
+		free(msg);
+		safe_exit(1);
+	}
+}
+
 void error_runtime(struct memory* memory, int line, char* message, ...) {
 	error_flag = true;
 	va_list args;
 	va_start(args, message);
 
 	char* msg = error_message(message, args);
-	fprintf(stderr, RED "Runtime Error" RESET " on line " YEL "%d" RESET " %s\n", line, msg);
+	fprintf(stderr, RED "Runtime Error" RESET " on line " YEL "%d: " RESET " %s\n", line, msg);
 
 	if (has_source()) {
 		if (!is_source_accurate()) {

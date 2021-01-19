@@ -186,6 +186,8 @@ void free_alloc() {
 
 void safe_exit(int code) {
 	free_alloc();
+	fflush(stdout);
+	fflush(stderr);
 	exit(code);
 }
 

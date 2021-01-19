@@ -238,13 +238,12 @@ void memory_destroy(struct memory* memory) {
 		//   the owning parent has freed, which leads to bad memory
 		//   reads. The best way is to forcefully free the remaining
 		//   refcnted containers;
+		if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
+			printf("Clear leftover.\n");
+		}
 		struct data *ptr = (struct data *)(start + 1);
 		for (size_t i = 0; i < start->count; i++) {
-			if (!is_reference(ptr[i])) {
-				// If it's a reference, it will be dealt with later
-				//   or before
-				destroy_data_runtime(memory, &ptr[i]);
-			}
+			destroy_data_runtime_no_ref(memory, &ptr[i]);
 		}
 		next = start->next;
 		safe_free(start);
@@ -253,6 +252,7 @@ void memory_destroy(struct memory* memory) {
 			break;
 		}
 	}
+	free(memory);
 }
 
 void push_frame(struct memory * memory, char* name, address ret, int line) {
@@ -311,6 +311,19 @@ bool pop_frame(struct memory * memory, bool is_ret, address* ret) {
 	return (is_ret || is_at_function);
 }
 
+void print_working_stack(struct memory * memory, FILE* file, int maxlines) {
+	fprintf(file, "\n" DIVIDER "\n");
+	fprintf(file, "Dump: Working Stack\n");
+	int start = memory->working_stack_pointer - maxlines;
+	if (start < 0 || maxlines < 0) start = 0;
+	for (size_t i = start; i < memory->working_stack_pointer; i++) {
+		fprintf(file, "%5zd      [%s -> ", i, data_string[memory->working_stack[i].type]);
+		print_data_inline(&memory->working_stack[i], file);
+		fprintf(file, "]\n");
+	}
+	fprintf(file, DIVIDER "\n");
+}
+
 void print_call_stack(struct memory * memory, FILE* file, int maxlines) {
 	fprintf(file, "\n" DIVIDER "\n");
 	fprintf(file, "Dump: Stack Trace\n");
@@ -341,7 +354,7 @@ void print_call_stack(struct memory * memory, FILE* file, int maxlines) {
 					fprintf(file, "%5zd      [%s -> ",i,
 							memory->call_stack[i].id);
 				}
-				print_data_inline(&memory->call_stack[i].val, stdout);
+				print_data_inline(&memory->call_stack[i].val, file);
 				fprintf(file, "]\n");
 			}
 		}

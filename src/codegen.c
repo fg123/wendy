@@ -91,13 +91,13 @@ static void write_address_at(address a, address pos) {
 	}
 }
 
-static void write_double_at(double a, address pos) {
-	if (!is_big_endian) pos += sizeof(a);
-	uint8_t* p = (void*)&a;
-	for (size_t i = 0; i < sizeof(double); i++) {
-		bytecode[is_big_endian ? pos++ : --pos] = p[i];
-	}
-}
+// static void write_double_at(double a, address pos) {
+// 	if (!is_big_endian) pos += sizeof(a);
+// 	uint8_t* p = (void*)&a;
+// 	for (size_t i = 0; i < sizeof(double); i++) {
+// 		bytecode[is_big_endian ? pos++ : --pos] = p[i];
+// 	}
+// }
 
 static void write_double(double a) {
 	guarantee_size(sizeof(double));
@@ -608,21 +608,19 @@ static void codegen_statement(void* expre) {
 			// corresponds to a static instance of the type.
 
 			// First, we make the struct prototype.
-			size_t push_size = 5;
 			char* enum_name = state->op.enum_statement.name;
 
 			write_opcode(OP_PUSH);
-			address meta_header_loc = size;
-			write_data(make_data(D_STRUCT_HEADER, data_value_num(1)));
+			write_data(make_data(D_STRUCT_HEADER, data_value_num(3)));
 			write_opcode(OP_PUSH);
 			write_data(make_data(D_STRUCT_NAME, data_value_str(enum_name)));
+
+			// Static Table
 			write_opcode(OP_PUSH);
-			write_data(make_data(D_STRUCT_SHARED, data_value_str("init")));
+			write_data(make_data(D_TABLE_KEY, data_value_str("init")));
 			codegen_expr(state->op.enum_statement.init_fn);
 
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_STRUCT_PARAM, data_value_str("_num")));
-
+			size_t static_members = 1; // init 
 			struct expr_list* curr = state->op.enum_statement.values;
 			while (curr) {
 				struct expr* elem = curr->elem;
@@ -632,25 +630,35 @@ static void codegen_statement(void* expre) {
 					error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
 				}
 				write_opcode(OP_PUSH);
-				write_data(make_data(D_STRUCT_SHARED,
+				write_data(make_data(D_TABLE_KEY,
 					data_value_str(elem->op.lit_expr.value.string)));
 
-				// The value of it is an instance of the struct.
+				// None for now, we will construct these after
 				write_opcode(OP_PUSH);
 				write_data(none_data());
 
-				push_size += 2;
+				static_members += 1;
 				curr = curr->next;
 			}
+			
+			write_opcode(OP_MKTBL);
+			write_address(static_members);
+
+			// Table for instance members
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_TABLE_KEY, data_value_str("_num")));
+			write_opcode(OP_PUSH);
+			write_data(make_data(D_NUMBER, data_value_num(0)));
+			write_opcode(OP_MKTBL);
+			write_address(1);
 
 			write_opcode(OP_MKREF);
 			write_byte(D_STRUCT);
-			write_integer(push_size);
+			write_integer(4);
 
 			write_opcode(OP_DECL);
 			write_string(enum_name);
 			write_opcode(OP_WRITE);
-			write_double_at(push_size - 1, meta_header_loc + 1);
 
 			// Now we assign each one.
 			curr = state->op.enum_statement.values;
@@ -687,35 +695,26 @@ static void codegen_statement(void* expre) {
 			break;
 		}
 		case S_STRUCT: {
-			// Header, name, init function.
-			size_t push_size = 4;
+			// A struct is a list:
+			//   Header 
+			//   Name
+			//   D_TABLE -> maps shared param to data
+			//   D_TABLE -> maps instance param to offset
 			char* struct_name = state->op.struct_statement.name;
 
 			// Push Header and Name
 			write_opcode(OP_PUSH);
-			address metaHeaderLoc = size;
-			write_data(make_data(D_STRUCT_HEADER, data_value_num(1)));
+			write_data(make_data(D_STRUCT_HEADER, data_value_num(3)));
 			write_opcode(OP_PUSH);
 			write_data(make_data(D_STRUCT_NAME, data_value_str(struct_name)));
+
+			// Table for shared parameters
 			write_opcode(OP_PUSH);
-			write_data(make_data(D_STRUCT_SHARED, data_value_str("init")));
-			// Push Init Function
+			write_data(make_data(D_TABLE_KEY, data_value_str("init")));
 			codegen_expr(state->op.struct_statement.init_fn);
 
-			struct expr_list* curr = state->op.struct_statement.instance_members;
-			while (curr) {
-				struct expr* elem = curr->elem;
-				if (elem->type != E_LITERAL
-					|| elem->op.lit_expr.type != D_IDENTIFIER) {
-					error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
-				}
-				write_opcode(OP_PUSH);
-				write_data(make_data(D_STRUCT_PARAM,
-					data_value_str(elem->op.lit_expr.value.string)));
-				push_size++;
-				curr = curr->next;
-			}
-			curr = state->op.struct_statement.static_members;
+			size_t shared_param_table_size = 1;
+			struct expr_list* curr = state->op.struct_statement.static_members;
 			while (curr) {
 				struct expr* elem = curr->elem;
 				struct expr* rvalue = NULL;
@@ -731,8 +730,7 @@ static void codegen_statement(void* expre) {
 					error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
 				}
 				write_opcode(OP_PUSH);
-				write_data(make_data(D_STRUCT_SHARED,
-					data_value_str(elem->op.lit_expr.value.string)));
+				write_data(make_data(D_TABLE_KEY, data_value_str(elem->op.lit_expr.value.string)));
 				if (rvalue) {
 					codegen_expr(rvalue);
 				}
@@ -740,19 +738,38 @@ static void codegen_statement(void* expre) {
 					write_opcode(OP_PUSH);
 					write_data(none_data());
 				}
-				push_size += 2;
+				shared_param_table_size += 1;
 				curr = curr->next;
 			}
+			write_opcode(OP_MKTBL);
+			write_address(shared_param_table_size);
+
+			size_t instance_table_size = 0;
+			curr = state->op.struct_statement.instance_members;
+			while (curr) {
+				struct expr* elem = curr->elem;
+				if (elem->type != E_LITERAL
+					|| elem->op.lit_expr.type != D_IDENTIFIER) {
+					error_lexer(elem->line, elem->col, CODEGEN_EXPECTED_IDENTIFIER);
+				}
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_TABLE_KEY,
+					data_value_str(elem->op.lit_expr.value.string)));
+				write_opcode(OP_PUSH);
+				write_data(make_data(D_NUMBER, data_value_num(instance_table_size)));
+				instance_table_size++;
+				curr = curr->next;
+			}
+			write_opcode(OP_MKTBL);
+			write_address(instance_table_size);
+
 			write_opcode(OP_MKREF);
 			write_byte(D_STRUCT);
-			write_integer(push_size);
+			write_integer(4);
 
 			write_opcode(OP_DECL);
 			write_string(struct_name);
 			write_opcode(OP_WRITE);
-
-			// header don't include the initial
-			write_double_at(push_size - 1, metaHeaderLoc + 1);
 			break;
 		}
 		case S_IF: {
@@ -1347,7 +1364,6 @@ void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer) {
 			case OP_MKTBL: {
 				address a = get_address(bytecode + i, &i);
 				p += fprintf(buffer, "%d", a);
-				printSourceLine = a;
 				break;
 			}
 			case OP_SRC: {
@@ -1466,6 +1482,10 @@ void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 			}
 			case OP_MKREF: {
 				i++; // for the type
+				get_address(buffer + i, &i);
+				break;
+			}
+			case OP_MKTBL: {
 				get_address(buffer + i, &i);
 				break;
 			}

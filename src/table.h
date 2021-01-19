@@ -22,7 +22,9 @@ size_t get_string_hash(const char* str);
 
 struct table* table_create(void);
 void table_destroy(struct memory* memory, struct table* table);
+void table_destroy_no_ref(struct memory* memory, struct table* table);
 struct table* table_copy(struct table*);
+void table_write_keys_wendy_array(struct table*, struct data*);
 
 struct data* table_insert(struct table* table, const char* key);
 struct data* table_find(struct table* table, const char* key);

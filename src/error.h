@@ -34,6 +34,10 @@ void reset_error_flag(void);
 
 bool get_error_flag(void);
 
+#define assert(condition, message, ...) assert_impl((condition), #condition, __FILE__, __LINE__, (message) __VA_OPT__(,) __VA_ARGS__)
+
+void assert_impl(bool condition, const char* condition_str, const char* filename, size_t line_number, const char* message, ...);
+
 // General Messages:
 #define GENERAL_INVALID_HEADER "Invalid bytecode header!"
 #define GENERAL_NOT_IMPLEMENTED "%s is not implemented yet!"

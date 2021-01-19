@@ -128,13 +128,16 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 	static void* dispatch_table[] = {
 		FOREACH_OPCODE(VM_LABEL)
 	};
-	#define DISPATCH() { \
+	/* #define DISPATCH() { \
 		if (get_error_flag()) { \
 			clear_working_stack(vm->memory); \
 			break; \
 		} \
 		goto *dispatch_table[vm->bytecode[(vm->instruction_ptr)++]]; \
-	}
+	}*/
+
+	UNUSED(dispatch_table);
+	#define DISPATCH() ;
 
 	for (vm->instruction_ptr = start_at;;) {
 		reset_error_flag();
@@ -350,10 +353,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 						// next is the value at the key
 						data = key;
 						key = pop_arg(vm->memory, vm->line);
-						if (key.type != D_TABLE_KEY) {
-							error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "MKTBL entry is not an Table Key type");
-							continue;
-						}
+						assert(key.type == D_TABLE_KEY, "MKTBL entry is not an Table Key type, but is %s", data_string[key.type]);
 					}
 					else {
 						data = none_data();
@@ -567,38 +567,33 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					);
 				}
 				else {
+					// Struct or struct instance 
 					struct data* metadata = instance.value.reference;
 					if (instance.type == D_STRUCT_INSTANCE) {
-						// metadata actually points to the STRUCT_INSTANCE_HEAD
-						//   right now.
+						// metadata actually points to the STRUCT_INSTANCE_HEADER
+						//   right now, we need one below that for the metadata
 						metadata = metadata[1].value.reference;
-						// TODO: assert metadata is a metadata
 					}
 					enum data_type struct_type = instance.type;
+
 					bool found = false;
-					int params_passed = 0;
-					int size = metadata[0].value.number;
-					for (int i = 0; i < size; i++) {
-						struct data mdata = metadata[i + 1];
-						if (mdata.type == D_STRUCT_SHARED &&
-							streq(mdata.value.string, member)) {
-							// Found the static member we were looking for.
-							push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(&metadata[i + 2])));
+
+					// Try find static, metadata[2] points to static D_TABLE
+					assert(metadata[2].type == D_TABLE, "not a table!");
+					struct table* static_table = (struct table*) metadata[2].value.reference[0].value.reference;
+					if (table_exist(static_table, member)) {
+						push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(table_find(static_table, member))));
+						found = true;
+					}
+					else if (struct_type == D_STRUCT_INSTANCE) {
+						// metadata[3] is the instance_table
+						assert(metadata[3].type == D_TABLE, "not a table!");
+						struct table* instance_table = (struct table*) metadata[3].value.reference[0].value.reference;
+						if (table_exist(instance_table, member)) {
+							struct data* location = table_find(instance_table, member);
+							size_t offset = (size_t)location->value.number;
+							push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(&instance.value.reference[offset + 2])));							
 							found = true;
-							break;
-						}
-						else if (mdata.type == D_STRUCT_PARAM) {
-							if (struct_type == D_STRUCT_INSTANCE &&
-								streq(mdata.value.string, member)) {
-								// Found the instance member we were looking for.
-								// Address of the STRUCT_INSTANCE_HEADER offset by
-								//   params_passed + 1;
-								push_arg(vm->memory, make_data(D_INTERNAL_POINTER,
-									data_value_ptr(&instance.value.reference[params_passed + 2])));
-								found = true;
-								break;
-							}
-							params_passed++;
 						}
 					}
 					if (!found) {
@@ -661,7 +656,12 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					struct data old_top = top;
 
 					// Select `init` function.
-					top = copy_data(metadata[3]);
+					assert(metadata[2].type == D_TABLE, "not a table!");
+					struct table* static_table = (struct table*) metadata[2].value.reference[0].value.reference;
+					
+					// Better Exist
+					assert(table_exist(static_table, "init"), "struct static table has no init!");
+					top = copy_data(*table_find(static_table, "init"));
 
 					if (top.type != D_FUNCTION) {
 						error_runtime(vm->memory, vm->line, VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION);
@@ -671,13 +671,10 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					top.type = D_STRUCT_FUNCTION;
 
 					// Find how many STRUCT_PARAMs there are
-					size_t params = 0;
-					size_t metadata_size = metadata[0].value.number;
-					for (size_t i = 0; i < metadata_size; i++) {
-						if (metadata[i + 1].type == D_STRUCT_PARAM) {
-							params++;
-						}
-					}
+					assert(metadata[3].type == D_TABLE, "not a table!");
+					struct table* instance_table = (struct table*) metadata[3].value.reference[0].value.reference;
+					
+					size_t params = table_size(instance_table);
 
 					// +1 for the header, +1 for the metadata pointer
 					struct data* struct_instance = refcnt_malloc(vm->memory, params + 2);
@@ -1089,34 +1086,32 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 			}
 			enum data_type struct_type = a.type;
 
-			int params_passed = 0;
-			int size = metadata[0].value.number;
-			for (int i = 0; i < size; i++) {
-				struct data mdata = metadata[i + 1];
-				if (mdata.type == D_STRUCT_SHARED &&
-					streq(mdata.value.string, b.value.string)) {
-					// Found the static member we were looking for
-					struct data result = copy_data(metadata[i + 2]);
+			// Try find static, metadata[2] points to static D_TABLE
+			assert(metadata[2].type == D_TABLE, "not a table!");
+			struct table* static_table = (struct table*) metadata[2].value.reference[0].value.reference;
+			if (table_exist(static_table, b.value.string)) {
+				struct data result = copy_data(*table_find(static_table, b.value.string));
+				if (result.type == D_FUNCTION) {
+					// Hack because OP_CALL will send a reference to the table as the
+					//   first argument
+					result.type = D_STRUCT_FUNCTION;
+				}
+				return result;
+			}
+			if (struct_type == D_STRUCT_INSTANCE) {
+				// metadata[3] is the instance_table
+				assert(metadata[3].type == D_TABLE, "not a table!");
+				struct table* instance_table = (struct table*) metadata[3].value.reference[0].value.reference;
+				if (table_exist(instance_table, b.value.string)) {
+					struct data* location = table_find(instance_table, b.value.string);
+					size_t offset = (size_t)location->value.number;
+					struct data result = copy_data(a.value.reference[offset + 2]);
 					if (result.type == D_FUNCTION) {
+						// Hack because OP_CALL will send a reference to the table as the
+						//   first argument
 						result.type = D_STRUCT_FUNCTION;
 					}
 					return result;
-				}
-				else if (mdata.type == D_STRUCT_PARAM) {
-					if (struct_type == D_STRUCT_INSTANCE &&
-						streq(mdata.value.string, b.value.string)) {
-						// Found the instance member we were looking for.
-						// Address of the STRUCT_INSTANCE_HEADER offset by
-						//   params_passed + 1;
-						// + 1 for header, + 1 to get to next entry where the value
-						//   is stored
-						struct data result = copy_data(a.value.reference[params_passed + 2]);
-						if (result.type == D_FUNCTION) {
-							result.type = D_STRUCT_FUNCTION;
-						}
-						return result;
-					}
-					params_passed++;
 				}
 			}
 		}
@@ -1131,6 +1126,13 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 		}
 		else if (streq("char", b.value.string)) {
 			return char_of(a);
+		}
+		else if (a.type == D_TABLE && streq("keys", b.value.string)) {
+			struct table* table = (struct table*) a.value.reference[0].value.reference;
+			size_t size = table_size(table);
+			struct data* new_subarray = wendy_list_malloc(vm->memory, size);
+			table_write_keys_wendy_array(table, new_subarray);
+			return make_data(D_LIST, data_value_ptr(new_subarray));
 		}
 		else if (a.type == D_RANGE &&
 				 streq("start", b.value.string)) {

@@ -112,6 +112,9 @@ struct data* get_value_of_id(struct memory * memory, char* id, int line);
 // print_call_stack prints out the callstack
 void print_call_stack(struct memory * memory, FILE* file, int maxlines);
 
+// print_working_stack prints out the working stack
+void print_working_stack(struct memory * memory, FILE* file, int maxlines);
+
 // get_address_pos_of_id(id, line) gets the stack address of the id
 address get_stack_pos_of_id(struct memory * memory, char* id, int line);
 

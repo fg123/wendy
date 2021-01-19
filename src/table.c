@@ -38,22 +38,47 @@ struct table* table_copy(struct table* table) {
     return new_table;
 }
 
-void buckets_destroy(struct memory* memory, struct entry* entry) {
+void buckets_destroy(struct memory* memory, struct entry* entry,
+        void (*destroy_routine)(struct memory*, struct data*)) {
     // Destroy linked chain
     if (!entry) return;
     safe_free(entry->key);
-    destroy_data_runtime(memory, &entry->value);
+    destroy_routine(memory, &entry->value);
     struct entry* next = entry->next;
     safe_free(entry);
-    buckets_destroy(memory, next);
+    buckets_destroy(memory, next, destroy_routine);
 }
 
-void table_destroy(struct memory* memory,struct table* table) {
+void table_destroy(struct memory* memory, struct table* table) {
     // Destroy buckets 
     for (size_t i = 0; i < table->bucket_count; i++) {
-        buckets_destroy(memory, table->buckets[i]);
+        buckets_destroy(memory, table->buckets[i], destroy_data_runtime);
+        table->buckets[i] = NULL;
     }
     safe_free(table->buckets);
+    table->bucket_count = 0;
+    safe_free(table);
+}
+
+void table_write_keys_wendy_array(struct table* table, struct data* data) {
+    // Start at 1 because data[0] is the list header
+    size_t j = 1;
+    for (size_t i = 0; i < table->bucket_count; i++) {
+        struct entry* buckets = table->buckets[i];
+        while (buckets) {
+            data[j++] = make_data(D_STRING, data_value_str(buckets->key));
+            buckets = buckets->next;
+        }
+    }
+}
+
+void table_destroy_no_ref(struct memory* memory, struct table* table) {
+    for (size_t i = 0; i < table->bucket_count; i++) {
+        buckets_destroy(memory, table->buckets[i], destroy_data_runtime_no_ref);
+        table->buckets[i] = NULL;
+    }
+    safe_free(table->buckets);
+    table->bucket_count = 0;
     safe_free(table);
 }
 
@@ -64,6 +89,7 @@ struct data* table_insert(struct table* table, const char* key) {
     struct entry* new_entry = safe_calloc(1, sizeof(struct entry));
     new_entry->key = safe_strdup(key);
     new_entry->next = table->buckets[bucket];
+    new_entry->value.type = D_EMPTY;
     table->buckets[bucket] = new_entry;
     table->size += 1;
     return &new_entry->value;

@@ -75,6 +75,24 @@ void destroy_data_runtime(struct memory* memory, struct data* d) {
 	d->type = D_EMPTY;
 }
 
+void destroy_data_runtime_no_ref(struct memory* memory, struct data* d) {
+	// Don't follow references, since we're in the final freeing state
+	if (d->type == D_LIST_HEADER) {
+		safe_free(d->value.reference);
+	}
+	else if (d->type == D_TABLE_INTERNAL_POINTER) {
+		table_destroy_no_ref(memory, (struct table*)d->value.reference);
+	}
+	else if (is_reference(*d)) {
+		return;
+	}
+	else if (!is_numeric(*d)) {
+		safe_free(d->value.string);
+	}
+	
+	d->type = D_EMPTY;
+}
+
 void destroy_data(struct data* d) {
 	if (d->type == D_LIST_HEADER) {
 		safe_free(d->value.reference);
