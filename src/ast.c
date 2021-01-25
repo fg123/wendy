@@ -356,7 +356,7 @@ static struct expr* unary(void) {
 }
 static struct expr* factor(void) {
 	struct expr* left = unary();
-	while (match(T_STAR, T_SLASH, T_INTSLASH, T_PERCENT, T_MOD_EQUAL)) {
+	while (match(T_STAR, T_SLASH, T_INTSLASH, T_PERCENT, T_MOD_EQUAL, T_CARET)) {
 		struct token op = previous();
 		struct expr* right = unary();
 		left = make_bin_expr(left, op, right);

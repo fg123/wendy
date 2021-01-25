@@ -382,6 +382,7 @@ static bool scan_token(void) {
 			return false;
 		case '"': handle_string('"'); break;
 		case '$': add_token(T_DOLLAR_SIGN); break;
+		case '^': add_token(T_CARET); break;
 		case '\'': handle_string('\''); break;
 		default:
 			if (is_digit(c)) {

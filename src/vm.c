@@ -1192,6 +1192,9 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 			case O_ADD:
 				return make_data(D_NUMBER,
 					data_value_num(a.value.number + b.value.number));
+			case O_POWER:
+				return make_data(D_NUMBER,
+					data_value_num(pow(a.value.number, b.value.number)));
 			case O_SUB:
 				return make_data(D_NUMBER,
 					data_value_num(a.value.number - b.value.number));

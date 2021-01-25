@@ -112,6 +112,7 @@ int precedence(struct token op) {
 		case T_SLASH:
 		case T_INTSLASH:
 		case T_PERCENT:
+		case T_CARET:
 			return 150;
 		case T_AND:
 			return 120;
