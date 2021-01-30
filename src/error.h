@@ -34,7 +34,11 @@ void reset_error_flag(void);
 
 bool get_error_flag(void);
 
+#ifdef RELEASE 
+#define assert(...) 
+#else
 #define assert(condition, message, ...) assert_impl((condition), #condition, __FILE__, __LINE__, (message) __VA_OPT__(,) __VA_ARGS__)
+#endif
 
 void assert_impl(bool condition, const char* condition_str, const char* filename, size_t line_number, const char* message, ...);
 
