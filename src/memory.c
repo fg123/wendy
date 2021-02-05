@@ -6,9 +6,6 @@
 
 // Memory.c, provides functions for the interpreter to manipulate memory
 
-#define FUNCTION_START ">"
-#define AUTOFRAME_START "<"
-#define RA_START "#"
 #define CHAR(s) (*s)
 
 #define resize(container, current) do { \
@@ -26,13 +23,7 @@
 	(data).value.number
 
 static inline bool is_at_main(struct memory * memory) {
-	return memory->frame_pointer == 0;
-}
-
-static inline bool is_identifier_entry(struct memory * memory, int index) {
-	return memory->call_stack[index].id[0] != CHAR(FUNCTION_START) &&
-		   memory->call_stack[index].id[0] != CHAR(AUTOFRAME_START) &&
-		   memory->call_stack[index].id[0] != CHAR(RA_START);
+	return memory->call_stack_pointer == 0;
 }
 
 void check_memory(struct memory * memory) {
@@ -163,20 +154,38 @@ size_t wendy_list_size(const struct data* list_ref) {
 
 struct data *create_closure(struct memory * memory) {
 	size_t size = 0;
-	for (size_t i = memory->main_end_pointer; i < memory->call_stack_pointer; i++) {
-		if (is_identifier_entry(memory, i)) {
-			size += 1;
+	for (size_t i = 1; i < memory->call_stack_pointer; i++) {
+		size += table_size(memory->call_stack[i].variables);
+		if (memory->call_stack[i].closure) {
+			size += table_size(memory->call_stack[i].closure);
 		}
 	}
 	// We store a closure as a wendy-list of: identifier, value, identifier 2, value 2, etc
 	struct data *closure_list = wendy_list_malloc(memory, size * 2);
 	size_t index = 1;
-	for (size_t i = memory->main_end_pointer; i < memory->call_stack_pointer; i++) {
-		if (is_identifier_entry(memory, i)) {
-			// Add to closure list
-			closure_list[index++] = make_data(D_IDENTIFIER, data_value_str(memory->call_stack[i].id));
-			closure_list[index++] = copy_data(memory->call_stack[i].val);
+	for (size_t i = 1; i < memory->call_stack_pointer; i++) {
+		struct table* table = memory->call_stack[i].variables;
+		// Iterate Regular Vars
+		for (size_t i = 0; i < table->bucket_count; i++) {
+			struct entry* curr = table->buckets[i];
+			while (curr) {
+				closure_list[index++] = make_data(D_IDENTIFIER, data_value_str(curr->key));
+				closure_list[index++] = copy_data(curr->value);
+				curr = curr->next;
+			}
 		}
+		// Iterate Closure Vars
+		table = memory->call_stack[i].closure;
+		if (table) {
+			for (size_t i = 0; i < table->bucket_count; i++) {
+				struct entry* curr = table->buckets[i];
+				while (curr) {
+					closure_list[index++] = make_data(D_IDENTIFIER, data_value_str(curr->key));
+					closure_list[index++] = copy_data(curr->value);
+					curr = curr->next;
+				}
+			}
+		}	
 	}
 	return closure_list;
 }
@@ -191,14 +200,12 @@ struct memory *memory_init(void) {
 	memory->working_stack = safe_calloc(memory->working_stack_size, sizeof(struct data));
 
 	// Initialize Call Stack
-	memory->call_stack = safe_calloc(memory->call_stack_size, sizeof(struct stack_entry));
+	memory->call_stack = safe_calloc(memory->call_stack_size, sizeof(struct stack_frame));
 
-	memory->frame_pointer = 0;
 	memory->working_stack_pointer = 0;
 	memory->call_stack_pointer = 0;
 	memory->all_containers_start = 0;
 	memory->all_containers_end = 0;
-	memory->main_end_pointer = 0;
 	return memory;	
 }
 
@@ -209,18 +216,25 @@ void clear_working_stack(struct memory * memory) {
 	}
 }
 
+address stack_frame_destroy(struct memory* memory, struct stack_frame* frame) {
+	table_destroy(memory, frame->variables);
+	frame->variables = NULL;
+	// May or may not have a closure associated
+	if (frame->closure) {
+		table_destroy(memory, frame->closure);
+		frame->closure = NULL;
+	}
+	safe_free(frame->fn_name);
+	return frame->ret_addr;
+}
+
 void memory_destroy(struct memory* memory) {
 	for (size_t i = 0; i < memory->working_stack_pointer; i++) {
 		destroy_data_runtime(memory, &memory->working_stack[i]);
 	}
 	safe_free(memory->working_stack);
 	for (size_t i = 0; i < memory->call_stack_pointer; i++) {
-		if (get_settings_flag(SETTINGS_TRACE_REFCNT)) {
-			printf("Clearing %s at %p\n", memory->call_stack[i].id,
-				memory->call_stack[i].val.value.reference);
-		}
-		destroy_data_runtime(memory, &memory->call_stack[i].val);
-		safe_free(memory->call_stack[i].id);
+		stack_frame_destroy(memory, &memory->call_stack[i]);
 	}
 	safe_free(memory->call_stack);
 
@@ -256,59 +270,52 @@ void memory_destroy(struct memory* memory) {
 }
 
 void push_frame(struct memory * memory, char* name, address ret, int line) {
+	UNUSED(line);
 	// Store current frame pointer
 	char* se_name = safe_concat(
-		FUNCTION_START " ",
 		name,
 		"()"
 	);
-	address old_fp = memory->frame_pointer;
-	memory->frame_pointer = memory->call_stack_pointer;
-
-	struct stack_entry* se = push_stack_entry(memory, se_name, line);
-	se->val = wrap_number(old_fp);
-
-	safe_free(se_name);
-
-	se = push_stack_entry(memory, RA_START "RET", line);
-	se->val = wrap_number(ret);
+	struct stack_frame* frame = &memory->call_stack[memory->call_stack_pointer++];
+	frame->fn_name = se_name;
+	frame->ret_addr = ret;
+	frame->variables = table_create();
+	frame->closure = table_create();
+	frame->is_automatic = false;
 }
 
 void push_auto_frame(struct memory * memory, address ret, char* type, int line) {
+	UNUSED(line);
 	// store current frame pointer
 	char* se_name = safe_concat(
-		AUTOFRAME_START "autoframe:", type, ">"
+		"autoframe:", type, ">"
 	);
-	address old_fp = memory->frame_pointer;
-	memory->frame_pointer = memory->call_stack_pointer;
-
-	struct stack_entry* se = push_stack_entry(memory, se_name, line);
-	se->val = wrap_number(old_fp);
-
-	safe_free(se_name);
-
-	se = push_stack_entry(memory, RA_START "RET", line);
-	se->val = wrap_number(ret);
+	struct stack_frame* frame = &memory->call_stack[memory->call_stack_pointer++];
+	frame->fn_name = se_name;
+	frame->ret_addr = ret;
+	frame->variables = table_create();
+	frame->closure = 0;
+	frame->is_automatic = true;
 }
 
-bool pop_frame(struct memory * memory, bool is_ret, address* ret) {
-	if (is_at_main(memory)) return true;
-	address trace = memory->frame_pointer;
+void pop_frame(struct memory * memory, bool is_ret, address* ret) {
+	if (is_at_main(memory)) return;
+	address trace = memory->call_stack_pointer - 1;
 	if (is_ret) {
-		while (memory->call_stack[trace].id[0] != CHAR(FUNCTION_START)) {
-			trace = unwrap_number(memory->call_stack[trace].val);
+		// Pop all automatic frames
+		while (memory->call_stack[trace].is_automatic) {
+			stack_frame_destroy(memory, &memory->call_stack[trace]);
+			trace -= 1;
 		}
-		*ret = unwrap_number(memory->call_stack[trace + 1].val);
 	}
-	memory->frame_pointer = unwrap_number(memory->call_stack[trace].val);
-	bool is_at_function = memory->call_stack[trace].id[0] == CHAR(FUNCTION_START);
-
-	while (memory->call_stack_pointer > trace) {
-		memory->call_stack_pointer -= 1;
-		safe_free(memory->call_stack[memory->call_stack_pointer].id);
-		destroy_data_runtime(memory, &memory->call_stack[memory->call_stack_pointer].val);
+	// trace now points to the actual frame we want to pop.
+	if (is_ret) {
+		*ret = stack_frame_destroy(memory, &memory->call_stack[trace]);
 	}
-	return (is_ret || is_at_function);
+	else {
+		stack_frame_destroy(memory, &memory->call_stack[trace]);
+	}
+	memory->call_stack_pointer = trace;
 }
 
 void print_working_stack(struct memory * memory, FILE* file, int maxlines) {
@@ -330,34 +337,10 @@ void print_call_stack(struct memory * memory, FILE* file, int maxlines) {
 	int start = memory->call_stack_pointer - maxlines;
 	if (start < 0 || maxlines < 0) start = 0;
 	for (size_t i = start; i < memory->call_stack_pointer; i++) {
-		if (memory->call_stack[i].id[0] != '$' && memory->call_stack[i].id[0] != '~') {
-			if (memory->frame_pointer == i) {
-				if (memory->call_stack[i].id[0] == CHAR(FUNCTION_START)) {
-					fprintf(file, "%5zd FP-> [" BLU "%s" RESET " -> ", i,
-							memory->call_stack[i].id);
-				}
-				else {
-					fprintf(file, "%5zd FP-> [%s -> ", i, memory->call_stack[i].id);
-				}
-				fprintf(file, "]\n");
-			}
-			else {
-				if (memory->call_stack[i].id[0] == CHAR(FUNCTION_START)) {
-					fprintf(file, "%5zd      [" BLU "%s" RESET " -> ", i,
-							memory->call_stack[i].id);
-				}
-				else if (memory->call_stack[i].is_closure) {
-					fprintf(file, "%5zd  C-> [%s -> ",i,
-							memory->call_stack[i].id);
-				}
-				else {
-					fprintf(file, "%5zd      [%s -> ",i,
-							memory->call_stack[i].id);
-				}
-				print_data_inline(&memory->call_stack[i].val, file);
-				fprintf(file, "]\n");
-			}
-		}
+		fprintf(file, "Frame %zd (return to 0x%X): %s\n", i, memory->call_stack[i].ret_addr,
+			memory->call_stack[i].fn_name);
+		table_print(file, memory->call_stack[i].closure,   "  C[%s = ", "]");
+		table_print(file, memory->call_stack[i].variables, "   [%s = ", "]");
 	}
 	fprintf(file, DIVIDER "\n");
 }
@@ -385,84 +368,68 @@ struct data pop_arg(struct memory * memory, int line) {
 	return none_data();
 }
 
-struct stack_entry* push_stack_entry(struct memory * memory, char* id, int line) {
+struct data* push_stack_entry(struct memory * memory, char* id, int line) {
 	// TODO(felixguo): can probably remove line
 	UNUSED(line);
-	struct stack_entry new_entry;
-	new_entry.is_closure = false;
-	new_entry.id = safe_strdup(id);
-
-	// We cannot be sure that .val will be written to, so we cannot
-	//   leave it uninitialized.
-	new_entry.val = make_data(D_EMPTY, data_value_num(0));
-	memory->call_stack[memory->call_stack_pointer++] = new_entry;
-	if (is_at_main(memory)) {
-		// currently in main function
-		memory->main_end_pointer = memory->call_stack_pointer;
-	}
+	struct data* d = table_insert(
+		memory->call_stack[memory->call_stack_pointer - 1].variables, id, memory);
 	check_memory(memory);
-	return &memory->call_stack[memory->call_stack_pointer - 1];
+	return d;
 }
 
-address get_fn_frame_ptr(struct memory * memory) {
-	address trace = memory->frame_pointer;
-	while (memory->call_stack[trace].id[0] != CHAR(FUNCTION_START)) {
-		trace = unwrap_number(memory->call_stack[trace].val);
-	}
-	return trace;
+struct data* push_closure_entry(struct memory * memory, char* id, int line) {
+	// TODO(felixguo): can probably remove line
+	UNUSED(line);
+	struct data* d = table_insert(
+		memory->call_stack[memory->call_stack_pointer - 1].closure, id, memory);
+	check_memory(memory);
+	return d;
 }
 
 bool id_exist(struct memory * memory, char* id, bool search_main) {
-	size_t start = memory->frame_pointer;
-	if (search_main) {
-		start = get_fn_frame_ptr(memory);
-	}
-	for (size_t i = start + 1; i < memory->call_stack_pointer; i++) {
-		if (streq(id, memory->call_stack[i].id)) {
-			return true;
-		}
-	}
-	if (search_main) {
-		for (size_t i = 0; i < memory->main_end_pointer; i++) {
-			if (streq(id, memory->call_stack[i].id)) {
-				return true;
-			}
-		}
-	}
-	return false;
+	return get_address_of_id(memory, id, search_main, NULL) != NULL;
 }
 
-struct data* get_address_of_id(struct memory * memory, char* id, int line) {
-	address stack_entry = get_stack_pos_of_id(memory, id, line);
-	if (!stack_entry) {
-		/* Some error occured, nothing lies at 0 */
-		return 0;
-	}
-	return &memory->call_stack[stack_entry].val;
+bool id_exist_local_frame_ignore_closure(struct memory* memory, char* id) {
+	// Only search local frame
+	return table_exist(memory->call_stack[memory->call_stack_pointer - 1].variables, id);
 }
 
-address get_stack_pos_of_id(struct memory * memory, char* id, int line) {
-	if (!id_exist(memory, id, true)) {
-		error_runtime(memory, line, MEMORY_ID_NOT_FOUND, id);
-		return 0;
+struct data* get_address_of_id(struct memory * memory, char* id, bool search_main, bool* is_closure) {
+	struct data* result = 0;
+	if (is_closure) {
+		*is_closure = false;
 	}
-	address frame_ptr = get_fn_frame_ptr(memory);
-	for (size_t i = memory->call_stack_pointer - 1; i > frame_ptr; i--) {
-		if (streq(id, memory->call_stack[i].id)) {
-			return i;
+	size_t trace = memory->call_stack_pointer - 1;
+	while (memory->call_stack[trace].is_automatic) {
+		// Look through automatics
+		result = table_find(memory->call_stack[trace].variables, id);
+		if (result) {
+			return result;
 		}
+		trace -= 1;
 	}
-	for (size_t i = 0; i < memory->main_end_pointer; i++) {
-		if (streq(id, memory->call_stack[i].id)) {
-			return i;
+	// Non automatic
+	result = table_find(memory->call_stack[trace].variables, id);
+	if (result) {
+		return result;
+	}
+	result = table_find(memory->call_stack[trace].closure, id);
+	if (result) {
+		if (is_closure) {
+			*is_closure = true;
+		}
+		return result;
+	}
+	
+	// Main frame
+	if (search_main) {
+		result = table_find(memory->call_stack[0].variables, id);
+		if (result) {
+			return result;
 		}
 	}
 	return 0;
-}
-
-struct data* get_value_of_id(struct memory * memory, char* id, int line) {
-	// return get_value_of_address(get_address_of_id(id, line), line);
-	return get_address_of_id(memory, id, line);
 }
 
 void unwind_stack(struct memory * memory) {

@@ -82,8 +82,26 @@ void table_destroy_no_ref(struct memory* memory, struct table* table) {
     safe_free(table);
 }
 
-struct data* table_insert(struct table* table, const char* key) {
-    // TODO: assume it doesn't already exist.
+void table_print(FILE* file, struct table* table, const char* key_str, const char* post_str) {
+    for (size_t i = 0; i < table->bucket_count; i++) {
+        struct entry* curr = table->buckets[i];
+        while (curr) {
+            fprintf(file, key_str, curr->key);
+            print_data_inline(&curr->value, file);
+            fprintf(file, "%s\n", post_str);
+            curr = curr->next;
+        }
+    }
+}
+struct data* table_insert(struct table* table, const char* key, struct memory* memory) {
+    // Overwrite if exists
+    struct data* d = table_find(table, key);
+    if (d) {
+        // Destroy whatever was there 
+        destroy_data_runtime(memory, d);
+        return d;
+    }
+    // Create a new entry
     size_t bucket = get_string_hash(key) % table->bucket_count;
     
     struct entry* new_entry = safe_calloc(1, sizeof(struct entry));

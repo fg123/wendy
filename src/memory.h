@@ -3,6 +3,7 @@
 
 #include "global.h"
 #include "data.h"
+#include "table.h"
 #include <stdbool.h>
 
 // memory.h - Felix Guo
@@ -14,10 +15,12 @@
 
 typedef unsigned int address;
 
-struct stack_entry {
-	char *id;
-	struct data val;
-	bool is_closure;
+struct stack_frame {
+	struct table* variables;
+	struct table* closure;
+	char* fn_name;
+	address ret_addr;
+	bool is_automatic;
 };
 
 struct refcnt_container {
@@ -31,11 +34,10 @@ struct refcnt_container {
 };
 
 struct memory {
-	struct stack_entry* call_stack;
+	struct stack_frame* call_stack;
 	struct data* working_stack;
 	address working_stack_pointer;
 
-	address frame_pointer;
 	address call_stack_pointer;
 
 	size_t call_stack_size;
@@ -43,9 +45,6 @@ struct memory {
 
 	struct refcnt_container* all_containers_start;
 	struct refcnt_container* all_containers_end;
-
-	// Pointer to the end of the main() stack frame
-	address main_end_pointer;
 };
 
 struct memory * memory_init(void);
@@ -90,33 +89,27 @@ void push_auto_frame(struct memory * memory, address ret, char* type, int line);
 // pop_frame(is_ret) ends a function call, pops the latest stack frame
 //   (including automatically created local frames IF is_ret!
 //   is_ret is true if we RET instead of ending bracket
-//
-//   pop_frame also returns true if the popped frame is a function frame
-bool pop_frame(struct memory * memory, bool is_ret, address* ret);
+void pop_frame(struct memory * memory, bool is_ret, address* ret);
 
 // push_stack_entry(id) declares a new variable in the stack frame
 //   this leaves the val as EMPTY, and not NONE
-struct stack_entry* push_stack_entry(struct memory * memory, char* id, int line);
+struct data* push_stack_entry(struct memory * memory, char* id, int line);
+struct data* push_closure_entry(struct memory * memory, char* id, int line);
 
 // id_exist(id, search_main) returns true if id exists in the current stackframe
 bool id_exist(struct memory * memory, char* id, bool search_main);
 
+bool id_exist_local_frame_ignore_closure(struct memory* memory, char* id);
+
 // get_address_of_id(id, line) returns address of the id given
 //   requires: id exist in the stackframe
-struct data* get_address_of_id(struct memory * memory, char* id, int line);
-
-// get_value_of_id(id, line) returns the value of the id given
-//   requires: id exist in the stackframe
-struct data* get_value_of_id(struct memory * memory, char* id, int line);
+struct data* get_address_of_id(struct memory * memory, char* id, bool search_main, bool* is_closure);
 
 // print_call_stack prints out the callstack
 void print_call_stack(struct memory * memory, FILE* file, int maxlines);
 
 // print_working_stack prints out the working stack
 void print_working_stack(struct memory * memory, FILE* file, int maxlines);
-
-// get_address_pos_of_id(id, line) gets the stack address of the id
-address get_stack_pos_of_id(struct memory * memory, char* id, int line);
 
 // top_arg(line) returns the pointer to top data without popping!!
 struct data* top_arg(struct memory * memory, int line);

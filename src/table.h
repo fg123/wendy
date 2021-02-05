@@ -26,7 +26,9 @@ void table_destroy_no_ref(struct memory* memory, struct table* table);
 struct table* table_copy(struct table*);
 void table_write_keys_wendy_array(struct table*, struct data*);
 
-struct data* table_insert(struct table* table, const char* key);
+void table_print(FILE* file, struct table* table, const char*, const char*);
+
+struct data* table_insert(struct table* table, const char* key, struct memory*);
 struct data* table_find(struct table* table, const char* key);
 size_t table_size(struct table* table);
 bool table_exist(struct table* table, const char* key);

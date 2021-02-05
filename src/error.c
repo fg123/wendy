@@ -101,7 +101,7 @@ void error_runtime(struct memory* memory, int line, char* message, ...) {
 	va_start(args, message);
 
 	char* msg = error_message(message, args);
-	fprintf(stderr, RED "Runtime Error" RESET " on line " YEL "%d: " RESET " %s\n", line, msg);
+	fprintf(stderr, RED "Runtime Error" RESET " on line " YEL "%d:" RESET " %s\n", line, msg);
 
 	if (has_source()) {
 		if (!is_source_accurate()) {
@@ -133,7 +133,6 @@ void error_runtime(struct memory* memory, int line, char* message, ...) {
 		fprintf(stderr, "Call Stack Size %zu\n", memory->call_stack_size);
 		fprintf(stderr, "Working Stack Size %zu\n", memory->working_stack_size);
 		fprintf(stderr, GRN "Memory\n" RESET);
-		fprintf(stderr, "FP: %d 0x%X\n", memory->frame_pointer, memory->frame_pointer);
 		fprintf(stderr, "SP: %d 0x%X\n", memory->call_stack_pointer, memory->call_stack_pointer);
 		fprintf(stderr, "AP: %d 0x%X\n", memory->working_stack_pointer, memory->working_stack_pointer);
 	}

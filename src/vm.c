@@ -159,8 +159,9 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 						d = time_data();
 					}
 					else {
-						struct data* value = get_value_of_id(vm->memory, t.value.string, vm->line);
+						struct data* value = get_address_of_id(vm->memory, t.value.string, true, NULL);
 						if (!value) {
+							error_runtime(vm->memory, vm->line, MEMORY_ID_NOT_FOUND, t.value.string);
 							break;
 						}
 						d = copy_data(*value);
@@ -189,7 +190,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
 					push_arg(vm->memory, b);
 					push_arg(vm->memory, a);
-					push_arg(vm->memory, copy_data(*get_value_of_id(vm->memory, fn_name, vm->line)));
+					push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
 					safe_free(a_and_b);
 					safe_free(any_a);
 					safe_free(any_b);
@@ -214,7 +215,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				if (id_exist(vm->memory, fn_name, true)) {
 					push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
 					push_arg(vm->memory, a);
-					push_arg(vm->memory, copy_data(*get_value_of_id(vm->memory, fn_name, vm->line)));
+					push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
 					safe_free(fn_name);
 					goto wendy_vm_call;
 				}
@@ -247,16 +248,13 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 			case OP_DECL:
             VM_OP_DECL: {
 				char *id = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
-				if (id_exist(vm->memory, id, false)) {
-					address a = get_stack_pos_of_id(vm->memory, id, vm->line);
-					if (!vm->memory->call_stack[a].is_closure) {
-						error_runtime(vm->memory, vm->line, VM_VAR_DECLARED_ALREADY, id);
-						DISPATCH();
-						continue;
-					}
+				if (id_exist_local_frame_ignore_closure(vm->memory, id)) {
+					error_runtime(vm->memory, vm->line, VM_VAR_DECLARED_ALREADY, id);
+					DISPATCH();
+					continue;
 				}
-				struct stack_entry* result = push_stack_entry(vm->memory, id, vm->line);
-				push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(&result->val)));
+				struct data* result = push_stack_entry(vm->memory, id, vm->line);
+				push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(result)));
 				vm->last_pushed_identifier = id;
 				DISPATCH();
 				break;
@@ -265,8 +263,13 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
             VM_OP_WHERE: {
 				char* id = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
 				vm->last_pushed_identifier = id;
+				struct data* result = get_address_of_id(vm->memory, id, true, NULL);
+				if (!result) {
+					error_runtime(vm->memory, vm->line, MEMORY_ID_NOT_FOUND, id);
+					break;
+				}
 				push_arg(vm->memory, make_data(D_INTERNAL_POINTER,
-					data_value_ptr(get_address_of_id(vm->memory, id, vm->line))
+					data_value_ptr(result)
 				));
 				DISPATCH();
 				break;
@@ -292,7 +295,11 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				while (top_arg(vm->memory, vm->line)->type != D_END_OF_ARGUMENTS) {
 					if (top_arg(vm->memory, vm->line)->type == D_NAMED_ARGUMENT_NAME) {
 						struct data identifier = pop_arg(vm->memory, vm->line);
-						struct data* loc = get_address_of_id(vm->memory, identifier.value.string, vm->line);
+						struct data* loc = get_address_of_id(vm->memory, identifier.value.string, false, NULL);
+						if (!loc) {
+							error_runtime(vm->memory, vm->line, MEMORY_ID_NOT_FOUND, identifier.value.string);
+							break;
+						}
 						destroy_data_runtime(vm->memory, loc);
 						*loc = pop_arg(vm->memory, vm->line);
 						destroy_data_runtime(vm->memory, &identifier);
@@ -305,7 +312,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				// We need to re-write the list counter
 				((struct list_header*) extra_args[0].value.reference)->size = count;
 				// Assign "arguments" variable with rest of the arguments.
-				push_stack_entry(vm->memory, "arguments", vm->line)->val =
+				*push_stack_entry(vm->memory, "arguments", vm->line) =
 					make_data(D_LIST, data_value_ptr(extra_args));
 				// Pop End of Arguments
 				struct data eoargs = pop_arg(vm->memory, vm->line);
@@ -315,7 +322,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_RET:
             VM_OP_RET: {
-				if (vm->memory->frame_pointer == 0) {
+				if (vm->memory->call_stack_pointer == 0) {
 					// We tried to return from the main function!
 					error_runtime(vm->memory, vm->line, VM_RET_FROM_MAIN);
 					continue;
@@ -359,7 +366,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 						data = none_data();
 					}
 					
-					struct data* _data = table_insert(table, key.value.string);
+					struct data* _data = table_insert(table, key.value.string, vm->memory);
 					*_data = data;
 					destroy_data_runtime(vm->memory, &key);
 				}
@@ -763,7 +770,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 						destroy_data_runtime(vm->memory, &instance);
 						break;
 					}
-					push_stack_entry(vm->memory, "this", vm->line)->val = instance;
+					*push_stack_entry(vm->memory, "this", vm->line) = instance;
 				}
 
 				// Push closure variables
@@ -778,16 +785,14 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 						destroy_data_runtime(vm->memory, &top);
 						break;
 					}
-					struct stack_entry *entry = push_stack_entry(vm->memory, list_data[i].value.string, vm->line);
-					entry->val = copy_data(list_data[i + 1]);
-					entry->is_closure = true;
+					*push_closure_entry(vm->memory, list_data[i].value.string, vm->line) = copy_data(list_data[i + 1]);
 				}
 
 				// At this point, we put `top` back into the stack, so no need to destroy it
 				if (strcmp(boundName.value.string, "self") != 0) {
-					push_stack_entry(vm->memory, "self", vm->line)->val = copy_data(top);
+					*push_stack_entry(vm->memory, "self", vm->line) = copy_data(top);
 				}
-				push_stack_entry(vm->memory, boundName.value.string, vm->line)->val = top;
+				*push_stack_entry(vm->memory, boundName.value.string, vm->line) = top;
 				DISPATCH();
 				break;
 			}
@@ -879,7 +884,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					if (id_exist(vm->memory, fn_name, true)) {
 						push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
 						push_arg(vm->memory, t);
-						push_arg(vm->memory, copy_data(*get_value_of_id(vm->memory, fn_name, vm->line)));
+						push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
 						safe_free(fn_name);
 						/* This i-- allows the overloaded function to return
 						 * a string / object and have that be the printed
@@ -903,7 +908,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					if (id_exist(vm->memory, fn_name, true)) {
 						push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
 						push_arg(vm->memory, t);
-						push_arg(vm->memory, copy_data(*get_value_of_id(vm->memory, fn_name, vm->line)));
+						push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
 						safe_free(fn_name);
 						/* This i-- allows the overloaded function to return
 						 * a string / object and have that be the printed
