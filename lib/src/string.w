@@ -8,6 +8,13 @@
 import list;
 import data;
 
+let trim => (str) {
+	let whitespace = ["\n", "\r", " ", "\t", "\v", "\f"];
+	let r = "";
+	for s in str if !(s ~ whitespace) r += s;
+	ret r;
+};
+
 let <string> / <string> => (lhs, rhs) {
 	// Split LHS with RHS
 	let res = [];

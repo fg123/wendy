@@ -93,6 +93,27 @@ void table_print(FILE* file, struct table* table, const char* key_str, const cha
         }
     }
 }
+
+void table_delete(struct table* table, const char* key, struct memory* memory) {
+    size_t bucket = get_string_hash(key) % table->bucket_count;
+    struct entry** entry = &table->buckets[bucket];
+    while (*entry) {
+        if (streq((*entry)->key, key)) {
+            // Break LL chain
+            struct entry* curr = *entry;
+            *entry = (*entry)->next;
+
+            // Delete stuff
+            safe_free(curr->key);
+            destroy_data_runtime(memory, &curr->value);
+            safe_free(curr);
+            table->size -= 1;
+            return;
+        }
+        entry = &(*entry)->next;
+    }
+}
+
 struct data* table_insert(struct table* table, const char* key, struct memory* memory) {
     // Overwrite if exists
     struct data* d = table_find(table, key);

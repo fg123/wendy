@@ -339,7 +339,9 @@ void print_call_stack(struct memory * memory, FILE* file, int maxlines) {
 	for (size_t i = start; i < memory->call_stack_pointer; i++) {
 		fprintf(file, "Frame %zd (return to 0x%X): %s\n", i, memory->call_stack[i].ret_addr,
 			memory->call_stack[i].fn_name);
-		table_print(file, memory->call_stack[i].closure,   "  C[%s = ", "]");
+		if (memory->call_stack[i].closure) {
+			table_print(file, memory->call_stack[i].closure,   "  C[%s = ", "]");
+		}
 		table_print(file, memory->call_stack[i].variables, "   [%s = ", "]");
 	}
 	fprintf(file, DIVIDER "\n");

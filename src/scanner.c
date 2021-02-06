@@ -161,6 +161,15 @@ static void handle_string(char endChar) {
 				case 't':
 					value[s++] = '\t';
 					break;
+				case 'r':
+					value[s++] = '\r';
+					break;
+				case 'v':
+					value[s++] = '\v';
+					break;
+				case 'f':
+					value[s++] = '\f';
+					break;
 				default:
 					value[s++] = value[i];
 			}
