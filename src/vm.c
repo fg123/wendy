@@ -322,10 +322,12 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_RET:
             VM_OP_RET: {
-				if (vm->memory->call_stack_pointer == 0) {
-					// We tried to return from the main function!
-					error_runtime(vm->memory, vm->line, VM_RET_FROM_MAIN);
-					continue;
+				size_t trace = vm->memory->call_stack_pointer - 1;
+				while (vm->memory->call_stack[trace].is_automatic) {
+					trace -= 1;
+				}
+				if (trace == 0) {
+					goto VM_OP_HALT;
 				}
 				pop_frame(vm->memory, true, &vm->instruction_ptr);
 				DISPATCH();
