@@ -19,6 +19,7 @@
 static struct data eval_binop(struct vm * vm, enum operator op, struct data a, struct data b);
 static struct data eval_uniop(struct vm * vm, enum operator op, struct data a);
 static struct data type_of(struct data a);
+static char* type_of_str(struct data a);
 static struct data size_of(struct data a);
 static struct data value_of(struct data a);
 static struct data char_of(struct data a);
@@ -63,30 +64,24 @@ static bool _id_exist(struct memory* memory, char* fn) {
 	return id_exist(memory, fn, true);
 }
 
-static char* get_binary_overload_name(struct vm* vm, enum operator op, struct data a, struct data b) {
-	struct data type_a = type_of(a);
-	struct data type_b = type_of(b);
-	char* fn_name = safe_concat(OPERATOR_OVERLOAD_PREFIX, type_a.value.string,
-		operator_string[op], type_b.value.string);
-
-	destroy_data_runtime(vm->memory, &type_a);
-	destroy_data_runtime(vm->memory, &type_b);
+static char* get_binary_overload_name(enum operator op, struct data a, struct data b) {
+	char* type_a = type_of_str(a);
+	char* type_b = type_of_str(b);
+	char* fn_name = safe_concat(OPERATOR_OVERLOAD_PREFIX, type_a,
+		operator_string[op], type_b);
 	return fn_name;
 }
 
-static char* get_unary_overload_name(struct vm* vm, enum operator op, struct data a) {
-	struct data type_a = type_of(a);
+static char* get_unary_overload_name(enum operator op, struct data a) {
+	char* type_a = type_of_str(a);
 	char* fn_name = safe_concat(OPERATOR_OVERLOAD_PREFIX,
-		operator_string[op], type_a.value.string);
-
-	destroy_data_runtime(vm->memory, &type_a);
+		operator_string[op], type_a);
 	return fn_name;
 }
 
-static char* get_print_overload_name(struct vm* vm, struct data a) {
-	struct data type_a = type_of(a);
-	char* fn_name = safe_concat(OPERATOR_OVERLOAD_PREFIX "@", type_a.value.string);
-	destroy_data_runtime(vm->memory, &type_a);
+static char* get_print_overload_name(struct data a) {
+	char* type_a = type_of_str(a);
+	char* fn_name = safe_concat(OPERATOR_OVERLOAD_PREFIX "@", type_a);
 	return fn_name;
 }
 
@@ -181,9 +176,9 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				struct data a = pop_arg(vm->memory, vm->line);
 				struct data b = pop_arg(vm->memory, vm->line);
 				struct data any_d = any_data();
-				char* a_and_b = get_binary_overload_name(vm, op, a, b);
-				char* any_a = get_binary_overload_name(vm, op, any_d, b);
-				char* any_b = get_binary_overload_name(vm, op, a, any_d);
+				char* a_and_b = get_binary_overload_name(op, a, b);
+				char* any_a = get_binary_overload_name(op, any_d, b);
+				char* any_b = get_binary_overload_name(op, a, any_d);
 				destroy_data_runtime(vm->memory, &any_d);
 				char* fn_name = first_that(vm->memory, _id_exist, a_and_b, any_a, any_b);
 				if (fn_name) {
@@ -211,7 +206,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
             VM_OP_UNA: {
 				enum operator op = vm->bytecode[vm->instruction_ptr++];
 				struct data a = pop_arg(vm->memory, vm->line);
-				char* fn_name = get_unary_overload_name(vm, op, a);
+				char* fn_name = get_unary_overload_name(op, a);
 				if (id_exist(vm->memory, fn_name, true)) {
 					push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
 					push_arg(vm->memory, a);
@@ -882,7 +877,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
             VM_OP_OUT: {
 				struct data t = pop_arg(vm->memory, vm->line);
 				if (t.type != D_NONERET) {
-					char* fn_name = get_print_overload_name(vm, t);
+					char* fn_name = get_print_overload_name(t);
 					if (id_exist(vm->memory, fn_name, true)) {
 						push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
 						push_arg(vm->memory, t);
@@ -906,7 +901,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
             VM_OP_OUTL: {
 				struct data t = pop_arg(vm->memory, vm->line);
 				if (t.type != D_NONERET) {
-					char* fn_name = get_print_overload_name(vm, t);
+					char* fn_name = get_print_overload_name(t);
 					if (id_exist(vm->memory, fn_name, true)) {
 						push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
 						push_arg(vm->memory, t);
@@ -1538,43 +1533,46 @@ static struct data size_of(struct data a) {
 	return make_data(D_NUMBER, data_value_num(size));
 }
 
-static struct data type_of(struct data a) {
+static char* type_of_str(struct data a) {
 	switch (a.type) {
 		case D_FUNCTION:
-			return make_data(D_OBJ_TYPE, data_value_str("function"));
+			return "function";
 		case D_STRING:
-			return make_data(D_OBJ_TYPE, data_value_str("string"));
+			return "string";
 		case D_NUMBER:
-			return make_data(D_OBJ_TYPE, data_value_str("number"));
+			return "number";
 		case D_TRUE:
 		case D_FALSE:
-			return make_data(D_OBJ_TYPE, data_value_str("bool"));
+			return "bool";
 		case D_NONE:
-			return make_data(D_OBJ_TYPE, data_value_str("none"));
+			return "none";
 		case D_NONERET:
-			return make_data(D_OBJ_TYPE, data_value_str("noneret"));
+			return "noneret";
 		case D_RANGE:
-			return make_data(D_OBJ_TYPE, data_value_str("range"));
+			return "range";
 		case D_LIST:
-			return make_data(D_OBJ_TYPE, data_value_str("list"));
+			return "list";
 		case D_CLOSURE:
-			return make_data(D_OBJ_TYPE, data_value_str("closure"));
+			return "closure";
 		case D_STRUCT:
-			return make_data(D_OBJ_TYPE, data_value_str("struct"));
+			return "struct";
 		case D_SPREAD:
-			return make_data(D_OBJ_TYPE, data_value_str("spread"));
+			return "spread";
 		case D_OBJ_TYPE:
-			return make_data(D_OBJ_TYPE, data_value_str("type"));
+			return "type";
 		case D_TABLE:
-			return make_data(D_OBJ_TYPE, data_value_str("table"));
+			return "table";
 		case D_ANY:
-			return make_data(D_OBJ_TYPE, data_value_str("any"));
+			return "any";
 		case D_STRUCT_INSTANCE:
-			return make_data(D_OBJ_TYPE, data_value_str(
-				a.value.reference[1].value.reference[1].value.string));
+			return a.value.reference[1].value.reference[1].value.string;
 		default:
-			return make_data(D_OBJ_TYPE, data_value_str("unknown"));
+			return "unknown";
 	}
+}
+
+static struct data type_of(struct data a) {
+	return make_data(D_OBJ_TYPE, data_value_str(type_of_str(a)));
 }
 
 static struct data eval_uniop(struct vm * vm, enum operator op, struct data a) {

@@ -12,7 +12,7 @@ size_t get_string_hash(const char* str) {
 
 struct table* table_create(void) {
     struct table* table = safe_malloc(sizeof(struct table));
-    table->bucket_count = 16;
+    table->bucket_count = 64;
     table->buckets = safe_malloc(sizeof(struct entry*) * (table->bucket_count));
     for (size_t i = 0; i < table->bucket_count; i++) {
         table->buckets[i] = 0;
@@ -53,10 +53,8 @@ void table_destroy(struct memory* memory, struct table* table) {
     // Destroy buckets 
     for (size_t i = 0; i < table->bucket_count; i++) {
         buckets_destroy(memory, table->buckets[i], destroy_data_runtime);
-        table->buckets[i] = NULL;
     }
     safe_free(table->buckets);
-    table->bucket_count = 0;
     safe_free(table);
 }
 
