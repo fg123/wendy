@@ -23,7 +23,7 @@
 	(data).value.number
 
 static inline bool is_at_main(struct memory * memory) {
-	return memory->call_stack_pointer == 0;
+	return memory->call_stack_pointer == 1;
 }
 
 void check_memory(struct memory * memory) {
