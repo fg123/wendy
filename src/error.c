@@ -101,7 +101,7 @@ void error_runtime(struct memory* memory, int line, char* message, ...) {
 	va_start(args, message);
 
 	char* msg = error_message(message, args);
-	fprintf(stderr, RED "Runtime Error" RESET " on line " YEL "%d:" RESET " %s\n", line, msg);
+	fprintf(stderr, RED "Runtime Error" RESET " on line " YEL "%d" RESET ": %s\n", line, msg);
 
 	if (has_source()) {
 		if (!is_source_accurate()) {
