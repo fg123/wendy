@@ -10,8 +10,21 @@ import data;
 
 let trim => (str) {
 	let whitespace = ["\n", "\r", " ", "\t", "\v", "\f"];
+	let i = 0;
+	for i < str.size {
+		if (str[i] ~ whitespace) inc i;
+		else break;
+	}
+	let j = str.size - 1;
+	for j >= 0 {
+		if (str[j] ~ whitespace) dec j;
+		else break;
+	}
+	if (i > j) ret "";
 	let r = "";
-	for s in str if !(s ~ whitespace) r += s;
+	for k in i->(j + 1) {
+		r += str[k];
+	}
 	ret r;
 };
 

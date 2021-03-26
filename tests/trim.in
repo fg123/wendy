@@ -1,0 +1,8 @@
+import string
+
+trim("")
+trim("  ")
+trim(" hello")
+trim("hello ")
+trim(" hello ")
+trim(" hello world ")
