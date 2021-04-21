@@ -354,11 +354,20 @@ static struct expr* unary(void) {
 	}
 	return access();
 }
-static struct expr* factor(void) {
+static struct expr* exponent(void) {
 	struct expr* left = unary();
-	while (match(T_STAR, T_SLASH, T_INTSLASH, T_PERCENT, T_MOD_EQUAL, T_CARET)) {
+	while (match(T_CARET)) {
 		struct token op = previous();
 		struct expr* right = unary();
+		left = make_bin_expr(left, op, right);
+	}
+	return left;
+}
+static struct expr* factor(void) {
+	struct expr* left = exponent();
+	while (match(T_STAR, T_SLASH, T_INTSLASH, T_PERCENT, T_MOD_EQUAL)) {
+		struct token op = previous();
+		struct expr* right = exponent();
 		left = make_bin_expr(left, op, right);
 	}
 	return left;
