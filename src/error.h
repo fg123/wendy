@@ -58,6 +58,7 @@ void assert_impl(bool condition, const char* condition_str, const char* filename
 #define AST_EXPECTED_PRIMARY "Expected primary expression!"
 #define AST_EXPECTED_IDENTIFIER_LOOP "Expected identifier in place of loop variable."
 #define AST_STRUCT_NAME_IDENTIFIER "Struct name must be an identifier!"
+#define AST_STRUCT_EXPECTED_EXTENDS_IDENTIFIER "Struct extends expected identifier!"
 #define AST_ENUM_NAME_IDENTIFIER "Enum name must be an identifier!"
 #define AST_UNRECOGNIZED_IMPORT "Unrecognized import, expected an identifier!"
 #define AST_OPERATOR_OVERLOAD_NO_OPERATOR "Expected an operator!"

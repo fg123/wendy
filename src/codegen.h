@@ -55,9 +55,9 @@ enum opcode {
 };
 
 #define OPCODE_STRING \
-	"push", "bin", "una", "call", "ret", "decl", "write", "in",\
-	"out", "outl", "jmp", "jif", "frm", "end", "src", "halt",\
-	"native", "import", "argcln", "closur", "mkref", "where", "nthptr", "memptr",\
+	"push", "bin", "una", "call", "return", "declare", "write", "in",\
+	"out", "outl", "jmp", "jif", "frame", "end", "src", "halt",\
+	"native", "import", "argcln", "closure", "mkref", "where", "nthptr", "memptr",\
 	"inc", "dec", "mktbl"
 
 extern const char* opcode_string[];

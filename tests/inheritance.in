@@ -1,0 +1,29 @@
+struct Base => (f) {
+    init => () {
+        this.f = 1;
+    }
+
+    m => () {
+        ret 0;
+    }
+
+    m2 => () {
+        ret 1;
+    }
+};
+
+struct OverrideMethod : Base => () {
+    m => () {
+        ret 2;
+    }
+};
+
+let base = Base();
+base.f;
+base.m();
+base.m2();
+
+let derived = OverrideMethod();
+derived.f;
+derived.m();
+derived.m2();

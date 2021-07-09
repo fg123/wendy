@@ -695,16 +695,11 @@ static void codegen_statement(void* expre) {
 			break;
 		}
 		case S_STRUCT: {
-			// A struct is a list:
-			//   Header 
-			//   Name
-			//   D_TABLE -> maps shared param to data
-			//   D_TABLE -> maps instance param to offset
 			char* struct_name = state->op.struct_statement.name;
 
 			// Push Header and Name
 			write_opcode(OP_PUSH);
-			write_data(make_data(D_STRUCT_HEADER, data_value_num(3)));
+			write_data(make_data(D_STRUCT_HEADER, data_value_num(4)));
 			write_opcode(OP_PUSH);
 			write_data(make_data(D_STRUCT_NAME, data_value_str(struct_name)));
 
@@ -762,10 +757,18 @@ static void codegen_statement(void* expre) {
 			}
 			write_opcode(OP_MKTBL);
 			write_address(instance_table_size);
+			
+			if (state->op.struct_statement.parent_struct) {
+				codegen_expr(state->op.struct_statement.parent_struct);
+			}
+			else {
+				write_opcode(OP_PUSH);
+				write_data(none_data());
+			}
 
 			write_opcode(OP_MKREF);
 			write_byte(D_STRUCT);
-			write_integer(4);
+			write_integer(5);
 
 			write_opcode(OP_DECL);
 			write_string(struct_name);
@@ -1304,7 +1307,7 @@ void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer) {
 	fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: ", &bytecode[0], 0);
 	fprintf(buffer, YEL WENDY_VM_HEADER);
 	fprintf(buffer, GRN "\n.code\n");
-	int max_len = 12;
+	int max_len = 20;
 	int baseaddr = 0;
 	UNUSED(baseaddr);
 	unsigned int i = 0;
@@ -1312,12 +1315,12 @@ void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer) {
 		i = verify_header(bytecode, length);
 	}
 	forever {
-		unsigned int start = i;
+		// unsigned int start = i;
 		fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
 		enum opcode op = bytecode[i++];
 		unsigned int p = 0;
 		int printSourceLine = -1;
-		p += fprintf(buffer, YEL "%6s " RESET, opcode_string[op]);
+		p += fprintf(buffer, YEL "%10s " RESET, opcode_string[op]);
 
 		switch (op) {
 			case OP_PUSH: {
@@ -1385,22 +1388,22 @@ void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer) {
 			}
 			default: break;
 		}
-		while (p++ < 30) {
+		while (p++ < 40) {
 			fprintf(buffer, " ");
 		}
 		fprintf(buffer, CYN "| ");
-		for (size_t j = start; j < i; j++) {
-			if (j != start) fprintf(buffer, " ");
-			fprintf(buffer, "%02X", bytecode[j]);
-			if (j > start + 2) {
-				fprintf(buffer, "... ");
-				break;
-			}
-			else if (j == i) {
-				fprintf(buffer, "    ");
-				break;
-			}
-		}
+		// for (size_t j = start; j < i; j++) {
+		// 	if (j != start) fprintf(buffer, " ");
+		// 	fprintf(buffer, "%02X", bytecode[j]);
+		// 	if (j > start + 2) {
+		// 		fprintf(buffer, "... ");
+		// 		break;
+		// 	}
+		// 	else if (j == i) {
+		// 		fprintf(buffer, "    ");
+		// 		break;
+		// 	}
+		// }
 		if (printSourceLine > 0 && !get_settings_flag(SETTINGS_REPL)) {
 			printf(RESET " %s", get_source_line(printSourceLine));
 		}

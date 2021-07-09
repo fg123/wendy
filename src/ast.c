@@ -677,9 +677,16 @@ static struct statement* parse_statement(void) {
 					AST_STRUCT_NAME_IDENTIFIER);
 			}
 			struct token name = previous();
-			consume(T_DEFFN);
 			struct expr_list* static_members = 0;
 			struct expr_list* instance_members = 0;
+			struct expr* parent_struct = 0;
+
+			if (match(T_COLON)) {
+				// Ignore all the math expression stuff
+				parent_struct = access();
+			}
+
+			consume(T_DEFFN);
 			int saved_before_iden = 0;
 			while (match(T_LEFT_PAREN, T_LEFT_BRACK, T_LEFT_BRACE)) {
 				if (previous().t_type == T_LEFT_PAREN) {
@@ -774,6 +781,7 @@ static struct statement* parse_statement(void) {
 			sm->op.struct_statement.init_fn = function_const;
 			sm->op.struct_statement.instance_members = instance_members;
 			sm->op.struct_statement.static_members = static_members;
+			sm->op.struct_statement.parent_struct = parent_struct;
 			break;
 		}
 		case T_INC:
@@ -910,6 +918,7 @@ void traverse_statement(struct statement* state, struct traversal_algorithm* alg
 			traverse_expr(state->op.struct_statement.init_fn, algo);
 			traverse_expr_list(state->op.struct_statement.instance_members, algo);
 			traverse_expr_list(state->op.struct_statement.static_members, algo);
+			traverse_expr(state->op.struct_statement.parent_struct, algo);
 			break;
 		}
 		case S_ENUM: {

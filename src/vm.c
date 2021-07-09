@@ -8,6 +8,7 @@
 #include "native.h"
 #include "imports.h"
 #include "table.h"
+#include "struct.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -572,38 +573,14 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				}
 				else {
 					// Struct or struct instance 
-					struct data* metadata = instance.value.reference;
-					if (instance.type == D_STRUCT_INSTANCE) {
-						// metadata actually points to the STRUCT_INSTANCE_HEADER
-						//   right now, we need one below that for the metadata
-						metadata = metadata[1].value.reference;
-					}
-					enum data_type struct_type = instance.type;
-
-					bool found = false;
-
-					// Try find static, metadata[2] points to static D_TABLE
-					assert(metadata[2].type == D_TABLE, "not a table!");
-					struct table* static_table = (struct table*) metadata[2].value.reference[0].value.reference;
-					if (table_exist(static_table, member)) {
-						push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(table_find(static_table, member))));
-						found = true;
-					}
-					else if (struct_type == D_STRUCT_INSTANCE) {
-						// metadata[3] is the instance_table
-						assert(metadata[3].type == D_TABLE, "not a table!");
-						struct table* instance_table = (struct table*) metadata[3].value.reference[0].value.reference;
-						if (table_exist(instance_table, member)) {
-							struct data* location = table_find(instance_table, member);
-							size_t offset = (size_t)location->value.number;
-							push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(&instance.value.reference[offset + 2])));							
-							found = true;
-						}
-					}
-					if (!found) {
+					struct data* ptr = struct_get_field(instance, member);
+					if (!ptr) {
 						struct data type = type_of(instance);
 						error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_EXIST, member, type.value.string);
 						destroy_data_runtime(vm->memory, &type);
+					}
+					else {
+						push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(ptr)));
 					}
 				}
 				destroy_data_runtime(vm->memory, &instance);
@@ -674,22 +651,13 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					}
 					top.type = D_STRUCT_FUNCTION;
 
-					// Find how many STRUCT_PARAMs there are
-					assert(metadata[3].type == D_TABLE, "not a table!");
-					struct table* instance_table = (struct table*) metadata[3].value.reference[0].value.reference;
-					
-					size_t params = table_size(instance_table);
-
-					// +1 for the header, +1 for the metadata pointer
-					struct data* struct_instance = refcnt_malloc(vm->memory, params + 2);
-					struct_instance[0] = make_data(D_STRUCT_INSTANCE_HEADER, data_value_num(params + 1));
-					struct_instance[1] = make_data(D_STRUCT_METADATA, data_value_ptr(refcnt_copy(metadata)));
-
-					for (size_t i = 0; i < params; i++) {
-						struct_instance[i + 2] = none_data();
-					}
-
-					push_arg(vm->memory, make_data(D_STRUCT_INSTANCE, data_value_ptr(struct_instance)));
+					push_arg(vm->memory, 
+						make_data(D_STRUCT_INSTANCE,
+							data_value_ptr(
+								struct_create_instance(vm, metadata)
+							)
+						)
+					);
 					destroy_data_runtime(vm->memory, &old_top);
 				}
 
@@ -1080,41 +1048,15 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 		}
 		if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
 			// Either will be allowed to look through static parameters.
-			struct data* metadata = a.value.reference;
-			if (a.type == D_STRUCT_INSTANCE) {
-				// metadata actually points to the STRUCT_INSTANCE_HEADER
-				//   right now, we need one below that for the metadata
-				metadata = metadata[1].value.reference;
-			}
-			enum data_type struct_type = a.type;
-
-			// Try find static, metadata[2] points to static D_TABLE
-			assert(metadata[2].type == D_TABLE, "not a table!");
-			struct table* static_table = (struct table*) metadata[2].value.reference[0].value.reference;
-			if (table_exist(static_table, b.value.string)) {
-				struct data result = copy_data(*table_find(static_table, b.value.string));
+			struct data* ptr = struct_get_field(a, b.value.string);
+			if (ptr) {
+				struct data result = copy_data(*ptr);
 				if (result.type == D_FUNCTION) {
 					// Hack because OP_CALL will send a reference to the table as the
 					//   first argument
 					result.type = D_STRUCT_FUNCTION;
 				}
 				return result;
-			}
-			if (struct_type == D_STRUCT_INSTANCE) {
-				// metadata[3] is the instance_table
-				assert(metadata[3].type == D_TABLE, "not a table!");
-				struct table* instance_table = (struct table*) metadata[3].value.reference[0].value.reference;
-				if (table_exist(instance_table, b.value.string)) {
-					struct data* location = table_find(instance_table, b.value.string);
-					size_t offset = (size_t)location->value.number;
-					struct data result = copy_data(a.value.reference[offset + 2]);
-					if (result.type == D_FUNCTION) {
-						// Hack because OP_CALL will send a reference to the table as the
-						//   first argument
-						result.type = D_STRUCT_FUNCTION;
-					}
-					return result;
-				}
 			}
 		}
 		if (streq("size", b.value.string)) {
@@ -1589,35 +1531,6 @@ static struct data eval_uniop(struct vm * vm, enum operator op, struct data a) {
 			}
 			return make_data(D_LIST, data_value_ptr(new_a));
 		}
-		// TODO(felixguo): is copying structs even in the specs???
-		// else if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
-		// 	// We make a copy of the STRUCT
-		// 	address copy_start = a.value.number;
-		// 	address metadata = (int)(a.value.number);
-		// 	if (a.type == D_STRUCT_INSTANCE) {
-		// 		metadata = memory[metadata].value.number;
-		// 	}
-		// 	int size = memory[metadata].value.number + 1;
-		// 	if (a.type == D_STRUCT_INSTANCE) {
-		// 		// find size of instance by counting instance members
-		// 		int actual_size = 0;
-		// 		for (int i = 0; i < size; i++) {
-		// 			if (memory[metadata + i + 1].type == D_STRUCT_PARAM) {
-		// 				actual_size++;
-		// 			}
-		// 		}
-		// 		size = actual_size;
-		// 	}
-		// 	size++; // for the header itself
-		// 	data* copy = safe_malloc(size * sizeof(struct data));
-		// 	for (int i = 0; i < size; i++) {
-		// 		copy[vm->instruction_ptr] = copy_data(memory[copy_start + i]);
-		// 	}
-		// 	address addr = push_memory_array(copy, size, line);
-		// 	safe_free(copy);
-		// 	return a.type == D_STRUCT ? make_data(D_STRUCT, data_value_num(addr))
-		// 		: make_data(D_STRUCT_INSTANCE, data_value_num(addr));
-		// }
 		else {
 			// No copy needs to be made
 		return a;

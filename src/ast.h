@@ -84,7 +84,8 @@ struct statement {
 			struct {    char*              name;
 						struct expr_list*  instance_members;
 						struct expr_list*  static_members;
-						struct expr*       init_fn; }          struct_statement;
+						struct expr*       init_fn; 
+						struct expr*       parent_struct; } struct_statement;
 			struct {    struct expr*       condition;
 						struct statement*  statement_true;
 						struct statement*  statement_false; }  if_statement;
