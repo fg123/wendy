@@ -14,13 +14,18 @@ let myGenericShape = shape(10, 20)
 myGenericShape.print()
 
 // Override constructor to ensure both fields are the same
-shape.init => (x) {
-	this.x = x
-	this.y = x
-	ret this
+struct shape2 => (x, y) [print] {
+	init => (x) {
+		this.x = x
+		this.y = x
+		ret this
+	}
+}
+shape2.print => () {
+  "Shape at (" + this.x + ", " + this.y + ")"
 }
 
-let otherShape = shape(50)
+let otherShape = shape2(50)
 otherShape.print()
 
 

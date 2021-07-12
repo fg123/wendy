@@ -1,9 +1,10 @@
 let mkstruct => (x) {
-    struct s => (a, b);
-    s.init => () {
-        this.a = x;
-        this.b = x;
-        ret this;
+    struct s => (a, b) {
+        init => () {
+            this.a = x;
+            this.b = x;
+            ret this;
+        }
     };
     ret s;
 };

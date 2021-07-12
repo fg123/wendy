@@ -3,25 +3,26 @@
  * Created by Felix Guo
  */
 struct node => (v, next);
-struct stack => (head) [push, pop, top, empty];
-stack.init => () {
-	this.head = none;
-	ret this;
-};
+struct stack => (head) {
+	init => () {
+		this.head = none;
+		ret this;
+	};
 
-stack.push => (item) {
-	let new = node(item, this.head);
-	this.head = new;
-};
+	push => (item) {
+		let new = node(item, this.head);
+		this.head = new;
+	};
 
-stack.empty => () {
-	ret this.head == none;
-};
+	empty => () {
+		ret this.head == none;
+	};
 
-stack.pop => () {
-	this.head = this.head.next;
-};
+	pop => () {
+		this.head = this.head.next;
+	};
 
-stack.top => () {
-	ret this.head.v;
+	top => () {
+		ret this.head.v;
+	};
 };

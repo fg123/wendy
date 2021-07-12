@@ -4,23 +4,23 @@
  */
 
 struct node => (val, next);
-struct linkedlist => (head) [print, add, remove, init];
-linkedlist.init => () {
-	this.head = none;
-	ret this;
+struct linkedlist => (head) {
+	init => () {
+		this.head = none;
+		ret this;
+	};
+
+	print => () {
+		let curr = this.head;
+		let actualList = [];
+		for curr != none {
+			actualList += curr.val;
+			curr = curr.next;
+		}
+		actualList;
+	};
+
 };
-
-linkedlist.print => () {
-	let curr = this.head;
-	let actualList = [];
-	for curr != none {
-		actualList += curr.val;
-		curr = curr.next;
-	}
-	actualList;
-};
-
-
 
 
 

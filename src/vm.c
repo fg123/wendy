@@ -345,6 +345,29 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				DISPATCH();
 				break;
 			}
+			case OP_DUPTOP:
+            VM_OP_DUPTOP: {
+				struct data* top = top_arg(vm->memory, vm->line);
+				push_arg(vm->memory, copy_data(*top));
+
+				DISPATCH();
+				break;
+			}
+			case OP_POP:
+			VM_OP_POP: {
+				pop_arg(vm->memory, vm->line);
+				DISPATCH();
+				break;
+			}
+			case OP_ROTTWO:
+            VM_OP_ROTTWO: {
+				struct data first = pop_arg(vm->memory, vm->line);
+				struct data second = pop_arg(vm->memory, vm->line);
+				push_arg(vm->memory, first);
+				push_arg(vm->memory, second);
+				DISPATCH();
+				break;
+			}
 			case OP_MKTBL:
             VM_OP_MKTBL: {
 				size_t size = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
@@ -573,7 +596,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				}
 				else {
 					// Struct or struct instance 
-					struct data* ptr = struct_get_field(instance, member);
+					struct data* ptr = struct_get_field(vm, instance, member);
 					if (!ptr) {
 						struct data type = type_of(instance);
 						error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_EXIST, member, type.value.string);
@@ -1048,7 +1071,7 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 		}
 		if (a.type == D_STRUCT || a.type == D_STRUCT_INSTANCE) {
 			// Either will be allowed to look through static parameters.
-			struct data* ptr = struct_get_field(a, b.value.string);
+			struct data* ptr = struct_get_field(vm, a, b.value.string);
 			if (ptr) {
 				struct data result = copy_data(*ptr);
 				if (result.type == D_FUNCTION) {

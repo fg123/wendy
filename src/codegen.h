@@ -48,17 +48,20 @@
 	OP(OP_MEMPTR) \
 	OP(OP_INC) \
 	OP(OP_DEC) \
-	OP(OP_MKTBL)
+	OP(OP_MKTBL) \
+	OP(OP_DUPTOP) \
+	OP(OP_ROTTWO) \
+	OP(OP_POP)
 
 enum opcode {
 	FOREACH_OPCODE(ENUM)
 };
 
 #define OPCODE_STRING \
-	"push", "bin", "una", "call", "return", "declare", "write", "in",\
-	"out", "outl", "jmp", "jif", "frame", "end", "src", "halt",\
+	"push", "bin", "una", "call", "ret", "decl", "write", "in",\
+	"out", "outl", "jmp", "jif", "frm", "end", "src", "halt",\
 	"native", "import", "argcln", "closure", "mkref", "where", "nthptr", "memptr",\
-	"inc", "dec", "mktbl"
+	"inc", "dec", "mktbl", "duptop", "rottwo", "pop"
 
 extern const char* opcode_string[];
 

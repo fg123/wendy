@@ -485,6 +485,11 @@ static struct expr* optimize_expr(struct expr* expression) {
 				optimize_expr_list(expression->op.call_expr.arguments);
 			break;
 		}
+		case E_SUPER_CALL: {
+			expression->op.super_call_expr.arguments =
+				optimize_expr_list(expression->op.super_call_expr.arguments);
+			break;
+		}
 		case E_LIST: {
 			expression->op.list_expr.contents =
 				optimize_expr_list(expression->op.list_expr.contents);
@@ -648,6 +653,10 @@ static void scan_expr(struct expr* expression) {
 		case E_CALL: {
 			scan_expr(expression->op.call_expr.function);
 			scan_expr_list(expression->op.call_expr.arguments);
+			break;
+		}
+		case E_SUPER_CALL: {
+			scan_expr_list(expression->op.super_call_expr.arguments);
 			break;
 		}
 		case E_LIST: {

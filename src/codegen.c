@@ -39,7 +39,7 @@ static uint8_t* bytecode = 0;
 static size_t capacity = 0;
 static size_t size = 0;
 static size_t global_loop_id = 0;
-static size_t global_member_call_id = 0;
+// static size_t global_member_call_id = 0;
 
 int verify_header(uint8_t* bytecode, size_t length) {
 	char* start = (char*)bytecode;
@@ -149,12 +149,6 @@ static void codegen_expr(void* expre);
 static void codegen_statement(void* expre);
 static void codegen_statement_list(void* expre);
 
-static bool is_literal_identifier(struct expr *e) {
-	return e->type == E_LITERAL &&
-		(e->op.lit_expr.type == D_IDENTIFIER ||
-		 e->op.lit_expr.type == D_MEMBER_IDENTIFIER);
-}
-
 static void codegen_lvalue_expr(struct expr* expression) {
 	if (expression->type == E_LITERAL) {
 		// Better be a identifier eh
@@ -171,13 +165,6 @@ static void codegen_lvalue_expr(struct expr* expression) {
 		codegen_expr(expression->op.bin_expr.left);
 
 		if (expression->op.bin_expr.operator == O_MEMBER) {
-			if (!is_literal_identifier(expression->op.bin_expr.right)) {
-				error_lexer(expression->line, expression->col,
-					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL_IDENTIFIER,
-					data_string[expression->op.bin_expr.right->op.lit_expr.type]);
-				return;
-			}
-			//expression->op.bin_expr.right->op.lit_expr.t_type = T_MEMBER;
 			write_opcode(OP_MEMPTR);
 			write_string(expression->op.bin_expr.right->op.lit_expr.value.string);
 		}
@@ -190,9 +177,9 @@ static void codegen_lvalue_expr(struct expr* expression) {
 					CODEGEN_INVALID_LVALUE_BINOP);
 		}
 	}
-	else if (expression->type == E_CALL) {
-		codegen_expr(expression);
-	}
+	// else if (expression->type == E_CALL) {
+	// 	codegen_expr(expression);
+	// }
 	else {
 		error_lexer(expression->line, expression->col, CODEGEN_INVALID_LVALUE);
 	}
@@ -431,6 +418,9 @@ static bool codegen_one_instruction(struct token *tokens, size_t _size, size_t *
 			}
 			break;
 		}
+		case OP_POP:
+		case OP_DUPTOP:
+		case OP_ROTTWO:
 		case OP_NTHPTR:
 		case OP_MEMPTR:
 		case OP_INC:
@@ -620,7 +610,7 @@ static void codegen_statement(void* expre) {
 			write_data(make_data(D_TABLE_KEY, data_value_str("init")));
 			codegen_expr(state->op.enum_statement.init_fn);
 
-			size_t static_members = 1; // init 
+			size_t static_members = 1; // init
 			struct expr_list* curr = state->op.enum_statement.values;
 			while (curr) {
 				struct expr* elem = curr->elem;
@@ -640,7 +630,7 @@ static void codegen_statement(void* expre) {
 				static_members += 1;
 				curr = curr->next;
 			}
-			
+
 			write_opcode(OP_MKTBL);
 			write_address(static_members);
 
@@ -652,9 +642,13 @@ static void codegen_statement(void* expre) {
 			write_opcode(OP_MKTBL);
 			write_address(1);
 
+			// Parent pointer
+			write_opcode(OP_PUSH);
+			write_data(none_data());
+
 			write_opcode(OP_MKREF);
 			write_byte(D_STRUCT);
-			write_integer(4);
+			write_integer(5);
 
 			write_opcode(OP_DECL);
 			write_string(enum_name);
@@ -757,7 +751,7 @@ static void codegen_statement(void* expre) {
 			}
 			write_opcode(OP_MKTBL);
 			write_address(instance_table_size);
-			
+
 			if (state->op.struct_statement.parent_struct) {
 				codegen_expr(state->op.struct_statement.parent_struct);
 			}
@@ -945,13 +939,6 @@ static void codegen_expr(void* expre) {
 			return;
 		}
 		else if (expression->op.bin_expr.operator == O_MEMBER) {
-			if (!is_literal_identifier(expression->op.bin_expr.right)) {
-				error_lexer(expression->line, expression->col,
-					CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL_IDENTIFIER,
-					data_string[expression->op.bin_expr.right->op.lit_expr.type]);
-				return;
-			}
-			expression->op.bin_expr.right->op.lit_expr.type = D_MEMBER_IDENTIFIER;
 			write_opcode(OP_PUSH);
 			write_data(copy_data(
                 expression->op.bin_expr.right->op.lit_expr));
@@ -1040,6 +1027,22 @@ static void codegen_expr(void* expre) {
 		write_opcode(OP_UNA);
 		write_byte(expression->op.una_expr.operator);
 	}
+	else if (expression->type == E_SUPER_CALL) {
+		codegen_expr_list_for_call(expression->op.super_call_expr.arguments);
+		write_opcode(OP_PUSH);
+		write_data(make_data(D_IDENTIFIER, data_value_str("this")));
+		write_opcode(OP_DUPTOP);
+		write_opcode(OP_PUSH);
+		write_data(make_data(D_MEMBER_IDENTIFIER, data_value_str("super")));
+		write_opcode(OP_ROTTWO);
+		write_opcode(OP_BIN);
+		write_byte(O_MEMBER);
+		write_opcode(OP_CALL);
+		// Discard Output
+		write_opcode(OP_POP);
+		write_opcode(OP_PUSH);
+		write_data(noneret_data());
+	}
 	else if (expression->type == E_CALL) {
 		codegen_expr_list_for_call(expression->op.call_expr.arguments);
 
@@ -1051,25 +1054,33 @@ static void codegen_expr(void* expre) {
 
 			// Encase this in a seperate frame in case we use imports and it's
 			//   already declared.
-			write_opcode(OP_FRM);
-			made_new_frame = true;
-			char temp_variable[30];
-			sprintf(temp_variable, "$mem_call_tmp%zd", global_member_call_id++);
+			// write_opcode(OP_FRM);
+			// made_new_frame = true;
+			// char temp_variable[30];
+			// sprintf(temp_variable, "$mem_call_tmp%zd", global_member_call_id++);
 			codegen_expr(expression->op.call_expr.function->op.bin_expr.left);
-			write_opcode(OP_DECL);
-			write_string(temp_variable);
-			write_opcode(OP_WRITE);
-			write_opcode(OP_PUSH);
-			write_data(make_data(D_IDENTIFIER, data_value_str(temp_variable)));
+			write_opcode(OP_DUPTOP);
+			codegen_expr(expression->op.call_expr.function->op.bin_expr.right);
+			write_opcode(OP_ROTTWO);
+			write_opcode(OP_BIN);
+			write_byte(O_MEMBER);
 
-			traverse_expr(expression->op.call_expr.function->op.bin_expr.left, &ast_safe_free_impl);
+			// write_opcode(OP_DECL);
+			// write_string(temp_variable);
+			// write_opcode(OP_WRITE);
+			// write_opcode(OP_PUSH);
+			// write_data(make_data(D_IDENTIFIER, data_value_str(temp_variable)));
 
-			struct expr *temp_expr = safe_malloc(sizeof(struct expr));
-			temp_expr->type = E_LITERAL;
-			temp_expr->op.lit_expr = make_data(D_IDENTIFIER, data_value_str(temp_variable));
-			expression->op.call_expr.function->op.bin_expr.left = temp_expr;
+			// traverse_expr(expression->op.call_expr.function->op.bin_expr.left, &ast_safe_free_impl);
+
+			// struct expr *temp_expr = safe_malloc(sizeof(struct expr));
+			// temp_expr->type = E_LITERAL;
+			// temp_expr->op.lit_expr = make_data(D_IDENTIFIER, data_value_str(temp_variable));
+			// expression->op.call_expr.function->op.bin_expr.left = temp_expr;
 		}
-		codegen_expr(expression->op.call_expr.function);
+		else {
+			codegen_expr(expression->op.call_expr.function);
+		}
 		write_opcode(OP_CALL);
 		if (made_new_frame) {
 			write_opcode(OP_END);
@@ -1316,79 +1327,89 @@ void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer) {
 	}
 	forever {
 		// unsigned int start = i;
-		fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
-		enum opcode op = bytecode[i++];
 		unsigned int p = 0;
 		int printSourceLine = -1;
-		p += fprintf(buffer, YEL "%10s " RESET, opcode_string[op]);
 
-		switch (op) {
-			case OP_PUSH: {
-				struct data t = get_data(&bytecode[i], &i);
-				if (t.type == D_STRING) {
-					p += fprintf(buffer, "%.*s ", max_len, t.value.string);
-					if (strlen(t.value.string) > (size_t) max_len) {
+		enum opcode op = bytecode[i];
+		if (op == OP_SRC) {
+			i++;
+			address a = get_address(bytecode + i, &i);
+			p += fprintf(buffer, MAG BLU YEL RESET RESET "        Source Line %d", a);
+			printSourceLine = a;
+		}
+		else {
+			p += fprintf(buffer, MAG "  <%p> " BLU "<+%04X>: " RESET, &bytecode[i], i);
+			i++;
+			p += fprintf(buffer, YEL "%10s " RESET, opcode_string[op]);
+
+			switch (op) {
+				case OP_PUSH: {
+					struct data t = get_data(&bytecode[i], &i);
+					if (t.type == D_STRING) {
+						p += fprintf(buffer, "%.*s ", max_len, t.value.string);
+						if (strlen(t.value.string) > (size_t) max_len) {
+							p += fprintf(buffer, ">");
+						}
+					}
+					else {
+						p += print_data_inline(&t, buffer);
+					}
+					break;
+				}
+				case OP_BIN:
+				case OP_UNA: {
+					enum operator o = bytecode[i++];
+					p += fprintf(buffer, "%s", operator_string[o]);
+					break;
+				}
+				case OP_DECL:
+				case OP_WHERE:
+				case OP_IMPORT:
+				case OP_MEMPTR: {
+					char* c = get_string(bytecode + i, &i);
+					p += fprintf(buffer, "%.*s ", max_len, c);
+					if (strlen(c) > (size_t) max_len) {
 						p += fprintf(buffer, ">");
 					}
+					if (op == OP_IMPORT) {
+						// i is at null term
+						p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
+					}
+					break;
 				}
-				else {
-					p += print_data_inline(&t, buffer);
+				case OP_MKREF: {
+					enum data_type t = bytecode[i++];
+					p += fprintf(buffer, "%s", data_string[t]);
+					address a = get_address(bytecode + i, &i);
+					p += fprintf(buffer, " %d", a);
+					break;
 				}
-				break;
-			}
-			case OP_BIN:
-			case OP_UNA: {
-				enum operator o = bytecode[i++];
-				p += fprintf(buffer, "%s", operator_string[o]);
-				break;
-			}
-			case OP_DECL:
-			case OP_WHERE:
-			case OP_IMPORT:
-			case OP_MEMPTR: {
-				char* c = get_string(bytecode + i, &i);
-				p += fprintf(buffer, "%.*s ", max_len, c);
-				if (strlen(c) > (size_t) max_len) {
-					p += fprintf(buffer, ">");
+				case OP_MKTBL: {
+					address a = get_address(bytecode + i, &i);
+					p += fprintf(buffer, "%d", a);
+					break;
 				}
-				if (op == OP_IMPORT) {
-					// i is at null term
+				case OP_SRC: {
+					address a = get_address(bytecode + i, &i);
+					p += fprintf(buffer, "%d", a);
+					printSourceLine = a;
+					break;
+				}
+				case OP_JMP:
+				case OP_JIF: {
 					p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
+					break;
 				}
-				break;
+				case OP_NATIVE: {
+					p += fprintf(buffer, "%d ", get_address(bytecode + i, &i));
+					char* c = get_string(bytecode + i, &i);
+					p += fprintf(buffer, "%.*s", max_len, c);
+					break;
+				}
+				default: break;
 			}
-			case OP_MKREF: {
-				enum data_type t = bytecode[i++];
-				p += fprintf(buffer, "%s", data_string[t]);
-				address a = get_address(bytecode + i, &i);
-				p += fprintf(buffer, " %d", a);
-				break;
-			}
-			case OP_MKTBL: {
-				address a = get_address(bytecode + i, &i);
-				p += fprintf(buffer, "%d", a);
-				break;
-			}
-			case OP_SRC: {
-				address a = get_address(bytecode + i, &i);
-				p += fprintf(buffer, "%d", a);
-				printSourceLine = a;
-				break;
-			}
-			case OP_JMP:
-			case OP_JIF: {
-				p += fprintf(buffer, "0x%X", get_address(bytecode + i, &i));
-				break;
-			}
-			case OP_NATIVE: {
-				p += fprintf(buffer, "%d ", get_address(bytecode + i, &i));
-				char* c = get_string(bytecode + i, &i);
-				p += fprintf(buffer, "%.*s", max_len, c);
-				break;
-			}
-			default: break;
 		}
-		while (p++ < 40) {
+		while (p++ < 80) {
 			fprintf(buffer, " ");
 		}
 		fprintf(buffer, CYN "| ");

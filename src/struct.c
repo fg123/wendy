@@ -30,13 +30,27 @@ size_t struct_get_instance_table_size(struct data* metadata) {
     return table_size(instance_table);
 }
 
-struct data* struct_get_field(struct data ref, const char* member) {
+struct data* struct_get_field(struct vm* vm, struct data ref, const char* member) {
     assert((ref.type == D_STRUCT || ref.type == D_STRUCT_INSTANCE), "struct_get_field but not struct or struct_instance");
     struct data* metadata = ref.value.reference;
     if (ref.type == D_STRUCT_INSTANCE) {
         // metadata actually points to the STRUCT_INSTANCE_HEADER
         //   right now, we need one below that for the metadata
         metadata = metadata[1].value.reference;
+        
+        if (streq(member, "super")) {
+            // Find parent init
+            if (metadata[4].type == D_STRUCT) {
+                struct data* parent_metadata = metadata[4].value.reference;
+                struct table* parent_static_table = (struct table*) parent_metadata[2].value.reference[0].value.reference;
+                assert(table_exist(parent_static_table, "init"), "parent struct static table has no init!");
+                return table_find(parent_static_table, "init");
+            }
+            else {
+                error_runtime(vm->memory, vm->line, "Structure has no parent!");
+                return NULL;
+            }
+        }
     }
     enum data_type struct_type = ref.type;
 

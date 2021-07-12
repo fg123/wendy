@@ -20,6 +20,7 @@ static struct expr* copy_lit_expr(struct expr* from);
 static struct expr* make_bin_expr(struct expr* left, struct token op, struct expr* right);
 static struct expr* make_una_expr(struct token op, struct expr* operand);
 static struct expr* make_call_expr(struct expr* left, struct expr_list* arg_list);
+static struct expr* make_super_call_expr(struct expr_list* arg_list);
 static struct expr* make_list_expr(struct expr_list* list);
 static struct expr* make_func_expr(struct expr_list* parameters, struct statement* body);
 static struct expr* make_table_expr(struct expr_list* keys, struct expr_list* values);
@@ -323,8 +324,37 @@ static struct expr* primary(void) {
 	}
 }
 
+static bool is_literal_identifier(struct expr *e) {
+	return e->type == E_LITERAL &&
+		(e->op.lit_expr.type == D_IDENTIFIER ||
+		 e->op.lit_expr.type == D_MEMBER_IDENTIFIER);
+}
+
+static void validate_member_access(struct expr* bin_expr) {
+	if (!is_literal_identifier(bin_expr->op.bin_expr.right)) {
+		error_lexer(bin_expr->line, bin_expr->col,
+			CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL_IDENTIFIER,
+			data_string[bin_expr->op.bin_expr.right->op.lit_expr.type]);
+		return;
+	}
+	bin_expr->op.bin_expr.right->op.lit_expr.type = D_MEMBER_IDENTIFIER;
+}
+
 static struct expr* access(void) {
 	struct expr* left = primary();
+	if (left->type == E_LITERAL &&
+		left->op.lit_expr.type == D_IDENTIFIER &&
+		streq(left->op.lit_expr.value.string, "super")) {
+		
+		consume(T_LEFT_PAREN);
+		struct expr_list* args = expression_list(T_RIGHT_PAREN);
+		traverse_expr(left, &ast_safe_free_impl);
+
+		left = make_super_call_expr(args);
+		consume(T_RIGHT_PAREN);
+		return left;
+	}
+	
 	while (match(T_LEFT_BRACK, T_DOT, T_LEFT_PAREN)) {
 		struct token op = previous();
 		struct expr* right = 0;
@@ -341,6 +371,8 @@ static struct expr* access(void) {
 		else {
 			right = primary();
 			left = make_bin_expr(left, op, right);
+			// T_DOT case 
+			validate_member_access(left);
 		}
 	}
 	return left;
@@ -454,6 +486,41 @@ static struct expr* expression(void) {
 	}
 	else {
 		return res;
+	}
+}
+
+// Validates that the declaration is correct, i.e. init function calls
+//   super as the first entry
+static void validate_struct_declaration_statement(struct statement* sm) {
+	if (sm->op.struct_statement.parent_struct) {
+		// First line of init function must be super()
+		struct expr* init_fn = sm->op.struct_statement.init_fn;
+		struct statement* init_stmt = init_fn->op.func_expr.body;
+		struct statement* first_stmt = init_stmt;
+		if (init_stmt->type == S_BLOCK) {
+			if (!init_stmt->op.block_statement) {
+				first_stmt = NULL;
+			}
+			else {
+				first_stmt = init_stmt->op.block_statement->elem;
+			}
+		}
+		
+		if (!first_stmt) {
+			error_lexer(init_fn->line, init_fn->col, "Struct initialization must call super-class constructor first");
+			return;
+		}
+
+		if (first_stmt->type != S_EXPR) {
+			error_lexer(init_fn->line, init_fn->col, "Struct initialization must call super-class constructor first");
+			return;
+		}
+
+		struct expr* call_expr = first_stmt->op.expr_statement;
+		if (call_expr->type != E_SUPER_CALL) {
+			error_lexer(init_fn->line, init_fn->col, "Struct initialization must call super-class constructor first");
+			return;
+		}
 	}
 }
 
@@ -688,6 +755,9 @@ static struct statement* parse_statement(void) {
 
 			consume(T_DEFFN);
 			int saved_before_iden = 0;
+			
+			struct expr* custom_init_fn = NULL;
+
 			while (match(T_LEFT_PAREN, T_LEFT_BRACK, T_LEFT_BRACE)) {
 				if (previous().t_type == T_LEFT_PAREN) {
 					saved_before_iden = curr_index;
@@ -706,82 +776,113 @@ static struct statement* parse_statement(void) {
 					//   fn => (params) { function };
 					// Write this into static member list as
 					//   as an assign_expression
-					while (match(T_IDENTIFIER)) {
-						struct expr* lvalue = make_lit_expr(previous());
-						consume(T_DEFFN);
-						consume(T_LEFT_PAREN);
-						struct expr_list* parameters = expression_list(T_RIGHT_PAREN);
-						consume(T_RIGHT_PAREN);
-						struct statement* fnbody = parse_statement();
-						struct expr* fn = make_func_expr(parameters, fnbody);
-						struct expr_list* new_static = safe_malloc(sizeof(struct expr_list));
-						new_static->next = static_members;
-						static_members = new_static;
-						new_static->elem = make_assign_expr(lvalue, fn, make_token(T_EQUAL, make_data_num(0)));
+					while (match(T_IDENTIFIER, T_INIT)) {
+						if (previous().t_type == T_IDENTIFIER) {
+							struct token fn_name = previous();
+							struct expr* assigned_value = NULL;
+						
+							if (match(T_DEFFN)) {
+								consume(T_LEFT_PAREN);
+								struct expr_list* parameters = expression_list(T_RIGHT_PAREN);
+								consume(T_RIGHT_PAREN);
+								struct statement* fnbody = parse_statement();
+								assigned_value = make_func_expr(parameters, fnbody);
+							}
+							else if (match(T_EQUAL)) {
+								assigned_value = expression();
+							}
+							else {
+								error_lexer(fn_name.t_line, fn_name.t_col,
+									"Expected = or =>");
+							}
+							
+							struct expr* lvalue = make_lit_expr(fn_name);
+							struct expr_list* new_static = safe_malloc(sizeof(struct expr_list));
+							new_static->next = static_members;
+							static_members = new_static;
+							new_static->elem = make_assign_expr(lvalue, assigned_value,
+								make_token(T_EQUAL, make_data_num(0)));
+						}
+						else {
+							if (custom_init_fn) {
+								error_lexer(previous().t_line, previous().t_col,
+									"redeclaration of init function");
+								continue;
+							}
+							consume(T_DEFFN);
+							consume(T_LEFT_PAREN);
+							struct expr_list* parameters = expression_list(T_RIGHT_PAREN);
+							consume(T_RIGHT_PAREN);
+							struct statement* fnbody = parse_statement();
+							custom_init_fn = make_func_expr(parameters, fnbody);
+						}
 					}
 					consume(T_RIGHT_BRACE);
 				}
 			}
 			// Default Initiation Function
-			struct statement_list* init_fn = safe_malloc(sizeof(struct statement_list));
-			struct statement_list* curr = init_fn;
-			struct statement_list* prev = 0;
+			if (!custom_init_fn) {
+				struct statement_list* init_fn = safe_malloc(sizeof(struct statement_list));
+				struct statement_list* curr = init_fn;
+				struct statement_list* prev = 0;
 
-			struct expr_list* tmp_ins = instance_members;
-			while (tmp_ins) {
+				struct expr_list* tmp_ins = instance_members;
+				while (tmp_ins) {
+					curr->elem = safe_malloc(sizeof(struct statement));
+					curr->elem->type = S_EXPR;
+					curr->elem->op.expr_statement = safe_malloc(sizeof(struct expr));
+					curr->elem->op.expr_statement->type = E_ASSIGN;
+					struct expr* ass_expr = curr->elem->op.expr_statement;
+					ass_expr->op.assign_expr.operator = O_ASSIGN;
+					ass_expr->op.assign_expr.rvalue = copy_lit_expr(tmp_ins->elem);
+					// Binary Dot struct expr
+					struct expr* left = lit_expr_from_data(make_data(D_IDENTIFIER,
+									data_value_str("this")));
+					struct expr* right = copy_lit_expr(tmp_ins->elem);
+
+					struct token op = make_token(T_DOT, make_data_str("."));
+					// This isn't very clean, having to make a fake token to
+					// construct the expression.
+					ass_expr->op.assign_expr.lvalue = make_bin_expr(left, op, right);
+					destroy_token(op);
+
+					if (prev) prev->next = curr;
+					prev = curr;
+					curr = safe_malloc(sizeof(struct statement_list));
+
+					tmp_ins = tmp_ins->next;
+				}
+				// Return This Operation
 				curr->elem = safe_malloc(sizeof(struct statement));
-				curr->elem->type = S_EXPR;
-				curr->elem->op.expr_statement = safe_malloc(sizeof(struct expr));
-				curr->elem->op.expr_statement->type = E_ASSIGN;
-				struct expr* ass_expr = curr->elem->op.expr_statement;
-				ass_expr->op.assign_expr.operator = O_ASSIGN;
-				ass_expr->op.assign_expr.rvalue = copy_lit_expr(tmp_ins->elem);
-				// Binary Dot struct expr
-				struct expr* left = lit_expr_from_data(make_data(D_IDENTIFIER,
-								data_value_str("this")));
-				struct expr* right = copy_lit_expr(tmp_ins->elem);
+				if(prev) prev->next = curr;
+				curr->next = 0;
+				curr->elem->type = S_OPERATION;
+				curr->elem->op.operation_statement.operator = OP_RET;
+				curr->elem->op.operation_statement.operand =
+					lit_expr_from_data(make_data(D_IDENTIFIER,
+									data_value_str("this")));
 
-				struct token op = make_token(T_DOT, make_data_str("."));
-                // This isn't very clean, having to make a fake token to
-                // construct the expression.
-				ass_expr->op.assign_expr.lvalue = make_bin_expr(left, op, right);
-                destroy_token(op);
-
-				if (prev) prev->next = curr;
-				prev = curr;
-				curr = safe_malloc(sizeof(struct statement_list));
-
-				tmp_ins = tmp_ins->next;
+				struct expr_list* parameters = 0;
+				if (instance_members) {
+					size_t saved_before_pop = curr_index;
+					curr_index = saved_before_iden;
+					parameters = identifier_list();
+					curr_index = saved_before_pop;
+				}
+				struct statement* function_body = safe_malloc(sizeof(struct statement));
+				function_body->type = S_BLOCK;
+				function_body->op.block_statement = init_fn;
+				// init_fn is now the list of statements, to make it a function
+				custom_init_fn = make_func_expr(parameters, function_body);
 			}
-			// Return This Operation
-			curr->elem = safe_malloc(sizeof(struct statement));
-			if(prev) prev->next = curr;
-			curr->next = 0;
-			curr->elem->type = S_OPERATION;
-			curr->elem->op.operation_statement.operator = OP_RET;
-			curr->elem->op.operation_statement.operand =
-                lit_expr_from_data(make_data(D_IDENTIFIER,
-								data_value_str("this")));
-
-			struct expr_list* parameters = 0;
-			if (instance_members) {
-				size_t saved_before_pop = curr_index;
-				curr_index = saved_before_iden;
-				parameters = identifier_list();
-				curr_index = saved_before_pop;
-			}
-			struct statement* function_body = safe_malloc(sizeof(struct statement));
-			function_body->type = S_BLOCK;
-			function_body->op.block_statement = init_fn;
-			// init_fn is now the list of statements, to make it a function
-			struct expr* function_const = make_func_expr(parameters, function_body);
 
 			sm->type = S_STRUCT;
 			sm->op.struct_statement.name = safe_strdup(name.t_data.string);
-			sm->op.struct_statement.init_fn = function_const;
+			sm->op.struct_statement.init_fn = custom_init_fn;
 			sm->op.struct_statement.instance_members = instance_members;
 			sm->op.struct_statement.static_members = static_members;
 			sm->op.struct_statement.parent_struct = parent_struct;
+			validate_struct_declaration_statement(sm);
 			break;
 		}
 		case T_INC:
@@ -975,6 +1076,10 @@ void traverse_expr(struct expr* expression, struct traversal_algorithm* algo) {
 			traverse_expr_list(expression->op.call_expr.arguments, algo);
 			break;
 		}
+		case E_SUPER_CALL: {
+			traverse_expr_list(expression->op.super_call_expr.arguments, algo);
+			break;
+		}
 		case E_LIST: {
 			traverse_expr_list(expression->op.list_expr.contents, algo);
 			break;
@@ -1047,6 +1152,10 @@ static void print_e(struct expr* expression, struct traversal_algorithm* algo) {
 		}
 		case E_CALL: {
 			printf("Call Expression\n");
+			break;
+		}
+		case E_SUPER_CALL: {
+			printf("Super Call Expression\n");
 			break;
 		}
 		case E_LIST: {
@@ -1198,6 +1307,15 @@ static struct expr* make_call_expr(struct expr* left, struct expr_list* arg_list
 	node->type = E_CALL;
 	node->op.call_expr.function = left;
 	node->op.call_expr.arguments = arg_list;
+	node->line = t.t_line;
+	node->col = t.t_col;
+	return node;
+}
+static struct expr* make_super_call_expr(struct expr_list* arg_list) {
+	struct token t = tokens[curr_index];
+	struct expr* node = safe_malloc(sizeof(struct expr));
+	node->type = E_SUPER_CALL;
+	node->op.super_call_expr.arguments = arg_list;
 	node->line = t.t_line;
 	node->col = t.t_col;
 	return node;

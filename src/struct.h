@@ -12,7 +12,7 @@
 // Returns a pointer to where the field is stored
 //   ref:    a STRUCT_INSTANCE or STRUCT
 //   member: the member to get
-struct data* struct_get_field(struct data ref, const char* member);
+struct data* struct_get_field(struct vm* vm, struct data ref, const char* member);
 
 struct data* struct_create_instance(struct vm* vm, struct data* metadata);
 

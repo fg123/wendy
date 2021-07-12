@@ -31,7 +31,7 @@
 // Inspired by https://lambda.uta.edu/cse5317/notes/node26.html
 
 struct expr {
-	enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_ASSIGN, E_IF, E_TABLE }
+	enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_SUPER_CALL, E_ASSIGN, E_IF, E_TABLE }
 		type;
 	union { struct data                                     lit_expr;
 			struct {    enum operator       operator;
@@ -44,6 +44,8 @@ struct expr {
 				is an assignment expression for named arguments */
 			struct {    struct expr*        function;
 						struct expr_list*   arguments; }    call_expr;
+			struct {
+						struct expr_list*   arguments; } super_call_expr;
 			struct {    int                 length;
 						struct expr_list*   contents; }     list_expr;
 
@@ -84,7 +86,7 @@ struct statement {
 			struct {    char*              name;
 						struct expr_list*  instance_members;
 						struct expr_list*  static_members;
-						struct expr*       init_fn; 
+						struct expr*       init_fn;
 						struct expr*       parent_struct; } struct_statement;
 			struct {    struct expr*       condition;
 						struct statement*  statement_true;

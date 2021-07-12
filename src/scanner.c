@@ -204,6 +204,7 @@ static void identifier(void) {
 	else if (streq(text, "for"))  { add_token(T_LOOP); }
 	else if (streq(text, "none")) { add_token(T_NONE); }
 	else if (streq(text, "in"))   { add_token(T_IN); }
+	else if (streq(text, "init"))   { add_token(T_INIT); }
 
 	else if (streq(text, "ret"))  { add_token(T_RET); }
 	else if (streq(text, "import"))   {

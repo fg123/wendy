@@ -1,6 +1,7 @@
 struct Base => (f) {
     init => () {
         this.f = 1;
+        ret this;
     }
 
     m => () {
@@ -13,9 +14,22 @@ struct Base => (f) {
 };
 
 struct OverrideMethod : Base => () {
+    init => () {
+        super();
+        ret this;
+    }
+
     m => () {
         ret 2;
     }
+};
+
+struct OverrideField : Base => () {
+	init => () {
+		super();
+		this.f = 2;
+		ret this;
+	}
 };
 
 let base = Base();
@@ -27,3 +41,9 @@ let derived = OverrideMethod();
 derived.f;
 derived.m();
 derived.m2();
+
+let derived2 = OverrideField();
+derived2.f;
+derived2.m();
+derived2.m2();
+
