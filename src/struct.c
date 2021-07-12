@@ -42,13 +42,23 @@ struct data* struct_get_field(struct vm* vm, struct data ref, const char* member
         //   right now, we need one below that for the metadata
         metadata = metadata[1].value.reference;
         
-        if (streq(member, "super")) {
+        if (streq(member, "__super_init__")) {
             // Find parent init
             if (metadata[4].type == D_STRUCT) {
                 struct data* parent_metadata = metadata[4].value.reference;
                 struct table* parent_static_table = (struct table*) parent_metadata[2].value.reference[0].value.reference;
                 assert(table_exist(parent_static_table, "init"), "parent struct static table has no init!");
                 return table_find(parent_static_table, "init");
+            }
+            else {
+                error_runtime(vm->memory, vm->line, "Structure has no parent!");
+                return NULL;
+            }
+        }
+        else if (streq(member, "super")) {
+            // Find parent init
+            if (metadata[4].type == D_STRUCT) {
+                return &metadata[4];
             }
             else {
                 error_runtime(vm->memory, vm->line, "Structure has no parent!");

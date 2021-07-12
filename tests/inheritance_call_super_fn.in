@@ -1,0 +1,21 @@
+struct Base => () {
+    m => () {
+        ret 1;
+    }
+};
+
+struct Derived : Base => () {
+    init => () {
+        super();
+        ret this;
+    }
+    m => () {
+        ret 2;
+    }
+
+    m2 => () {
+        ret this.m() + this.super.m();
+    }
+}
+
+Derived().m2();

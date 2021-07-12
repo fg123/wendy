@@ -1033,7 +1033,7 @@ static void codegen_expr(void* expre) {
 		write_data(make_data(D_IDENTIFIER, data_value_str("this")));
 		write_opcode(OP_DUPTOP);
 		write_opcode(OP_PUSH);
-		write_data(make_data(D_MEMBER_IDENTIFIER, data_value_str("super")));
+		write_data(make_data(D_MEMBER_IDENTIFIER, data_value_str("__super_init__")));
 		write_opcode(OP_ROTTWO);
 		write_opcode(OP_BIN);
 		write_byte(O_MEMBER);
