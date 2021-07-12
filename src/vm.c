@@ -386,7 +386,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					else {
 						data = none_data();
 					}
-					
+
 					struct data* _data = table_insert(table, key.value.string, vm->memory);
 					*_data = data;
 					destroy_data_runtime(vm->memory, &key);
@@ -459,7 +459,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					size_t list_size = storage[0].value.number;
 					storage[0] = list_header_data(list_size, list_size);
 				}
-				
+
 				if (has_spread) {
 					struct data* new_storage =
 						refcnt_malloc(vm->memory, size + additional_space);
@@ -496,7 +496,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					storage = new_storage;
 					if (storage[0].type == D_LIST_HEADER) {
 						// - 1 for header
-						storage[0] = list_header_data(size + additional_space - 1, 
+						storage[0] = list_header_data(size + additional_space - 1,
 							size + additional_space - 1);
 					}
 				}
@@ -568,7 +568,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 				// Either will be allowed to look through static parameters.
 				struct data instance = pop_arg(vm->memory, vm->line);
 				char* member = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
-				if (instance.type != D_STRUCT &&	
+				if (instance.type != D_STRUCT &&
 					instance.type != D_STRUCT_INSTANCE &&
 					instance.type != D_TABLE) {
 					if (instance.type == D_NONERET) {
@@ -595,7 +595,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					);
 				}
 				else {
-					// Struct or struct instance 
+					// Struct or struct instance
 					struct data* ptr = struct_get_field(vm, instance, member);
 					if (!ptr) {
 						struct data type = type_of(instance);
@@ -662,7 +662,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					// Select `init` function.
 					assert(metadata[2].type == D_TABLE, "not a table!");
 					struct table* static_table = (struct table*) metadata[2].value.reference[0].value.reference;
-					
+
 					// Better Exist
 					assert(table_exist(static_table, "init"), "struct static table has no init!");
 					top = copy_data(*table_find(static_table, "init"));
@@ -674,7 +674,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 					}
 					top.type = D_STRUCT_FUNCTION;
 
-					push_arg(vm->memory, 
+					push_arg(vm->memory,
 						make_data(D_STRUCT_INSTANCE,
 							data_value_ptr(
 								struct_create_instance(vm, metadata)
@@ -1305,7 +1305,7 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 				return make_data(D_LIST, data_value_ptr(new_list));
 			}
 			else {
-				error_runtime(vm->memory, vm->line, VM_INVALID_APPEND);
+				error_runtime(vm->memory, vm->line, VM_INVALID_APPEND, operator_string[op]);
 			}
 		}
 		else if (b.type == D_LIST) {
@@ -1346,7 +1346,7 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 				}
 				return false_data();
 			}
-			else { error_runtime(vm->memory, vm->line, VM_INVALID_APPEND); }
+			else { error_runtime(vm->memory, vm->line, VM_INVALID_APPEND, operator_string[op]); }
 		}
 	}
 	else if((a.type == D_STRING && b.type == D_STRING) ||

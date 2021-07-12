@@ -9,6 +9,8 @@
 //   D_STRUCT -> parent struct
 struct data* struct_find_static(struct data* metadata, const char* member) {
     struct table* static_table = (struct table*) metadata[2].value.reference[0].value.reference;
+	// printf("Static Table\n");
+    // table_print(stdout, static_table, "%s: ", "");
     if (table_exist(static_table, member)) {
         return table_find(static_table, member);
     }
@@ -17,6 +19,8 @@ struct data* struct_find_static(struct data* metadata, const char* member) {
 
 bool struct_find_instance_offset(struct data* metadata, const char* member, size_t* offset) {
     struct table* instance_table = (struct table*) metadata[3].value.reference[0].value.reference;
+    // printf("Instance Table\n");
+    // table_print(stdout, instance_table, "%s: ", "");
     if (table_exist(instance_table, member)) {
         struct data* location = table_find(instance_table, member);
         *offset = (size_t)location->value.number;
@@ -90,7 +94,9 @@ struct data* struct_get_field(struct vm* vm, struct data ref, const char* member
                 offset += struct_get_instance_table_size(curr_meta);
             }
         }
-        return &ref.value.reference[offset + out_offset];
+        if (possible_offset) {
+        	return &ref.value.reference[offset + out_offset];
+        }
     }
 
     return NULL;
