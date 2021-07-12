@@ -34,6 +34,9 @@ main: $(OBJ) $(SRCDIR)/main.o setup
 	ln -f $(BINDIR)/wendy $(BINDIR)/windu
 	$(MAKE) -C tools/
 
+library: $(OBJ) setup
+	ar rvs $(BINDIR)/wendy.a $(OBJ)
+	
 .PHONY: clean
 
 libraries: vm_main main
