@@ -13,4 +13,7 @@ extern int program_arguments_count;
 
 void native_call(struct vm* vm, char* function_name, int expected_args);
 
+void register_native_call(const char* name, size_t num_args,
+    struct data (*function)(struct vm*, struct data*));
+
 #endif

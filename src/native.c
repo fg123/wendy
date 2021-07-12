@@ -18,7 +18,7 @@
 char** program_arguments = 0;
 int program_arguments_count = 0;
 struct native_function {
-	char* name;
+	const char* name;
 	int argc;
 	struct data (*function)(struct vm*, struct data*);
 };
@@ -44,8 +44,7 @@ static struct data native_log(struct vm* vm, struct data* args);
 
 static struct data native_dispatch(struct vm* vm, struct data* args);
 
-
-static struct native_function native_functions[] = {
+static struct native_function native_functions[256] = {
 	{ "printCallStack", 1, native_printCallStack },
 	{ "reverseString", 1, native_reverseString },
 	{ "stringToInteger", 1, native_stringToInteger },
@@ -64,8 +63,24 @@ static struct native_function native_functions[] = {
 	{ "vm_getRefs", 1, native_vm_getRefs },
 	{ "vm_getAt", 2, native_vm_getAt },
 	{ "process_execute", 1, native_process_execute },
-	{ "dispatch", 1, native_dispatch }
+	{ "dispatch", 1, native_dispatch },
+	{ 0, 0, 0 }
 };
+
+static size_t end_ptr = 0;
+void register_native_call(const char* name, size_t num_args,
+    struct data (*function)(struct vm*, struct data*)) {
+
+	while (native_functions[end_ptr].name != NULL) {
+		end_ptr++;
+	}
+	native_functions[end_ptr].name = name;
+	native_functions[end_ptr].argc = num_args;
+	native_functions[end_ptr].function = function;
+	end_ptr++;
+	native_functions[end_ptr].name = NULL;
+}
+
 
 static double native_to_numeric(struct vm* vm, struct data* t) {
 	if (t->type != D_NUMBER) {
@@ -371,9 +386,9 @@ static struct data native_vm_getAt(struct vm* vm, struct data* args) {
 }
 
 void native_call(struct vm* vm, char* function_name, int expected_args) {
-	int functions = sizeof(native_functions) / sizeof(native_functions[0]);
 	bool found = false;
-	for (int i = 0; i < functions; i++) {
+	for (int i = 0; ; i++) {
+		if (native_functions[i].name == NULL) break;
 		if(streq(native_functions[i].name, function_name)) {
 			int argc = native_functions[i].argc;
 			if (expected_args != argc) {
