@@ -9,7 +9,7 @@
 
 // init_source(file) given a file pointer, initializes the source module 
 //   provide 0 as the file pointer if there is no source file supplied
-void init_source(FILE* file, char* name, long length, bool accurate);
+void init_source(FILE* file, const char* name, long length, bool accurate);
 
 // has_source() returns true if there is a source file, false if there isn't
 bool has_source(void);

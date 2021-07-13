@@ -8,7 +8,7 @@ static int max_lines;
 static char* source_name;
 static bool source_accurate = false;
 
-void init_source(FILE* file, char* name, long length, bool accurate) {
+void init_source(FILE* file, const char* name, long length, bool accurate) {
 	if (!file) return;
 	source_accurate = accurate;
 	source_name = safe_malloc(sizeof(char) * (strlen(name) + 1));
