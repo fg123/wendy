@@ -302,11 +302,11 @@ static bool codegen_one_instruction(struct token *tokens, size_t _size, size_t *
 			assert_one(_size, ptr);
 			struct token op_t = tokens[(*ptr)++];
 			if (op == OP_BIN) {
-				enum operator op_e = token_operator_binary(op_t);
+				enum vm_operator op_e = token_operator_binary(op_t);
 				write_byte(op_e);
 			}
 			else {
-				enum operator op_e = token_operator_unary(op_t);
+				enum vm_operator op_e = token_operator_unary(op_t);
 				write_byte(op_e);
 			}
 			break;
@@ -1005,7 +1005,7 @@ static void codegen_expr(void* expre) {
 		write_address_at(size, doneJumpLoc);
 	}
 	else if (expression->type == E_ASSIGN) {
-        enum operator op = expression->op.assign_expr.operator;
+        enum vm_operator op = expression->op.assign_expr.operator;
 
 		codegen_expr(expression->op.assign_expr.rvalue);
 
@@ -1358,7 +1358,7 @@ void print_bytecode(uint8_t* bytecode, size_t length, FILE* buffer) {
 				}
 				case OP_BIN:
 				case OP_UNA: {
-					enum operator o = bytecode[i++];
+					enum vm_operator o = bytecode[i++];
 					p += fprintf(buffer, "%s", operator_string[o]);
 					break;
 				}

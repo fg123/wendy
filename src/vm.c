@@ -17,8 +17,8 @@
 #include <stdarg.h>
 
 // Forward Declarations
-static struct data eval_binop(struct vm * vm, enum operator op, struct data a, struct data b);
-static struct data eval_uniop(struct vm * vm, enum operator op, struct data a);
+static struct data eval_binop(struct vm * vm, enum vm_operator op, struct data a, struct data b);
+static struct data eval_uniop(struct vm * vm, enum vm_operator op, struct data a);
 static struct data type_of(struct data a);
 static char* type_of_str(struct data a);
 static struct data size_of(struct data a);
@@ -65,7 +65,7 @@ static bool _id_exist(struct memory* memory, char* fn) {
 	return id_exist(memory, fn, true);
 }
 
-static char* get_binary_overload_name(enum operator op, struct data a, struct data b) {
+static char* get_binary_overload_name(enum vm_operator op, struct data a, struct data b) {
 	char* type_a = type_of_str(a);
 	char* type_b = type_of_str(b);
 	char* fn_name = safe_concat(OPERATOR_OVERLOAD_PREFIX, type_a,
@@ -73,7 +73,7 @@ static char* get_binary_overload_name(enum operator op, struct data a, struct da
 	return fn_name;
 }
 
-static char* get_unary_overload_name(enum operator op, struct data a) {
+static char* get_unary_overload_name(enum vm_operator op, struct data a) {
 	char* type_a = type_of_str(a);
 	char* fn_name = safe_concat(OPERATOR_OVERLOAD_PREFIX,
 		operator_string[op], type_a);
@@ -173,7 +173,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_BIN:
 			VM_OP_BIN: {
-				enum operator op = vm->bytecode[vm->instruction_ptr++];
+				enum vm_operator op = vm->bytecode[vm->instruction_ptr++];
 				struct data a = pop_arg(vm->memory, vm->line);
 				struct data b = pop_arg(vm->memory, vm->line);
 				struct data any_d = any_data();
@@ -205,7 +205,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 			}
 			case OP_UNA:
             VM_OP_UNA: {
-				enum operator op = vm->bytecode[vm->instruction_ptr++];
+				enum vm_operator op = vm->bytecode[vm->instruction_ptr++];
 				struct data a = pop_arg(vm->memory, vm->line);
 				char* fn_name = get_unary_overload_name(op, a);
 				if (id_exist(vm->memory, fn_name, true)) {
@@ -955,7 +955,7 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 	}
 }
 
-static struct data eval_binop(struct vm * vm, enum operator op, struct data a, struct data b) {
+static struct data eval_binop(struct vm * vm, enum vm_operator op, struct data a, struct data b) {
 	if (op == O_SUBSCRIPT) {
 		// Array Reference, or String
 		// A must be a list/string/range, b must be a number.
@@ -1177,7 +1177,7 @@ static struct data eval_binop(struct vm * vm, enum operator op, struct data a, s
 				}
 				else {
 					if (op == O_REM) {
-						// modulus enum operator
+						// modulus enum vm_operator
 						double a_n = a.value.number;
 						double b_n = b.value.number;
 
@@ -1540,7 +1540,7 @@ static struct data type_of(struct data a) {
 	return make_data(D_OBJ_TYPE, data_value_str(type_of_str(a)));
 }
 
-static struct data eval_uniop(struct vm * vm, enum operator op, struct data a) {
+static struct data eval_uniop(struct vm * vm, enum vm_operator op, struct data a) {
 	if (op == O_COPY) {
 		// Create copy of object a, only applies to lists or
 		// struct or struct instances

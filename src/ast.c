@@ -1341,7 +1341,7 @@ static struct expr* make_assign_expr(struct expr* left, struct expr* right, stru
 	node->type = E_ASSIGN;
 	node->op.assign_expr.lvalue = left;
 	node->op.assign_expr.rvalue = right;
-    enum operator new_op = O_ASSIGN;
+    enum vm_operator new_op = O_ASSIGN;
     switch(op.t_type) {
         case T_ASSIGN_PLUS:
             new_op = O_ADD;

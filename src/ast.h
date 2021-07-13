@@ -34,10 +34,10 @@ struct expr {
 	enum { E_LITERAL, E_BINARY, E_UNARY, E_FUNCTION, E_LIST, E_CALL, E_SUPER_CALL, E_ASSIGN, E_IF, E_TABLE }
 		type;
 	union { struct data                                     lit_expr;
-			struct {    enum operator       operator;
+			struct {    enum vm_operator       operator;
 						struct expr*        left;
 						struct expr*        right; }        bin_expr;
-			struct {    enum operator       operator;
+			struct {    enum vm_operator       operator;
 						struct expr*        operand; }      una_expr;
 
 			/* call arguments are either resolvable to an expression or
@@ -60,7 +60,7 @@ struct expr {
 			struct {    struct expr*        condition;
 						struct expr*        expr_true;
 						struct expr*        expr_false; }   if_expr;
-			struct {    enum operator       operator;
+			struct {    enum vm_operator       operator;
 						struct expr*        lvalue;
 						struct expr*        rvalue; }       assign_expr;
 

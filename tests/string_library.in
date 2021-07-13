@@ -2,10 +2,10 @@ import string
 
 // Operator Overloading allows a flexible string library:
 // https://github.com/fg123/wendy/blob/master/src/wendy-lib/string.w
-// String split with Division enum operator
+// String split with Division enum vm_operator
 "Hello world! This will be split by a space!" / " ";
 
-// String join with Remainder enum operator
+// String join with Remainder enum vm_operator
 ["Hello", "world!", "This", "is", "joined"] % " ";
 
 // Combining them gives Python's string positional formatting

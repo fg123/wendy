@@ -351,7 +351,7 @@ static struct expr* optimize_expr(struct expr* expression) {
 
 			struct expr* left = expression->op.bin_expr.left;
 			struct expr* right = expression->op.bin_expr.right;
-			enum operator op = expression->op.bin_expr.operator;
+			enum vm_operator op = expression->op.bin_expr.operator;
 			struct data possible_optimized;
 			if (left->type == E_LITERAL && left->op.lit_expr.type == D_NUMBER &&
 				right->type == E_LITERAL && right->op.lit_expr.type == D_NUMBER) {
@@ -449,7 +449,7 @@ static struct expr* optimize_expr(struct expr* expression) {
 		case E_UNARY: {
 			expression->op.una_expr.operand =
 				optimize_expr(expression->op.una_expr.operand);
-			enum operator op = expression->op.una_expr.operator;
+			enum vm_operator op = expression->op.una_expr.operator;
 			struct expr* operand = expression->op.una_expr.operand;
 			if (op == O_NEG && operand->type == E_LITERAL &&
 				operand->op.lit_expr.type == D_NUMBER) {

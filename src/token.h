@@ -131,7 +131,7 @@ void print_token(const struct token* t);
 //   characters printed
 unsigned int print_token_inline(const struct token* t, FILE* buf);
 
-// precedence(op) returns the precedece of the enum operator
+// precedence(op) returns the precedece of the enum vm_operator
 int precedence(struct token op);
 
 // set_make_token_param(l, c) sets the line and column of the current state of
