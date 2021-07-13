@@ -157,7 +157,7 @@ void run(char* input_string, struct vm * vm) {
 			print_bytecode(bytecode, size, stdout);
 		}
 		if (!get_error_flag()) {
-			vm_run(vm, bytecode, size);
+			vm_run(vm, vm_load_code(vm, bytecode, size, get_settings_flag(SETTINGS_REPL)));
 		}
 		safe_free(bytecode);
 	}
@@ -380,7 +380,7 @@ int main(int argc, char** argv) {
 	}
 	else {
 		push_frame(vm->memory, "main", 0, 0);
-		vm_run(vm, bytecode_stream, size);
+		vm_run(vm, vm_load_code(vm, bytecode_stream, size, get_settings_flag(SETTINGS_REPL)));
 		if (!last_printed_newline) {
 			printf("\n");
 		}

@@ -86,14 +86,17 @@ static char* get_print_overload_name(struct data a) {
 	return fn_name;
 }
 
-void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
+address vm_load_code(struct vm* vm, uint8_t* new_bytecode, size_t size, bool append) {
 	if (get_settings_flag(SETTINGS_DRY_RUN)) {
-		return;
+		return 0;
 	}
 	// Verify Header
 	address start_at;
 	size_t saved_size = vm->bytecode_size;
-	if (!get_settings_flag(SETTINGS_REPL)) {
+	if (!append) {
+		if (vm->bytecode) {
+			safe_free(vm->bytecode);
+		}
 		vm->bytecode = new_bytecode;
 		start_at = verify_header(vm->bytecode, size);
 	}
@@ -120,6 +123,14 @@ void vm_run(struct vm *vm, uint8_t* new_bytecode, size_t size) {
 			vm->bytecode[start_at + i] = new_bytecode[i];
 		}
 	}
+	return start_at;
+}
+
+void vm_run(struct vm *vm, address start_at) {
+	if (get_settings_flag(SETTINGS_DRY_RUN)) {
+		return;
+	}
+	
 	#define VM_LABEL(x) &&VM_##x,
 	static void* dispatch_table[] = {
 		FOREACH_OPCODE(VM_LABEL)

@@ -23,8 +23,8 @@ struct vm {
 struct vm *vm_init(void);
 void vm_destroy(struct vm * vm);
 
-// vm_run(bytecode) runs the given bytecode.
-void vm_run(struct vm * vm, uint8_t* bytecode, size_t size);
+address vm_load_code(struct vm* vm, uint8_t* bytecode, size_t size, bool append);
+void vm_run(struct vm * vm, address start);
 void vm_cleanup_if_repl(struct vm * vm);
 
 // print_current_bytecode() prints the current executing bytecode
