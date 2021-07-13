@@ -227,7 +227,7 @@ void vm_run(struct vm *vm, address start_at) {
 					goto wendy_vm_call;
 				}
 				else {
-					// Uni-op has a special spread operator that returns noneret
+					// Uni-op has a special spread vm_operator that returns noneret
 					struct data result = eval_uniop(vm, op, a);
 					push_arg(vm->memory, result);
 					destroy_data_runtime(vm->memory, &a);

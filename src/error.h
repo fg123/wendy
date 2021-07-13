@@ -61,7 +61,7 @@ void assert_impl(bool condition, const char* condition_str, const char* filename
 #define AST_STRUCT_EXPECTED_EXTENDS_IDENTIFIER "Struct extends expected identifier!"
 #define AST_ENUM_NAME_IDENTIFIER "Enum name must be an identifier!"
 #define AST_UNRECOGNIZED_IMPORT "Unrecognized import, expected an identifier!"
-#define AST_OPERATOR_OVERLOAD_NO_OPERATOR "Expected an operator!"
+#define AST_OPERATOR_OVERLOAD_NO_OPERATOR "Expected an vm_operator!"
 
 // Optimizer Errors
 #define OPTIMIZER_NO_STATEMENT_BLOCK "Identifier declared outside of statement block!?"
@@ -69,14 +69,14 @@ void assert_impl(bool condition, const char* condition_str, const char* filename
 // CodeGen Messages:
 #define CODEGEN_LVALUE_EXPECTED_IDENTIFIER "Expected identifier in lvalue expression."
 #define CODEGEN_MEMBER_ACCESS_RIGHT_NOT_LITERAL_IDENTIFIER \
-	"Right parameter of member access binary operator must be a valid identifier, found %s."
+	"Right parameter of member access binary vm_operator must be a valid identifier, found %s."
 #define CODEGEN_NAMED_ARGUMENT_NOT_LITERAL "Named arguments must be a valid LITERAL identifier."
 #define CODEGEN_UNEXPECTED_FUNCTION_PARAMETER \
 	"Unexpected function parameter declaration."
 #define CODEGEN_FUNCTION_DEFAULT_VALUES_AT_END \
 	"Unexpected parameter with no default value!"
 #define CODEGEN_INVALID_LVALUE_BINOP \
-	"Invalid binary operator in lvalue expression."
+	"Invalid binary vm_operator in lvalue expression."
 #define CODEGEN_INVALID_LVALUE \
 	"Invalid lvalue expression!"
 #define CODEGEN_NAMED_ARGUMENT_MUST_COME_AFTER_POSITIONAL \
@@ -88,13 +88,13 @@ void assert_impl(bool condition, const char* condition_str, const char* filename
 #define CODEGEN_CONTINUE_NOT_IN_LOOP "Continue statement not in loop!"
 
 #define CODEGEN_BYTECODE_INVALID_OPCODE "Inline Bytecode: Invalid opcode '%s'"
-#define CODEGEN_BYTECODE_UNEXPECTED_OPERATOR "Inline Bytecode: Unexpected operator '%s'. Operators must follow BIN or UNA opcode."
+#define CODEGEN_BYTECODE_UNEXPECTED_OPERATOR "Inline Bytecode: Unexpected vm_operator '%s'. Operators must follow BIN or UNA opcode."
 #define CODEGEN_BYTECODE_UNEXPECTED_DATA_NO_CONTENT "Inline Bytecode: Found a data_type specifier but no content!"
 #define CODEGEN_BYTECODE_UNEXPECTED_RAW_BYTE "Inline Bytecode: Found raw byte specifier '$' but no content!"
 
 // Operators Messages
-#define OPERATORS_INVALID_UNARY "Invalid unary operator!"
-#define OPERATORS_INVALID_BINARY "Invalid binary operator!"
+#define OPERATORS_INVALID_UNARY "Invalid unary vm_operator!"
+#define OPERATORS_INVALID_BINARY "Invalid binary vm_operator!"
 
 // Debugger Messages:
 #define OUT_OF_BREAKPOINTS "Breakpoint limit reached! You cannot create more breakpoints!"
@@ -124,12 +124,12 @@ void assert_impl(bool condition, const char* condition_str, const char* filename
 #define VM_INVALID_LIST_SUBSCRIPT "List index must be a number or a range!"
 #define VM_MEMBER_NOT_IDEN "Tried to access invalid member!"
 #define VM_MATH_DISASTER "Division by 0!"
-#define VM_TYPE_ERROR "Type error on operator '%s'!"
-#define VM_NUM_NUM_INVALID_OPERATOR "Invalid operator '%s' between two numbers."
-#define VM_LIST_LIST_INVALID_OPERATOR "Invalid operator '%s' between two lists."
-#define VM_INVALID_APPEND "Invalid operator '%s' between list and element."
-#define VM_STRING_NUM_INVALID_OPERATOR "Invalid operator '%s' between string and number."
-#define VM_STRING_STRING_INVALID_OPERATOR "Invalid operator '%s' between string and string."
+#define VM_TYPE_ERROR "Type error on vm_operator '%s'!"
+#define VM_NUM_NUM_INVALID_OPERATOR "Invalid vm_operator '%s' between two numbers."
+#define VM_LIST_LIST_INVALID_OPERATOR "Invalid vm_operator '%s' between two lists."
+#define VM_INVALID_APPEND "Invalid vm_operator '%s' between list and element."
+#define VM_STRING_NUM_INVALID_OPERATOR "Invalid vm_operator '%s' between string and number."
+#define VM_STRING_STRING_INVALID_OPERATOR "Invalid vm_operator '%s' between string and string."
 #define VM_INVALID_NEGATE "Negation operand must be a number."
 #define VM_INVALID_NATIVE_CALL "Natively linked function '%s' not found!"
 #define VM_INVALID_NATIVE_NUMBER_OF_ARGS "Natively linked function call '%s' does not match expected number of arguments!"
@@ -137,7 +137,7 @@ void assert_impl(bool condition, const char* condition_str, const char* filename
 #define VM_INVALID_NATIVE_STRING_TYPE_ERROR "Type error in native function call. Expected string value."
 #define VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION "Struct's init constructor is not a function!"
 #define VM_ASSIGNING_NONERET "Attempted to use result from function that does not return a value!"
-#define VM_SPREAD_NOT_ITERABLE "Spread operator can only be called on List or Range."
+#define VM_SPREAD_NOT_ITERABLE "Spread vm_operator can only be called on List or Range."
 #define VM_STRING_DUPLICATION_NEGATIVE "Attempted to multiply string with negative integer."
 
 #define VM_INTERNAL_ERROR "An internal VM error occured: %s"

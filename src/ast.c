@@ -696,7 +696,7 @@ static struct statement* parse_statement(void) {
 			curr->elem->op.expr_statement = safe_malloc(sizeof(struct expr));
 			curr->elem->op.expr_statement->type = E_ASSIGN;
 			struct expr* ass_expr = curr->elem->op.expr_statement;
-			ass_expr->op.assign_expr.operator = O_ASSIGN;
+			ass_expr->op.assign_expr.vm_operator = O_ASSIGN;
 			struct token num_token = make_token(T_IDENTIFIER, make_data_str("_num"));
 			ass_expr->op.assign_expr.rvalue = make_lit_expr(num_token);
 			// Binary Dot struct expr
@@ -717,7 +717,7 @@ static struct statement* parse_statement(void) {
 			prev->next = curr;
 			curr->next = 0;
 			curr->elem->type = S_OPERATION;
-			curr->elem->op.operation_statement.operator = OP_RET;
+			curr->elem->op.operation_statement.vm_operator = OP_RET;
 			curr->elem->op.operation_statement.operand =
                 lit_expr_from_data(make_data(D_IDENTIFIER,
 								data_value_str("this")));
@@ -833,7 +833,7 @@ static struct statement* parse_statement(void) {
 					curr->elem->op.expr_statement = safe_malloc(sizeof(struct expr));
 					curr->elem->op.expr_statement->type = E_ASSIGN;
 					struct expr* ass_expr = curr->elem->op.expr_statement;
-					ass_expr->op.assign_expr.operator = O_ASSIGN;
+					ass_expr->op.assign_expr.vm_operator = O_ASSIGN;
 					ass_expr->op.assign_expr.rvalue = copy_lit_expr(tmp_ins->elem);
 					// Binary Dot struct expr
 					struct expr* left = lit_expr_from_data(make_data(D_IDENTIFIER,
@@ -857,7 +857,7 @@ static struct statement* parse_statement(void) {
 				if(prev) prev->next = curr;
 				curr->next = 0;
 				curr->elem->type = S_OPERATION;
-				curr->elem->op.operation_statement.operator = OP_RET;
+				curr->elem->op.operation_statement.vm_operator = OP_RET;
 				curr->elem->op.operation_statement.operand =
 					lit_expr_from_data(make_data(D_IDENTIFIER,
 									data_value_str("this")));
@@ -900,7 +900,7 @@ static struct statement* parse_statement(void) {
                 case T_AT: code = OP_OUTL; break;
                 default: break;
             }
-			sm->op.operation_statement.operator = code;
+			sm->op.operation_statement.vm_operator = code;
 			sm->op.operation_statement.operand = expression();
 			break;
 		}
@@ -923,7 +923,7 @@ static struct statement* parse_statement(void) {
 		}
 		case T_RET: {
 			sm->type = S_OPERATION;
-			sm->op.operation_statement.operator = OP_RET;
+			sm->op.operation_statement.vm_operator = OP_RET;
 			if (peek().t_type != T_SEMICOLON && peek().t_type != T_RIGHT_BRACE) {
 				sm->op.operation_statement.operand = expression();
 			}
@@ -1139,7 +1139,7 @@ static void print_e(struct expr* expression, struct traversal_algorithm* algo) {
 		}
 		case E_BINARY: {
 			printf("Binary Expression " GRN "%s\n" RESET,
-				operator_string[expression->op.bin_expr.operator]);
+				operator_string[expression->op.bin_expr.vm_operator]);
 			break;
 		}
 		case E_IF: {
@@ -1193,7 +1193,7 @@ static void print_s(struct statement* state, struct traversal_algorithm* algo) {
 		}
 		case S_OPERATION: {
 			printf("Operation statement " GRN "%s\n" RESET,
-				operator_string[state->op.operation_statement.operator]);
+				operator_string[state->op.operation_statement.vm_operator]);
 			break;
 		}
 		case S_EXPR: {
@@ -1276,7 +1276,7 @@ static struct expr* make_bin_expr(struct expr* left, struct token op, struct exp
 	node->line = op.t_line;
 	node->col = op.t_col;
 	node->type = E_BINARY;
-	node->op.bin_expr.operator = token_operator_binary(op);
+	node->op.bin_expr.vm_operator = token_operator_binary(op);
 	node->op.bin_expr.left = left;
 	node->op.bin_expr.right = right;
 	return node;
@@ -1295,7 +1295,7 @@ static struct expr* make_if_expr(struct expr* condition, struct expr* if_true, s
 static struct expr* make_una_expr(struct token op, struct expr* operand) {
 	struct expr* node = safe_malloc(sizeof(struct expr));
 	node->type = E_UNARY;
-	node->op.una_expr.operator = token_operator_unary(op);
+	node->op.una_expr.vm_operator = token_operator_unary(op);
 	node->op.una_expr.operand = operand;
 	node->line = op.t_line;
 	node->col = op.t_col;
@@ -1362,7 +1362,7 @@ static struct expr* make_assign_expr(struct expr* left, struct expr* right, stru
         case T_DEFFN:
         default: break;
     }
-	node->op.assign_expr.operator = new_op;
+	node->op.assign_expr.vm_operator = new_op;
 	node->line = op.t_line;
 	node->col = op.t_col;
 	return node;

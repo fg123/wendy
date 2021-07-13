@@ -351,7 +351,7 @@ static struct expr* optimize_expr(struct expr* expression) {
 
 			struct expr* left = expression->op.bin_expr.left;
 			struct expr* right = expression->op.bin_expr.right;
-			enum vm_operator op = expression->op.bin_expr.operator;
+			enum vm_operator op = expression->op.bin_expr.vm_operator;
 			struct data possible_optimized;
 			if (left->type == E_LITERAL && left->op.lit_expr.type == D_NUMBER &&
 				right->type == E_LITERAL && right->op.lit_expr.type == D_NUMBER) {
@@ -449,7 +449,7 @@ static struct expr* optimize_expr(struct expr* expression) {
 		case E_UNARY: {
 			expression->op.una_expr.operand =
 				optimize_expr(expression->op.una_expr.operand);
-			enum vm_operator op = expression->op.una_expr.operator;
+			enum vm_operator op = expression->op.una_expr.vm_operator;
 			struct expr* operand = expression->op.una_expr.operand;
 			if (op == O_NEG && operand->type == E_LITERAL &&
 				operand->op.lit_expr.type == D_NUMBER) {
@@ -550,7 +550,7 @@ static void scan_statement(struct statement* state) {
 			break;
 		}
 		case S_OPERATION: {
-			enum opcode op = state->op.operation_statement.operator;
+			enum opcode op = state->op.operation_statement.vm_operator;
 			if (op == OP_RET) {
 				scan_expr(state->op.operation_statement.operand);
 			}
@@ -629,7 +629,7 @@ static void scan_expr(struct expr* expression) {
 			break;
 		}
 		case E_BINARY: {
-			if (expression->op.bin_expr.operator == O_MOD_EQUAL) {
+			if (expression->op.bin_expr.vm_operator == O_MOD_EQUAL) {
 				if (expression->op.bin_expr.left->type == E_LITERAL &&
 					expression->op.bin_expr.left->op.lit_expr.type == D_IDENTIFIER) {
 					add_modified(expression->op.bin_expr.left->op.lit_expr.value.string,

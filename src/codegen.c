@@ -164,11 +164,11 @@ static void codegen_lvalue_expr(struct expr* expression) {
 		// Left side in memory reg
 		codegen_expr(expression->op.bin_expr.left);
 
-		if (expression->op.bin_expr.operator == O_MEMBER) {
+		if (expression->op.bin_expr.vm_operator == O_MEMBER) {
 			write_opcode(OP_MEMPTR);
 			write_string(expression->op.bin_expr.right->op.lit_expr.value.string);
 		}
-		else if (expression->op.bin_expr.operator == O_SUBSCRIPT) {
+		else if (expression->op.bin_expr.vm_operator == O_SUBSCRIPT) {
 			codegen_expr(expression->op.bin_expr.right);
 			write_opcode(OP_NTHPTR);
 		}
@@ -453,16 +453,16 @@ static void codegen_statement(void* expre) {
 			break;
 		}
 		case S_OPERATION: {
-			if (state->op.operation_statement.operator == OP_RET) {
+			if (state->op.operation_statement.vm_operator == OP_RET) {
 				codegen_expr(state->op.operation_statement.operand);
 			}
-			else if (state->op.operation_statement.operator == OP_OUTL) {
+			else if (state->op.operation_statement.vm_operator == OP_OUTL) {
 				codegen_expr(state->op.operation_statement.operand);
 			}
 			else {
 				codegen_lvalue_expr(state->op.operation_statement.operand);
 			}
-			write_opcode(state->op.operation_statement.operator);
+			write_opcode(state->op.operation_statement.vm_operator);
 			break;
 		}
 		case S_EXPR: {
@@ -709,7 +709,7 @@ static void codegen_statement(void* expre) {
 				struct expr* rvalue = NULL;
 
 				// Either a literal identifier or assignment statement.
-				if (elem->type == E_ASSIGN && elem->op.assign_expr.operator == O_ASSIGN) {
+				if (elem->type == E_ASSIGN && elem->op.assign_expr.vm_operator == O_ASSIGN) {
 					rvalue = elem->op.assign_expr.rvalue;
 					elem = elem->op.assign_expr.lvalue;
 				}
@@ -920,8 +920,8 @@ static void codegen_expr(void* expre) {
 		write_data(copy_data(expression->op.lit_expr));
 	}
 	else if (expression->type == E_BINARY) {
-		if (expression->op.bin_expr.operator == O_MOD_EQUAL) {
-			/* Special operator just for Dhruvit, first we calculate the remainder */
+		if (expression->op.bin_expr.vm_operator == O_MOD_EQUAL) {
+			/* Special vm_operator just for Dhruvit, first we calculate the remainder */
 			codegen_expr(expression->op.bin_expr.right);
 			codegen_expr(expression->op.bin_expr.left);
 			write_opcode(OP_BIN);
@@ -938,7 +938,7 @@ static void codegen_expr(void* expre) {
 			/* Skip the default OP_BIN */
 			return;
 		}
-		else if (expression->op.bin_expr.operator == O_MEMBER) {
+		else if (expression->op.bin_expr.vm_operator == O_MEMBER) {
 			write_opcode(OP_PUSH);
 			write_data(copy_data(
                 expression->op.bin_expr.right->op.lit_expr));
@@ -946,10 +946,10 @@ static void codegen_expr(void* expre) {
 		}
 		/* Short Circuiting for Boolean Operators. Boolean operators
 		 * are commutative, so we can generate the left first. */
-		else if (expression->op.bin_expr.operator == O_AND ||
-				 expression->op.bin_expr.operator == O_OR) {
+		else if (expression->op.bin_expr.vm_operator == O_AND ||
+				 expression->op.bin_expr.vm_operator == O_OR) {
 			codegen_expr(expression->op.bin_expr.left);
-			bool is_or = expression->op.bin_expr.operator == O_OR;
+			bool is_or = expression->op.bin_expr.vm_operator == O_OR;
 			/* We want to negate for OR, so the JIF is accurate */
 			if (is_or) {
 				write_opcode(OP_UNA);
@@ -963,7 +963,7 @@ static void codegen_expr(void* expre) {
 			write_data(is_or ? false_data() : true_data());
 			codegen_expr(expression->op.bin_expr.right);
 			write_opcode(OP_BIN);
-			write_byte(expression->op.bin_expr.operator);
+			write_byte(expression->op.bin_expr.vm_operator);
 			write_opcode(OP_JMP);
 			address fine_loc = size;
 			size += sizeof(address);
@@ -983,7 +983,7 @@ static void codegen_expr(void* expre) {
 			codegen_expr(expression->op.bin_expr.left);
 		}
 		write_opcode(OP_BIN);
-		write_byte(expression->op.bin_expr.operator);
+		write_byte(expression->op.bin_expr.vm_operator);
 	}
 	else if (expression->type == E_IF) {
 		codegen_expr(expression->op.if_expr.condition);
@@ -1005,7 +1005,7 @@ static void codegen_expr(void* expre) {
 		write_address_at(size, doneJumpLoc);
 	}
 	else if (expression->type == E_ASSIGN) {
-        enum vm_operator op = expression->op.assign_expr.operator;
+        enum vm_operator op = expression->op.assign_expr.vm_operator;
 
 		codegen_expr(expression->op.assign_expr.rvalue);
 
@@ -1025,7 +1025,7 @@ static void codegen_expr(void* expre) {
 	else if (expression->type == E_UNARY) {
 		codegen_expr(expression->op.una_expr.operand);
 		write_opcode(OP_UNA);
-		write_byte(expression->op.una_expr.operator);
+		write_byte(expression->op.una_expr.vm_operator);
 	}
 	else if (expression->type == E_SUPER_CALL) {
 		codegen_expr_list_for_call(expression->op.super_call_expr.arguments);
@@ -1048,7 +1048,7 @@ static void codegen_expr(void* expre) {
 
 		bool made_new_frame = false;
 		if (expression->op.call_expr.function->type == E_BINARY &&
-			expression->op.call_expr.function->op.bin_expr.operator == O_MEMBER) {
+			expression->op.call_expr.function->op.bin_expr.vm_operator == O_MEMBER) {
 			// Struct Member Call, we will generate an extra "argument" that is the
 			//   reference to the LHS
 
