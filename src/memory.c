@@ -135,7 +135,8 @@ struct data *refcnt_copy(struct data *ptr) {
 }
 
 
-struct data* wendy_list_malloc_impl(struct data* allocated, size_t size) {
+struct data* wendy_list_malloc_impl(void* allocvoid, size_t size) {
+	struct data* allocated = (struct data*)allocvoid;
 	allocated[0] = list_header_data(size, size);
 	return allocated;
 }
