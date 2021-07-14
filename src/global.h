@@ -79,7 +79,7 @@ char* safe_strdup_impl(const char* s, char* allocated);
 #define UNUSED(var) (void)(var)
 #define forever for(;;)
 
-char* safe_concat_impl(char* first, ...);
+char* safe_concat_impl(const char* first, ...);
 
 #define safe_concat(...) safe_concat_impl(__VA_ARGS__, NULL)
 

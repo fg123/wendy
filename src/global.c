@@ -16,14 +16,14 @@ char* safe_strdup_impl(const char* s, char* allocated) {
 	return allocated;
 }
 
-char* safe_concat_impl(char *first, ...) {
+char* safe_concat_impl(const char *first, ...) {
 	va_list args;
 	va_start(args, first);
-	char* str = first;
+	const char* str = first;
 	size_t count = 0;
 	while (str) {
 		count += strlen(str);
-		str = va_arg(args, char*);
+		str = va_arg(args, const char*);
 	}
 	va_end(args);
 	char* result = safe_calloc(count + 1, sizeof(char));
@@ -31,7 +31,7 @@ char* safe_concat_impl(char *first, ...) {
 	str = first;
 	while (str) {
 		strcat(result, str);
-		str = va_arg(args, char*);
+		str = va_arg(args, const char*);
 	}
 	return result;
 }

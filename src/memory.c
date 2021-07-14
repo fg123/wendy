@@ -271,7 +271,7 @@ void memory_destroy(struct memory* memory) {
 	free(memory);
 }
 
-void push_frame(struct memory * memory, char* name, address ret, int line) {
+void push_frame(struct memory * memory, const char* name, address ret, int line) {
 	UNUSED(line);
 	// Store current frame pointer
 	char* se_name = safe_concat(
@@ -286,7 +286,7 @@ void push_frame(struct memory * memory, char* name, address ret, int line) {
 	frame->is_automatic = false;
 }
 
-void push_auto_frame(struct memory * memory, address ret, char* type, int line) {
+void push_auto_frame(struct memory * memory, address ret, const char* type, int line) {
 	UNUSED(line);
 	// store current frame pointer
 	char* se_name = safe_concat(
@@ -372,7 +372,7 @@ struct data pop_arg(struct memory * memory, int line) {
 	return none_data();
 }
 
-struct data* push_stack_entry(struct memory * memory, char* id, int line) {
+struct data* push_stack_entry(struct memory * memory, const char* id, int line) {
 	// TODO(felixguo): can probably remove line
 	UNUSED(line);
 	struct data* d = table_insert(
@@ -381,7 +381,7 @@ struct data* push_stack_entry(struct memory * memory, char* id, int line) {
 	return d;
 }
 
-struct data* push_closure_entry(struct memory * memory, char* id, int line) {
+struct data* push_closure_entry(struct memory * memory, const char* id, int line) {
 	// TODO(felixguo): can probably remove line
 	UNUSED(line);
 	struct data* d = table_insert(
@@ -390,16 +390,16 @@ struct data* push_closure_entry(struct memory * memory, char* id, int line) {
 	return d;
 }
 
-bool id_exist(struct memory * memory, char* id, bool search_main) {
+bool id_exist(struct memory * memory, const char* id, bool search_main) {
 	return get_address_of_id(memory, id, search_main, NULL) != NULL;
 }
 
-bool id_exist_local_frame_ignore_closure(struct memory* memory, char* id) {
+bool id_exist_local_frame_ignore_closure(struct memory* memory, const char* id) {
 	// Only search local frame
 	return table_exist(memory->call_stack[memory->call_stack_pointer - 1].variables, id);
 }
 
-struct data* get_address_of_id(struct memory * memory, char* id, bool search_main, bool* is_closure) {
+struct data* get_address_of_id(struct memory * memory, const char* id, bool search_main, bool* is_closure) {
 	struct data* result = 0;
 	if (is_closure) {
 		*is_closure = false;
