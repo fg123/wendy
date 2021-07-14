@@ -58,7 +58,7 @@ void set_settings_flag(enum settings_flags flag);
 bool get_settings_flag(enum settings_flags flag);
 
 struct malloc_node {
-	char* filename;
+	const char* filename;
 	int line_num;
 	size_t size;
 	void* ptr;
@@ -100,10 +100,10 @@ char* safe_concat_impl(char* first, ...);
 
 #endif
 
-void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num);
-void* safe_malloc_impl(size_t size, char* filename, int line_num);
-void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num);
-void safe_free_impl(void* ptr, char* filename, int line_num);
+void* safe_realloc_impl(void* ptr, size_t size, const char* filename, int line_num);
+void* safe_malloc_impl(size_t size, const char* filename, int line_num);
+void* safe_calloc_impl(size_t num, size_t size, const char* filename, int line_num);
+void safe_free_impl(void* ptr, const char* filename, int line_num);
 
 void* safe_release_malloc(size_t size);
 void* safe_release_calloc(size_t num, size_t size);

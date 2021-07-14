@@ -86,7 +86,7 @@ static void remove_from_list(struct malloc_node* node) {
 	node->next = 0;
 }
 
-void* safe_malloc_impl(size_t size, char* filename, int line_num) {
+void* safe_malloc_impl(size_t size, const char* filename, int line_num) {
 	/* Make a node and attaches to end of list. */
 	struct malloc_node* new_node = malloc(size + sizeof(struct malloc_node));
 	if (!new_node) {
@@ -104,7 +104,7 @@ void* safe_malloc_impl(size_t size, char* filename, int line_num) {
 	return new_node->ptr;
 }
 
-void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num) {
+void* safe_calloc_impl(size_t num, size_t size, const char* filename, int line_num) {
 	size *= num;
 	struct malloc_node* new_node = calloc(1, size + sizeof(struct malloc_node));
 	if (!new_node) {
@@ -121,7 +121,7 @@ void* safe_calloc_impl(size_t num, size_t size, char* filename, int line_num) {
 	return new_node->ptr;
 }
 
-void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
+void* safe_realloc_impl(void* ptr, size_t size, const char* filename, int line_num) {
 	struct malloc_node* core_ptr = ptr - sizeof(*core_ptr);
 
 	void* new_ptr = realloc(core_ptr, size + sizeof(*core_ptr));
@@ -147,7 +147,7 @@ void* safe_realloc_impl(void* ptr, size_t size, char* filename, int line_num) {
 	return moved_node->ptr;
 }
 
-void safe_free_impl(void* ptr, char* filename, int line_num) {
+void safe_free_impl(void* ptr, const char* filename, int line_num) {
 	UNUSED(filename);
 	UNUSED(line_num);
 	if (!ptr) {

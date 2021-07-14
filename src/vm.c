@@ -130,21 +130,6 @@ void vm_run(struct vm *vm, address start_at) {
 	if (get_settings_flag(SETTINGS_DRY_RUN)) {
 		return;
 	}
-	
-	#define VM_LABEL(x) &&VM_##x,
-	static void* dispatch_table[] = {
-		FOREACH_OPCODE(VM_LABEL)
-	};
-	/* #define DISPATCH() { \
-		if (get_error_flag()) { \
-			clear_working_stack(vm->memory); \
-			break; \
-		} \
-		goto *dispatch_table[vm->bytecode[(vm->instruction_ptr)++]]; \
-	}*/
-
-	UNUSED(dispatch_table);
-	#define DISPATCH() ;
 
 	for (vm->instruction_ptr = start_at;;) {
 		reset_error_flag();
@@ -156,8 +141,7 @@ void vm_run(struct vm *vm, address start_at) {
 		}
 		vm->instruction_ptr += 1;
 		switch (op) {
-			case OP_PUSH:
-			VM_OP_PUSH: {
+			case OP_PUSH: {
 				struct data t = get_data(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
 				// t will never be a reference type
 				struct data d;
@@ -179,11 +163,9 @@ void vm_run(struct vm *vm, address start_at) {
 				}
 				vm->last_pushed_identifier = t.value.string;
 				push_arg(vm->memory, d);
-				DISPATCH();
 				break;
 			}
-			case OP_BIN:
-			VM_OP_BIN: {
+			case OP_BIN: {
 				enum vm_operator op = vm->bytecode[vm->instruction_ptr++];
 				struct data a = pop_arg(vm->memory, vm->line);
 				struct data b = pop_arg(vm->memory, vm->line);
@@ -211,11 +193,9 @@ void vm_run(struct vm *vm, address start_at) {
 				safe_free(a_and_b);
 				safe_free(any_a);
 				safe_free(any_b);
-				DISPATCH();
 				break;
 			}
-			case OP_UNA:
-            VM_OP_UNA: {
+			case OP_UNA: {
 				enum vm_operator op = vm->bytecode[vm->instruction_ptr++];
 				struct data a = pop_arg(vm->memory, vm->line);
 				char* fn_name = get_unary_overload_name(op, a);
@@ -233,41 +213,32 @@ void vm_run(struct vm *vm, address start_at) {
 					destroy_data_runtime(vm->memory, &a);
 				}
 				safe_free(fn_name);
-				DISPATCH();
 				break;
 			}
-			case OP_SRC:
-            VM_OP_SRC: {
+			case OP_SRC: {
 				void* ad = &vm->bytecode[vm->instruction_ptr];
 				vm->line = get_address(ad, &vm->instruction_ptr);
-				DISPATCH();
 				break;
 			}
-			case OP_NATIVE:
-            VM_OP_NATIVE: {
+			case OP_NATIVE: {
 				void* ag = &vm->bytecode[vm->instruction_ptr];
 				address args = get_address(ag, &vm->instruction_ptr);
 				char* name = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
 				native_call(vm, name, args);
-				DISPATCH();
 				break;
 			}
-			case OP_DECL:
-            VM_OP_DECL: {
+			case OP_DECL: {
 				char *id = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
 				if (id_exist_local_frame_ignore_closure(vm->memory, id)) {
 					error_runtime(vm->memory, vm->line, VM_VAR_DECLARED_ALREADY, id);
-					DISPATCH();
 					continue;
 				}
 				struct data* result = push_stack_entry(vm->memory, id, vm->line);
 				push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(result)));
 				vm->last_pushed_identifier = id;
-				DISPATCH();
 				break;
 			}
-			case OP_WHERE:
-            VM_OP_WHERE: {
+			case OP_WHERE: {
 				char* id = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
 				vm->last_pushed_identifier = id;
 				struct data* result = get_address_of_id(vm->memory, id, true, NULL);
@@ -278,11 +249,9 @@ void vm_run(struct vm *vm, address start_at) {
 				push_arg(vm->memory, make_data(D_INTERNAL_POINTER,
 					data_value_ptr(result)
 				));
-				DISPATCH();
 				break;
 			}
-			case OP_IMPORT:
-            VM_OP_IMPORT: {
+			case OP_IMPORT: {
 				char* name = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
 				address a = get_address(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
 				if (has_already_imported_library(name)) {
@@ -291,11 +260,9 @@ void vm_run(struct vm *vm, address start_at) {
 				else {
 					add_imported_library(name);
 				}
-				DISPATCH();
 				break;
 			}
-			case OP_ARGCLN:
-            VM_OP_ARGCLN: {
+			case OP_ARGCLN: {
 				// TODO: 128 limit here seems a bit arbitrary and we
 				struct data* extra_args = wendy_list_malloc(vm->memory, 128);
 				size_t count = 0;
@@ -324,11 +291,9 @@ void vm_run(struct vm *vm, address start_at) {
 				// Pop End of Arguments
 				struct data eoargs = pop_arg(vm->memory, vm->line);
 				destroy_data_runtime(vm->memory, &eoargs);
-				DISPATCH();
 				break;
 			}
-			case OP_RET:
-            VM_OP_RET: {
+			case OP_RET: {
 				size_t trace = vm->memory->call_stack_pointer - 1;
 				while (vm->memory->call_stack[trace].is_automatic) {
 					trace -= 1;
@@ -337,11 +302,9 @@ void vm_run(struct vm *vm, address start_at) {
 					goto VM_OP_HALT;
 				}
 				pop_frame(vm->memory, true, &vm->instruction_ptr);
-				DISPATCH();
 				break;
 			}
-			case OP_INC:
-            VM_OP_INC: {
+			case OP_INC: {
 				struct data ptr = pop_arg(vm->memory, vm->line);
 				if (ptr.type != D_INTERNAL_POINTER) {
 					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "INC on non-pointer");
@@ -353,34 +316,25 @@ void vm_run(struct vm *vm, address start_at) {
 					continue;
 				}
 				arg->value.number += 1;
-				DISPATCH();
 				break;
 			}
-			case OP_DUPTOP:
-            VM_OP_DUPTOP: {
+			case OP_DUPTOP: {
 				struct data* top = top_arg(vm->memory, vm->line);
 				push_arg(vm->memory, copy_data(*top));
-
-				DISPATCH();
 				break;
 			}
-			case OP_POP:
-			VM_OP_POP: {
-				pop_arg(vm->memory, vm->line);
-				DISPATCH();
+			case OP_POP: {
+				pop_arg(vm->memory, vm->line);				
 				break;
 			}
-			case OP_ROTTWO:
-            VM_OP_ROTTWO: {
+			case OP_ROTTWO: {
 				struct data first = pop_arg(vm->memory, vm->line);
 				struct data second = pop_arg(vm->memory, vm->line);
 				push_arg(vm->memory, first);
 				push_arg(vm->memory, second);
-				DISPATCH();
 				break;
 			}
-			case OP_MKTBL:
-            VM_OP_MKTBL: {
+			case OP_MKTBL: {
 				size_t size = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
 				struct table* table = table_create();
 				struct data* table_storage = refcnt_malloc(vm->memory, 1);
@@ -404,11 +358,9 @@ void vm_run(struct vm *vm, address start_at) {
 				}
 				struct data reference = make_data(D_TABLE, data_value_ptr(table_storage));
 				push_arg(vm->memory, reference);
-				DISPATCH();
 				break;
 			}
-			case OP_DEC:
-            VM_OP_DEC: {
+			case OP_DEC: {
 				struct data ptr = pop_arg(vm->memory, vm->line);
 				if (ptr.type != D_INTERNAL_POINTER) {
 					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "DEC on non-pointer");
@@ -420,23 +372,17 @@ void vm_run(struct vm *vm, address start_at) {
 					continue;
 				}
 				arg->value.number -= 1;
-				DISPATCH();
 				break;
 			}
-			case OP_FRM:
-            VM_OP_FRM: {
+			case OP_FRM: {
 				push_auto_frame(vm->memory, vm->instruction_ptr, "automatic", vm->line);
-				DISPATCH();
 				break;
 			}
-			case OP_END:
-            VM_OP_END: {
+			case OP_END: {
 				pop_frame(vm->memory, false, &vm->instruction_ptr);
-				DISPATCH();
 				break;
 			}
-			case OP_MKREF:
-            VM_OP_MKREF: {
+			case OP_MKREF: {
 				enum data_type type = vm->bytecode[vm->instruction_ptr++];
 				size_t size = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
 				struct data reference = make_data(type, data_value_ptr(NULL));
@@ -514,11 +460,9 @@ void vm_run(struct vm *vm, address start_at) {
 
 				reference.value.reference = storage;
 				push_arg(vm->memory, reference);
-				DISPATCH();
 				break;
 			}
-			case OP_NTHPTR:
-            VM_OP_NTHPTR: {
+			case OP_NTHPTR: {
 				struct data number = pop_arg(vm->memory, vm->line);
 				struct data list = pop_arg(vm->memory, vm->line);
 				if (number.type != D_NUMBER && number.type != D_RANGE) {
@@ -560,19 +504,15 @@ void vm_run(struct vm *vm, address start_at) {
 				nthptr_cleanup:
 					destroy_data_runtime(vm->memory, &list);
 					destroy_data_runtime(vm->memory, &number);
-				DISPATCH();
 				break;
 			}
-			case OP_CLOSURE:
-            VM_OP_CLOSURE: {
+			case OP_CLOSURE: {
 				// create_closure() could return NULL when there's no closure, so the
 				//   refcnt code is structured to ignore null pointer references
 				push_arg(vm->memory, make_data(D_CLOSURE, data_value_ptr(create_closure(vm->memory))));
-				DISPATCH();
 				break;
 			}
-			case OP_MEMPTR:
-            VM_OP_MEMPTR: {
+			case OP_MEMPTR: {
 				// Member Pointer
 				// Structs can only modify Static members, instances modify instance
 				//   members.
@@ -618,18 +558,14 @@ void vm_run(struct vm *vm, address start_at) {
 					}
 				}
 				destroy_data_runtime(vm->memory, &instance);
-				DISPATCH();
 				break;
 			}
-			case OP_JMP:
-            VM_OP_JMP: {
+			case OP_JMP: {
 				address addr = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
 				vm->instruction_ptr = addr;
-				DISPATCH();
 				break;
 			}
-			case OP_JIF:
-            VM_OP_JIF: {
+			case OP_JIF: {
 				// Jump IF False Instruction
 				struct data top = pop_arg(vm->memory, vm->line);
 				address addr = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
@@ -640,11 +576,9 @@ void vm_run(struct vm *vm, address start_at) {
 					vm->instruction_ptr = addr;
 				}
 				destroy_data_runtime(vm->memory, &top);
-				DISPATCH();
 				break;
 			}
 			case OP_CALL:
-            VM_OP_CALL:
 			wendy_vm_call: {
 				struct data top = pop_arg(vm->memory, vm->line);
 				if (top.type != D_FUNCTION && top.type != D_STRUCT && top.type != D_STRUCT_FUNCTION) {
@@ -792,11 +726,9 @@ void vm_run(struct vm *vm, address start_at) {
 					*push_stack_entry(vm->memory, "self", vm->line) = copy_data(top);
 				}
 				*push_stack_entry(vm->memory, boundName.value.string, vm->line) = top;
-				DISPATCH();
 				break;
 			}
-			case OP_WRITE:
-            VM_OP_WRITE: {
+			case OP_WRITE: {
 				struct data ptr = pop_arg(vm->memory, vm->line);
 				if (ptr.type != D_INTERNAL_POINTER && ptr.type != D_LIST_RANGE_LVALUE) {
 					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "WRITE on non-pointer");
@@ -872,11 +804,9 @@ void vm_run(struct vm *vm, address start_at) {
 					destroy_data_runtime(vm->memory, &value);
 					destroy_data_runtime(vm->memory, &ptr);
 				}
-				DISPATCH();
 				break;
 			}
-			case OP_OUT:
-            VM_OP_OUT: {
+			case OP_OUT: {
 				struct data t = pop_arg(vm->memory, vm->line);
 				if (t.type != D_NONERET) {
 					char* fn_name = get_print_overload_name(t);
@@ -896,11 +826,9 @@ void vm_run(struct vm *vm, address start_at) {
 					print_data(&t);
 				}
 				destroy_data_runtime(vm->memory, &t);
-				DISPATCH();
 				break;
 			}
-			case OP_OUTL:
-            VM_OP_OUTL: {
+			case OP_OUTL: {
 				struct data t = pop_arg(vm->memory, vm->line);
 				if (t.type != D_NONERET) {
 					char* fn_name = get_print_overload_name(t);
@@ -920,11 +848,9 @@ void vm_run(struct vm *vm, address start_at) {
 					print_data_inline(&t, stdout);
 				}
 				destroy_data_runtime(vm->memory, &t);
-				DISPATCH();
 				break;
 			}
-			case OP_IN:
-            VM_OP_IN: {
+			case OP_IN: {
 				// Scan one line from the input.
 				struct data ptr = pop_arg(vm->memory, vm->line);
 				if (ptr.type != D_INTERNAL_POINTER) {
@@ -951,7 +877,6 @@ void vm_run(struct vm *vm, address start_at) {
 					// conversion successful
 					*storage = make_data(D_NUMBER, data_value_num(d));
 				}
-				DISPATCH();
 				break;
 			}
 			case OP_HALT:
