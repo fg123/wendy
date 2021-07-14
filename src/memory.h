@@ -65,7 +65,7 @@ void ensure_working_stack_size(struct memory *, size_t additional);
 #define refcnt_malloc(memory, count) \
 	refcnt_malloc_impl(memory, safe_calloc( \
 		(count) * sizeof(struct data) + sizeof(struct refcnt_container), 1), count)
-struct data *refcnt_malloc_impl(struct memory *, struct data* allocated, size_t count);
+struct data *refcnt_malloc_impl(struct memory *, void* allocvoid, size_t count);
 
 // refcnt_free() reduces the refcount by 1, and frees the heap memory
 //   if the refcount is 0

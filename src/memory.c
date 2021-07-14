@@ -43,7 +43,8 @@ void ensure_working_stack_size(struct memory * memory, size_t additional) {
 	}
 }
 
-struct data *refcnt_malloc_impl(struct memory * memory, struct data* allocated, size_t count) {
+struct data *refcnt_malloc_impl(struct memory * memory, void* allocvoid, size_t count) {
+	struct data* allocated = (struct data*)allocvoid;
 	// We allocate:
 	// | refcnt_container | data         |
 	// |                  | count * data |
