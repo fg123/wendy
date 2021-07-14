@@ -873,11 +873,14 @@ void vm_run_instruction(struct vm* vm, enum opcode op) {
 	}
 }
 
-void vm_run(struct vm *vm, address start_at) {
+void vm_set_instruction_pointer(struct vm* vm, address start) {
+	vm->instruction_ptr = start;
+}
+
+void vm_run(struct vm *vm) {
 	if (get_settings_flag(SETTINGS_DRY_RUN)) {
 		return;
 	}
-	vm->instruction_ptr = start_at;
 	for (;;) {
 		reset_error_flag();
 		enum opcode op = vm->bytecode[vm->instruction_ptr];

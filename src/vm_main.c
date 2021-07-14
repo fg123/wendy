@@ -111,7 +111,8 @@ int main(int argc, char** argv) {
 	struct vm* vm = vm_init();
 	push_frame(vm->memory, "main", 0, 0);
 
-	vm_run(vm, vm_load_code(vm, bytecode_stream, size, get_settings_flag(SETTINGS_REPL)));
+	vm_set_instruction_pointer(vm, vm_load_code(vm, bytecode_stream, size, get_settings_flag(SETTINGS_REPL)));
+	vm_run(vm);
 
 	vm_destroy(vm);
 	if (!last_printed_newline) {
