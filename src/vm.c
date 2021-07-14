@@ -881,6 +881,7 @@ void vm_run(struct vm *vm) {
 	if (get_settings_flag(SETTINGS_DRY_RUN)) {
 		return;
 	}
+	size_t starting_stack_pointer = vm->memory->call_stack_pointer;
 	for (;;) {
 		reset_error_flag();
 		enum opcode op = vm->bytecode[vm->instruction_ptr];
@@ -892,6 +893,12 @@ void vm_run(struct vm *vm) {
 		vm->instruction_ptr += 1;
 		if (op == OP_HALT) return;
 		vm_run_instruction(vm, op);
+
+		if (vm->memory->call_stack_pointer < starting_stack_pointer) {
+			// We returned out of the starting stack frame
+			return;
+		}
+
 		if (get_error_flag()) {
 			clear_working_stack(vm->memory);
 			break;
