@@ -126,12 +126,759 @@ address vm_load_code(struct vm* vm, uint8_t* new_bytecode, size_t size, bool app
 	return start_at;
 }
 
+void vm_run_instruction(struct vm* vm, enum opcode op) {
+	switch (op) {
+		case OP_PUSH: {
+			struct data t = get_data(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
+			// t will never be a reference type
+			struct data d;
+			if (t.type == D_IDENTIFIER) {
+				if (streq(t.value.string, "time")) {
+					d = time_data();
+				}
+				else {
+					struct data* value = get_address_of_id(vm->memory, t.value.string, true, NULL);
+					if (!value) {
+						error_runtime(vm->memory, vm->line, MEMORY_ID_NOT_FOUND, t.value.string);
+						break;
+					}
+					d = copy_data(*value);
+				}
+			}
+			else {
+				d = copy_data(t);
+			}
+			vm->last_pushed_identifier = t.value.string;
+			push_arg(vm->memory, d);
+			break;
+		}
+		case OP_BIN: {
+			enum vm_operator op = vm->bytecode[vm->instruction_ptr++];
+			struct data a = pop_arg(vm->memory, vm->line);
+			struct data b = pop_arg(vm->memory, vm->line);
+			struct data any_d = any_data();
+			char* a_and_b = get_binary_overload_name(op, a, b);
+			char* any_a = get_binary_overload_name(op, any_d, b);
+			char* any_b = get_binary_overload_name(op, a, any_d);
+			destroy_data_runtime(vm->memory, &any_d);
+			char* fn_name = first_that(vm->memory, _id_exist, a_and_b, any_a, any_b);
+			if (fn_name) {
+				push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+				push_arg(vm->memory, b);
+				push_arg(vm->memory, a);
+				push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
+				safe_free(a_and_b);
+				safe_free(any_a);
+				safe_free(any_b);
+				goto wendy_vm_call;
+			}
+			else {
+				push_arg(vm->memory, eval_binop(vm, op, a, b));
+				destroy_data_runtime(vm->memory, &a);
+				destroy_data_runtime(vm->memory, &b);
+			}
+			safe_free(a_and_b);
+			safe_free(any_a);
+			safe_free(any_b);
+			break;
+		}
+		case OP_UNA: {
+			enum vm_operator op = vm->bytecode[vm->instruction_ptr++];
+			struct data a = pop_arg(vm->memory, vm->line);
+			char* fn_name = get_unary_overload_name(op, a);
+			if (id_exist(vm->memory, fn_name, true)) {
+				push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+				push_arg(vm->memory, a);
+				push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
+				safe_free(fn_name);
+				goto wendy_vm_call;
+			}
+			else {
+				// Uni-op has a special spread vm_operator that returns noneret
+				struct data result = eval_uniop(vm, op, a);
+				push_arg(vm->memory, result);
+				destroy_data_runtime(vm->memory, &a);
+			}
+			safe_free(fn_name);
+			break;
+		}
+		case OP_SRC: {
+			void* ad = &vm->bytecode[vm->instruction_ptr];
+			vm->line = get_address(ad, &vm->instruction_ptr);
+			break;
+		}
+		case OP_NATIVE: {
+			void* ag = &vm->bytecode[vm->instruction_ptr];
+			address args = get_address(ag, &vm->instruction_ptr);
+			char* name = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
+			native_call(vm, name, args);
+			break;
+		}
+		case OP_DECL: {
+			char *id = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
+			if (id_exist_local_frame_ignore_closure(vm->memory, id)) {
+				error_runtime(vm->memory, vm->line, VM_VAR_DECLARED_ALREADY, id);
+				return;
+			}
+			struct data* result = push_stack_entry(vm->memory, id, vm->line);
+			push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(result)));
+			vm->last_pushed_identifier = id;
+			break;
+		}
+		case OP_WHERE: {
+			char* id = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
+			vm->last_pushed_identifier = id;
+			struct data* result = get_address_of_id(vm->memory, id, true, NULL);
+			if (!result) {
+				error_runtime(vm->memory, vm->line, MEMORY_ID_NOT_FOUND, id);
+				break;
+			}
+			push_arg(vm->memory, make_data(D_INTERNAL_POINTER,
+				data_value_ptr(result)
+			));
+			break;
+		}
+		case OP_IMPORT: {
+			char* name = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
+			address a = get_address(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
+			if (has_already_imported_library(name)) {
+				vm->instruction_ptr = a;
+			}
+			else {
+				add_imported_library(name);
+			}
+			break;
+		}
+		case OP_ARGCLN: {
+			// TODO: 128 limit here seems a bit arbitrary and we
+			struct data* extra_args = wendy_list_malloc(vm->memory, 128);
+			size_t count = 0;
+			while (top_arg(vm->memory, vm->line)->type != D_END_OF_ARGUMENTS) {
+				if (top_arg(vm->memory, vm->line)->type == D_NAMED_ARGUMENT_NAME) {
+					struct data identifier = pop_arg(vm->memory, vm->line);
+					struct data* loc = get_address_of_id(vm->memory, identifier.value.string, false, NULL);
+					if (!loc) {
+						error_runtime(vm->memory, vm->line, MEMORY_ID_NOT_FOUND, identifier.value.string);
+						break;
+					}
+					destroy_data_runtime(vm->memory, loc);
+					*loc = pop_arg(vm->memory, vm->line);
+					destroy_data_runtime(vm->memory, &identifier);
+				}
+				else {
+					extra_args[count + 1] = pop_arg(vm->memory, vm->line);
+					count += 1;
+				}
+			}
+			// We need to re-write the list counter
+			((struct list_header*) extra_args[0].value.reference)->size = count;
+			// Assign "arguments" variable with rest of the arguments.
+			*push_stack_entry(vm->memory, "arguments", vm->line) =
+				make_data(D_LIST, data_value_ptr(extra_args));
+			// Pop End of Arguments
+			struct data eoargs = pop_arg(vm->memory, vm->line);
+			destroy_data_runtime(vm->memory, &eoargs);
+			break;
+		}
+		case OP_RET: {
+			size_t trace = vm->memory->call_stack_pointer - 1;
+			while (vm->memory->call_stack[trace].is_automatic) {
+				trace -= 1;
+			}
+			if (trace == 0) {
+				goto VM_OP_HALT;
+			}
+			pop_frame(vm->memory, true, &vm->instruction_ptr);
+			break;
+		}
+		case OP_INC: {
+			struct data ptr = pop_arg(vm->memory, vm->line);
+			if (ptr.type != D_INTERNAL_POINTER) {
+				error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "INC on non-pointer");
+				return;
+			}
+			struct data* arg = ptr.value.reference;
+			if (arg->type != D_NUMBER) {
+				error_runtime(vm->memory, vm->line, VM_TYPE_ERROR, "INC");
+				return;
+			}
+			arg->value.number += 1;
+			break;
+		}
+		case OP_DUPTOP: {
+			struct data* top = top_arg(vm->memory, vm->line);
+			push_arg(vm->memory, copy_data(*top));
+			break;
+		}
+		case OP_POP: {
+			pop_arg(vm->memory, vm->line);				
+			break;
+		}
+		case OP_ROTTWO: {
+			struct data first = pop_arg(vm->memory, vm->line);
+			struct data second = pop_arg(vm->memory, vm->line);
+			push_arg(vm->memory, first);
+			push_arg(vm->memory, second);
+			break;
+		}
+		case OP_MKTBL: {
+			size_t size = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
+			struct table* table = table_create();
+			struct data* table_storage = refcnt_malloc(vm->memory, 1);
+			table_storage[0] = make_data(D_TABLE_INTERNAL_POINTER, data_value_ptr((struct data*) table));
+			for (size_t i = 0; i < size; i++) {
+				struct data key = pop_arg(vm->memory, vm->line);
+				struct data data;
+				if (key.type != D_TABLE_KEY) {
+					// next is the value at the key
+					data = key;
+					key = pop_arg(vm->memory, vm->line);
+					assert(key.type == D_TABLE_KEY, "MKTBL entry is not an Table Key type, but is %s", data_string[key.type]);
+				}
+				else {
+					data = none_data();
+				}
+
+				struct data* _data = table_insert(table, key.value.string, vm->memory);
+				*_data = data;
+				destroy_data_runtime(vm->memory, &key);
+			}
+			struct data reference = make_data(D_TABLE, data_value_ptr(table_storage));
+			push_arg(vm->memory, reference);
+			break;
+		}
+		case OP_DEC: {
+			struct data ptr = pop_arg(vm->memory, vm->line);
+			if (ptr.type != D_INTERNAL_POINTER) {
+				error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "DEC on non-pointer");
+				return;
+			}
+			struct data* arg = ptr.value.reference;
+			if (arg->type != D_NUMBER) {
+				error_runtime(vm->memory, vm->line, VM_TYPE_ERROR, "DEC");
+				return;
+			}
+			arg->value.number -= 1;
+			break;
+		}
+		case OP_FRM: {
+			push_auto_frame(vm->memory, vm->instruction_ptr, "automatic", vm->line);
+			break;
+		}
+		case OP_END: {
+			pop_frame(vm->memory, false, &vm->instruction_ptr);
+			break;
+		}
+		case OP_MKREF: {
+			enum data_type type = vm->bytecode[vm->instruction_ptr++];
+			size_t size = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
+			struct data reference = make_data(type, data_value_ptr(NULL));
+
+			if (!is_reference(reference)) {
+				error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR,
+					"MKREF called on non-reference type");
+				return;
+			}
+
+			struct data* storage = refcnt_malloc(vm->memory, size);
+
+			// can't simply check additional_space because spread could
+			//   expand to 1 element too
+			bool has_spread = false;
+			size_t additional_space = 0;
+
+			size_t i = size;
+			while (i > 0) {
+				struct data next = pop_arg(vm->memory, vm->line);
+				storage[i - 1] = next;
+				i -= 1;
+				if (next.type == D_SPREAD) {
+					additional_space += size_of(*next.value.reference).value.number - 1;
+					has_spread = true;
+				}
+			}
+
+			// Make this valid, codegen generates a number instead of a pointer
+			if (type == D_LIST) {
+				size_t list_size = storage[0].value.number;
+				storage[0] = list_header_data(list_size, list_size);
+			}
+
+			if (has_spread) {
+				struct data* new_storage =
+					refcnt_malloc(vm->memory, size + additional_space);
+				size_t j = 0;
+				for (size_t i = 0; i < size; i++) {
+					if (storage[i].type == D_SPREAD) {
+						struct data spread = storage[i].value.reference[0];
+						if (spread.type == D_LIST) {
+							for (size_t k = 0; k < wendy_list_size(&spread); k++) {
+								new_storage[j++] = copy_data(spread.value.reference[k + 1]);
+							}
+						}
+						else if (spread.type == D_RANGE) {
+							int start = range_start(spread);
+							int end = range_end(spread);
+							for (int k = start; k != end; start < end ? k++ : k--) {
+								new_storage[j++] = make_data(D_NUMBER, data_value_num(k));
+							}
+						}
+						else if (spread.type == D_STRING) {
+							size_t len = strlen(spread.value.string);
+							for (size_t k = 0; k < len; k++) {
+								struct data str = make_data(D_STRING, data_value_str(" "));
+								str.value.string[0] = spread.value.string[k];
+								new_storage[j++] = str;
+							}
+						}
+					}
+					else {
+						new_storage[j++] = storage[i];
+					}
+				}
+				refcnt_free(vm->memory, storage);
+				storage = new_storage;
+				if (storage[0].type == D_LIST_HEADER) {
+					// - 1 for header
+					storage[0] = list_header_data(size + additional_space - 1,
+						size + additional_space - 1);
+				}
+			}
+
+			reference.value.reference = storage;
+			push_arg(vm->memory, reference);
+			break;
+		}
+		case OP_NTHPTR: {
+			struct data number = pop_arg(vm->memory, vm->line);
+			struct data list = pop_arg(vm->memory, vm->line);
+			if (number.type != D_NUMBER && number.type != D_RANGE) {
+				error_runtime(vm->memory, vm->line, VM_INVALID_LVALUE_LIST_SUBSCRIPT);
+				goto nthptr_cleanup;
+			}
+			if (list.type != D_LIST) {
+				error_runtime(vm->memory, vm->line, VM_NOT_A_LIST);
+				goto nthptr_cleanup;
+			}
+			struct data* list_data = list.value.reference;
+			if (list_data->type != D_LIST_HEADER) {
+				error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "List doesn't point to list header!");
+				goto nthptr_cleanup;
+			}
+			size_t list_size = wendy_list_size(&list);
+			if (number.type == D_NUMBER) {
+				if (number.value.number >= list_size) {
+					error_runtime(vm->memory, vm->line, VM_LIST_REF_OUT_RANGE);
+					goto nthptr_cleanup;
+				}
+				push_arg(vm->memory, make_data(D_INTERNAL_POINTER,
+					data_value_ptr(&list_data[(int)number.value.number + 1])));
+			}
+			else if (number.type == D_RANGE) {
+				int start = range_start(number);
+				int end = range_end(number);
+				// Test for end is different because end is exclusive
+				if (start < 0 || end < -1 || start >= (int) list_size || end > (int) list_size) {
+					error_runtime(vm->memory, vm->line, VM_LIST_REF_OUT_RANGE);
+					goto nthptr_cleanup;
+				}
+				struct data *internal = refcnt_malloc(vm->memory, 2);
+				internal[0] = copy_data(list);
+				internal[1] = copy_data(number); // which is a range
+				push_arg(vm->memory, make_data(D_LIST_RANGE_LVALUE,
+					data_value_ptr(internal)));
+			}
+			nthptr_cleanup:
+				destroy_data_runtime(vm->memory, &list);
+				destroy_data_runtime(vm->memory, &number);
+			break;
+		}
+		case OP_CLOSURE: {
+			// create_closure() could return NULL when there's no closure, so the
+			//   refcnt code is structured to ignore null pointer references
+			push_arg(vm->memory, make_data(D_CLOSURE, data_value_ptr(create_closure(vm->memory))));
+			break;
+		}
+		case OP_MEMPTR: {
+			// Member Pointer
+			// Structs can only modify Static members, instances modify instance
+			//   members.
+			// Either will be allowed to look through static parameters.
+			struct data instance = pop_arg(vm->memory, vm->line);
+			char* member = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
+			if (instance.type != D_STRUCT &&
+				instance.type != D_STRUCT_INSTANCE &&
+				instance.type != D_TABLE) {
+				if (instance.type == D_NONERET) {
+					error_runtime(vm->memory, vm->line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
+				} else {
+					error_runtime(vm->memory, vm->line, VM_NOT_A_STRUCT);
+				}
+				destroy_data_runtime(vm->memory, &instance);
+				break;
+			}
+			if (instance.type == D_TABLE) {
+				struct table* table = (struct table*) instance.value.reference[0].value.reference;
+				if (!table_exist(table, member)) {
+					struct data type = type_of(instance);
+					error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_EXIST, member, type.value.string);
+					destroy_data_runtime(vm->memory, &type);
+					break;
+				}
+				push_arg(vm->memory,
+					make_data(D_INTERNAL_POINTER, data_value_ptr(
+							table_find(table, member)
+						)
+					)
+				);
+			}
+			else {
+				// Struct or struct instance
+				struct data* ptr = struct_get_field(vm, instance, member);
+				if (!ptr) {
+					struct data type = type_of(instance);
+					error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_EXIST, member, type.value.string);
+					destroy_data_runtime(vm->memory, &type);
+				}
+				else {
+					push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(ptr)));
+				}
+			}
+			destroy_data_runtime(vm->memory, &instance);
+			break;
+		}
+		case OP_JMP: {
+			address addr = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
+			vm->instruction_ptr = addr;
+			break;
+		}
+		case OP_JIF: {
+			// Jump IF False Instruction
+			struct data top = pop_arg(vm->memory, vm->line);
+			address addr = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
+			if (top.type != D_TRUE && top.type != D_FALSE) {
+				error_runtime(vm->memory, vm->line, VM_COND_EVAL_NOT_BOOL);
+			}
+			if (top.type == D_FALSE) {
+				vm->instruction_ptr = addr;
+			}
+			destroy_data_runtime(vm->memory, &top);
+			break;
+		}
+		case OP_CALL:
+		wendy_vm_call: {
+			struct data top = pop_arg(vm->memory, vm->line);
+			if (top.type != D_FUNCTION && top.type != D_STRUCT && top.type != D_STRUCT_FUNCTION) {
+				error_runtime(vm->memory, vm->line, VM_FN_CALL_NOT_FN);
+				destroy_data_runtime(vm->memory, &top);
+				break;
+			}
+			struct data boundName = top.value.reference[2];
+			char* function_disp = safe_malloc((128 + strlen(boundName.value.string)) * sizeof(char));
+			function_disp[0] = 0;
+			if (boundName.value.string && streq(boundName.value.string, "self")) {
+				sprintf(function_disp, "annonymous:0x%X", vm->instruction_ptr);
+			}
+			else {
+				sprintf(function_disp, "%s:0x%X", boundName.value.string, vm->instruction_ptr);
+			}
+			push_frame(vm->memory, function_disp, vm->instruction_ptr, vm->line);
+			safe_free(function_disp);
+
+			if (top.type == D_STRUCT) {
+				// Calling Struct Constructor
+				struct data* metadata = top.value.reference;
+
+				struct data old_top = top;
+
+				// Select `init` function.
+				assert(metadata[2].type == D_TABLE, "not a table!");
+				struct table* static_table = (struct table*) metadata[2].value.reference[0].value.reference;
+
+				// Better Exist
+				assert(table_exist(static_table, "init"), "struct static table has no init!");
+				top = copy_data(*table_find(static_table, "init"));
+
+				if (top.type != D_FUNCTION) {
+					error_runtime(vm->memory, vm->line, VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION);
+					destroy_data_runtime(vm->memory, &top);
+					break;
+				}
+				top.type = D_STRUCT_FUNCTION;
+
+				push_arg(vm->memory,
+					make_data(D_STRUCT_INSTANCE,
+						data_value_ptr(
+							struct_create_instance(vm, metadata)
+						)
+					)
+				);
+				destroy_data_runtime(vm->memory, &old_top);
+			}
+
+			struct data addr = top.value.reference[0];
+			if (addr.type != D_INSTRUCTION_ADDRESS) {
+				error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "Address of function is not D_INSTRUCTION_ADDRESS");
+				destroy_data_runtime(vm->memory, &top);
+				break;
+			}
+			vm->instruction_ptr = (address) addr.value.number;
+
+			// Resolve Spread Objects in the Call List
+			size_t ptr = vm->memory->working_stack_pointer - 1;
+			bool has_spread = false;
+			size_t additional_size = 0;
+			size_t argc = 0;
+			while (vm->memory->working_stack[ptr].type != D_END_OF_ARGUMENTS) {
+				if (vm->memory->working_stack[ptr].type == D_SPREAD) {
+					has_spread = true;
+					additional_size +=
+						size_of(*vm->memory->working_stack[ptr].value.reference).value.number - 1;
+				}
+				argc += 1;
+				ptr -= 1;
+			}
+
+			if (has_spread) {
+				// Expand the Stack if required
+				ensure_working_stack_size(vm->memory, additional_size);
+				// In-place move from the back
+				size_t og_ptr = vm->memory->working_stack_pointer - 1;
+				size_t new_ptr = vm->memory->working_stack_pointer + additional_size - 1;
+				for (; vm->memory->working_stack[og_ptr].type != D_END_OF_ARGUMENTS; og_ptr--) {
+					if (vm->memory->working_stack[og_ptr].type == D_SPREAD) {
+						struct data og_spread = vm->memory->working_stack[og_ptr];
+						struct data spread = og_spread.value.reference[0];
+						if (spread.type == D_LIST) {
+							for (size_t k = 0; k < wendy_list_size(&spread); k++) {
+								vm->memory->working_stack[new_ptr--] = copy_data(spread.value.reference[k + 1]);
+							}
+						}
+						else if (spread.type == D_RANGE) {
+							int start = range_start(spread);
+							int end = range_end(spread);
+							for (int k = start; k != end; start < end ? k++ : k--) {
+								vm->memory->working_stack[new_ptr--] = make_data(D_NUMBER, data_value_num(k));
+							}
+						}
+						else if (spread.type == D_STRING) {
+							size_t len = strlen(spread.value.string);
+							for (size_t k = 0; k < len; k++) {
+								struct data str = make_data(D_STRING, data_value_str(" "));
+								str.value.string[0] = spread.value.string[k];
+								vm->memory->working_stack[new_ptr--] = str;
+							}
+						}
+						destroy_data_runtime(vm->memory, &og_spread);
+					}
+					else {
+						vm->memory->working_stack[new_ptr--] = vm->memory->working_stack[og_ptr];
+					}
+				}
+				vm->memory->working_stack_pointer += additional_size;
+			}
+
+			if (top.type == D_STRUCT_FUNCTION) {
+				// Either we pushed the new instance on the stack on top, or
+				//   codegen generated the instance on the top.
+				struct data instance = pop_arg(vm->memory, vm->line);
+				if (instance.type != D_STRUCT_INSTANCE &&
+					instance.type != D_STRUCT &&
+					instance.type != D_TABLE) {
+					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "D_STRUCT_FUNCTION encountered but top of stack is not a instance nor a struct.");
+					destroy_data_runtime(vm->memory, &top);
+					destroy_data_runtime(vm->memory, &instance);
+					break;
+				}
+				*push_stack_entry(vm->memory, "this", vm->line) = instance;
+			}
+
+			// Push closure variables
+			struct data *list_data = top.value.reference[1].value.reference;
+			size_t size = wendy_list_size(&top.value.reference[1]);
+
+			// Move the pointer to the "first" item, because the 0th item is the list-header
+			list_data += 1;
+			for (size_t i = 0; i < size; i += 2) {
+				if (list_data[i].type != D_IDENTIFIER) {
+					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "Did not find a D_IDENTIFIER in function closure");
+					destroy_data_runtime(vm->memory, &top);
+					break;
+				}
+				*push_closure_entry(vm->memory, list_data[i].value.string, vm->line) = copy_data(list_data[i + 1]);
+			}
+
+			// At this point, we put `top` back into the stack, so no need to destroy it
+			if (strcmp(boundName.value.string, "self") != 0) {
+				*push_stack_entry(vm->memory, "self", vm->line) = copy_data(top);
+			}
+			*push_stack_entry(vm->memory, boundName.value.string, vm->line) = top;
+			break;
+		}
+		case OP_WRITE: {
+			struct data ptr = pop_arg(vm->memory, vm->line);
+			if (ptr.type != D_INTERNAL_POINTER && ptr.type != D_LIST_RANGE_LVALUE) {
+				error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "WRITE on non-pointer");
+				destroy_data_runtime(vm->memory, &ptr);
+				return;
+			}
+
+			if (top_arg(vm->memory, vm->line)->type == D_END_OF_ARGUMENTS ||
+				top_arg(vm->memory, vm->line)->type == D_NAMED_ARGUMENT_NAME) {
+				if (ptr.value.reference->type == D_EMPTY) {
+					*(ptr.value.reference) = none_data();
+				}
+				break;
+			}
+
+			struct data value = pop_arg(vm->memory, vm->line);
+
+			// Since value is written back, we don't need to destroy it
+			if (value.type == D_NONERET) {
+				error_runtime(vm->memory, vm->line, VM_ASSIGNING_NONERET);
+				destroy_data_runtime(vm->memory, &value);
+				break;
+			}
+
+			if (ptr.type == D_INTERNAL_POINTER) {
+				destroy_data_runtime(vm->memory, &ptr.value.reference[0]);
+				*(ptr.value.reference) = value;
+
+				if (ptr.value.reference->type == D_FUNCTION) {
+					// Write Name to Function
+					char* bind_name = vm->last_pushed_identifier;
+					struct data* fn_data = ptr.value.reference->value.reference;
+					fn_data[2].value.string = safe_realloc(
+						fn_data[2].value.string, strlen(bind_name) + 1);
+					strcpy(fn_data[2].value.string, bind_name);
+				}
+				// We stole value, so don't need to destroy it here
+			}
+			else if (ptr.type == D_LIST_RANGE_LVALUE) {
+				struct data list = ptr.value.reference[0];
+				struct data* list_data = list.value.reference;
+				struct data range = ptr.value.reference[1];
+				int start = range_start(range);
+				int end = range_end(range);
+
+				// No range checking needed here, OP_NTHPTR checks the bounds, and
+				//   the rvalue side get's evaluated first, so no side effects can
+				//   occur between NTHPTR and WRITE (I hope)...
+
+				if (value.type == D_LIST) {
+					size_t needed_size = abs(start - end);
+					size_t list_size = wendy_list_size(&value);
+					struct data* value_data = value.value.reference;
+					if (list_size != needed_size) {
+						error_runtime(vm->memory, vm->line, VM_LIST_RANGE_ASSIGN_SIZE_MISMATCH,
+							needed_size, list_size);
+						goto write_list_range_lvalue_cleanup;
+					}
+					int i = 0;
+					for (int k = start; k != end; start < end ? k++ : k--) {
+						destroy_data_runtime(vm->memory, &list_data[k + 1]);
+						list_data[k + 1] = copy_data(value_data[i + 1]);
+						i++;
+					}
+				}
+				else {
+					for (int k = start; k != end; start < end ? k++ : k--) {
+						destroy_data_runtime(vm->memory, &list_data[k + 1]);
+						list_data[k + 1] = copy_data(value);
+					}
+				}
+			write_list_range_lvalue_cleanup:
+				destroy_data_runtime(vm->memory, &value);
+				destroy_data_runtime(vm->memory, &ptr);
+			}
+			break;
+		}
+		case OP_OUT: {
+			struct data t = pop_arg(vm->memory, vm->line);
+			if (t.type != D_NONERET) {
+				char* fn_name = get_print_overload_name(t);
+				if (id_exist(vm->memory, fn_name, true)) {
+					push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+					push_arg(vm->memory, t);
+					push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
+					safe_free(fn_name);
+					/* This i-- allows the overloaded function to return
+						* a string / object and have that be the printed
+						* output, i.e. it will call function and execute
+						* the OP_OUT again */
+					vm->instruction_ptr--;
+					goto wendy_vm_call;
+				}
+				safe_free(fn_name);
+				print_data(&t);
+			}
+			destroy_data_runtime(vm->memory, &t);
+			break;
+		}
+		case OP_OUTL: {
+			struct data t = pop_arg(vm->memory, vm->line);
+			if (t.type != D_NONERET) {
+				char* fn_name = get_print_overload_name(t);
+				if (id_exist(vm->memory, fn_name, true)) {
+					push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
+					push_arg(vm->memory, t);
+					push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
+					safe_free(fn_name);
+					/* This i-- allows the overloaded function to return
+						* a string / object and have that be the printed
+						* output, i.e. it will call function and execute
+						* the OP_OUT again */
+					vm->instruction_ptr--;
+					goto wendy_vm_call;
+				}
+				safe_free(fn_name);
+				print_data_inline(&t, stdout);
+			}
+			destroy_data_runtime(vm->memory, &t);
+			break;
+		}
+		case OP_IN: {
+			// Scan one line from the input.
+			struct data ptr = pop_arg(vm->memory, vm->line);
+			if (ptr.type != D_INTERNAL_POINTER) {
+				error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "INC on non-pointer");
+				return;
+			}
+			struct data* storage = ptr.value.reference;
+			destroy_data_runtime(vm->memory, storage);
+
+			char buffer[INPUT_BUFFER_SIZE];
+			while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
+
+			char* end_ptr = buffer;
+			errno = 0;
+			double d = strtod(buffer, &end_ptr);
+			// null terminator or newline character
+			if (errno != 0 || (*end_ptr != 0 && *end_ptr != 10)) {
+				size_t len = strlen(buffer);
+				// remove last newline
+				buffer[len - 1] = 0;
+				*storage = make_data(D_STRING, data_value_str(buffer));
+			}
+			else {
+				// conversion successful
+				*storage = make_data(D_NUMBER, data_value_num(d));
+			}
+			break;
+		}
+		case OP_HALT:
+		VM_OP_HALT:
+			return;
+		// No default: here because we want compiler to catch missing cases.
+	}
+}
+
 void vm_run(struct vm *vm, address start_at) {
 	if (get_settings_flag(SETTINGS_DRY_RUN)) {
 		return;
 	}
-
-	for (vm->instruction_ptr = start_at;;) {
+	vm->instruction_ptr = start_at;
+	for (;;) {
 		reset_error_flag();
 		enum opcode op = vm->bytecode[vm->instruction_ptr];
 		if (get_settings_flag(SETTINGS_TRACE_VM)) {
@@ -140,750 +887,8 @@ void vm_run(struct vm *vm, address start_at) {
 			printf(BLU "<+%04X>: " RESET "%s\n", vm->instruction_ptr, opcode_string[op]);
 		}
 		vm->instruction_ptr += 1;
-		switch (op) {
-			case OP_PUSH: {
-				struct data t = get_data(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
-				// t will never be a reference type
-				struct data d;
-				if (t.type == D_IDENTIFIER) {
-					if (streq(t.value.string, "time")) {
-						d = time_data();
-					}
-					else {
-						struct data* value = get_address_of_id(vm->memory, t.value.string, true, NULL);
-						if (!value) {
-							error_runtime(vm->memory, vm->line, MEMORY_ID_NOT_FOUND, t.value.string);
-							break;
-						}
-						d = copy_data(*value);
-					}
-				}
-				else {
-					d = copy_data(t);
-				}
-				vm->last_pushed_identifier = t.value.string;
-				push_arg(vm->memory, d);
-				break;
-			}
-			case OP_BIN: {
-				enum vm_operator op = vm->bytecode[vm->instruction_ptr++];
-				struct data a = pop_arg(vm->memory, vm->line);
-				struct data b = pop_arg(vm->memory, vm->line);
-				struct data any_d = any_data();
-				char* a_and_b = get_binary_overload_name(op, a, b);
-				char* any_a = get_binary_overload_name(op, any_d, b);
-				char* any_b = get_binary_overload_name(op, a, any_d);
-				destroy_data_runtime(vm->memory, &any_d);
-				char* fn_name = first_that(vm->memory, _id_exist, a_and_b, any_a, any_b);
-				if (fn_name) {
-					push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
-					push_arg(vm->memory, b);
-					push_arg(vm->memory, a);
-					push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
-					safe_free(a_and_b);
-					safe_free(any_a);
-					safe_free(any_b);
-					goto wendy_vm_call;
-				}
-				else {
-					push_arg(vm->memory, eval_binop(vm, op, a, b));
-					destroy_data_runtime(vm->memory, &a);
-					destroy_data_runtime(vm->memory, &b);
-				}
-				safe_free(a_and_b);
-				safe_free(any_a);
-				safe_free(any_b);
-				break;
-			}
-			case OP_UNA: {
-				enum vm_operator op = vm->bytecode[vm->instruction_ptr++];
-				struct data a = pop_arg(vm->memory, vm->line);
-				char* fn_name = get_unary_overload_name(op, a);
-				if (id_exist(vm->memory, fn_name, true)) {
-					push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
-					push_arg(vm->memory, a);
-					push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
-					safe_free(fn_name);
-					goto wendy_vm_call;
-				}
-				else {
-					// Uni-op has a special spread vm_operator that returns noneret
-					struct data result = eval_uniop(vm, op, a);
-					push_arg(vm->memory, result);
-					destroy_data_runtime(vm->memory, &a);
-				}
-				safe_free(fn_name);
-				break;
-			}
-			case OP_SRC: {
-				void* ad = &vm->bytecode[vm->instruction_ptr];
-				vm->line = get_address(ad, &vm->instruction_ptr);
-				break;
-			}
-			case OP_NATIVE: {
-				void* ag = &vm->bytecode[vm->instruction_ptr];
-				address args = get_address(ag, &vm->instruction_ptr);
-				char* name = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
-				native_call(vm, name, args);
-				break;
-			}
-			case OP_DECL: {
-				char *id = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
-				if (id_exist_local_frame_ignore_closure(vm->memory, id)) {
-					error_runtime(vm->memory, vm->line, VM_VAR_DECLARED_ALREADY, id);
-					continue;
-				}
-				struct data* result = push_stack_entry(vm->memory, id, vm->line);
-				push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(result)));
-				vm->last_pushed_identifier = id;
-				break;
-			}
-			case OP_WHERE: {
-				char* id = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
-				vm->last_pushed_identifier = id;
-				struct data* result = get_address_of_id(vm->memory, id, true, NULL);
-				if (!result) {
-					error_runtime(vm->memory, vm->line, MEMORY_ID_NOT_FOUND, id);
-					break;
-				}
-				push_arg(vm->memory, make_data(D_INTERNAL_POINTER,
-					data_value_ptr(result)
-				));
-				break;
-			}
-			case OP_IMPORT: {
-				char* name = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
-				address a = get_address(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
-				if (has_already_imported_library(name)) {
-					vm->instruction_ptr = a;
-				}
-				else {
-					add_imported_library(name);
-				}
-				break;
-			}
-			case OP_ARGCLN: {
-				// TODO: 128 limit here seems a bit arbitrary and we
-				struct data* extra_args = wendy_list_malloc(vm->memory, 128);
-				size_t count = 0;
-				while (top_arg(vm->memory, vm->line)->type != D_END_OF_ARGUMENTS) {
-					if (top_arg(vm->memory, vm->line)->type == D_NAMED_ARGUMENT_NAME) {
-						struct data identifier = pop_arg(vm->memory, vm->line);
-						struct data* loc = get_address_of_id(vm->memory, identifier.value.string, false, NULL);
-						if (!loc) {
-							error_runtime(vm->memory, vm->line, MEMORY_ID_NOT_FOUND, identifier.value.string);
-							break;
-						}
-						destroy_data_runtime(vm->memory, loc);
-						*loc = pop_arg(vm->memory, vm->line);
-						destroy_data_runtime(vm->memory, &identifier);
-					}
-					else {
-						extra_args[count + 1] = pop_arg(vm->memory, vm->line);
-						count += 1;
-					}
-				}
-				// We need to re-write the list counter
-				((struct list_header*) extra_args[0].value.reference)->size = count;
-				// Assign "arguments" variable with rest of the arguments.
-				*push_stack_entry(vm->memory, "arguments", vm->line) =
-					make_data(D_LIST, data_value_ptr(extra_args));
-				// Pop End of Arguments
-				struct data eoargs = pop_arg(vm->memory, vm->line);
-				destroy_data_runtime(vm->memory, &eoargs);
-				break;
-			}
-			case OP_RET: {
-				size_t trace = vm->memory->call_stack_pointer - 1;
-				while (vm->memory->call_stack[trace].is_automatic) {
-					trace -= 1;
-				}
-				if (trace == 0) {
-					goto VM_OP_HALT;
-				}
-				pop_frame(vm->memory, true, &vm->instruction_ptr);
-				break;
-			}
-			case OP_INC: {
-				struct data ptr = pop_arg(vm->memory, vm->line);
-				if (ptr.type != D_INTERNAL_POINTER) {
-					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "INC on non-pointer");
-					continue;
-				}
-				struct data* arg = ptr.value.reference;
-				if (arg->type != D_NUMBER) {
-					error_runtime(vm->memory, vm->line, VM_TYPE_ERROR, "INC");
-					continue;
-				}
-				arg->value.number += 1;
-				break;
-			}
-			case OP_DUPTOP: {
-				struct data* top = top_arg(vm->memory, vm->line);
-				push_arg(vm->memory, copy_data(*top));
-				break;
-			}
-			case OP_POP: {
-				pop_arg(vm->memory, vm->line);				
-				break;
-			}
-			case OP_ROTTWO: {
-				struct data first = pop_arg(vm->memory, vm->line);
-				struct data second = pop_arg(vm->memory, vm->line);
-				push_arg(vm->memory, first);
-				push_arg(vm->memory, second);
-				break;
-			}
-			case OP_MKTBL: {
-				size_t size = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
-				struct table* table = table_create();
-				struct data* table_storage = refcnt_malloc(vm->memory, 1);
-				table_storage[0] = make_data(D_TABLE_INTERNAL_POINTER, data_value_ptr((struct data*) table));
-				for (size_t i = 0; i < size; i++) {
-					struct data key = pop_arg(vm->memory, vm->line);
-					struct data data;
-					if (key.type != D_TABLE_KEY) {
-						// next is the value at the key
-						data = key;
-						key = pop_arg(vm->memory, vm->line);
-						assert(key.type == D_TABLE_KEY, "MKTBL entry is not an Table Key type, but is %s", data_string[key.type]);
-					}
-					else {
-						data = none_data();
-					}
-
-					struct data* _data = table_insert(table, key.value.string, vm->memory);
-					*_data = data;
-					destroy_data_runtime(vm->memory, &key);
-				}
-				struct data reference = make_data(D_TABLE, data_value_ptr(table_storage));
-				push_arg(vm->memory, reference);
-				break;
-			}
-			case OP_DEC: {
-				struct data ptr = pop_arg(vm->memory, vm->line);
-				if (ptr.type != D_INTERNAL_POINTER) {
-					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "DEC on non-pointer");
-					continue;
-				}
-				struct data* arg = ptr.value.reference;
-				if (arg->type != D_NUMBER) {
-					error_runtime(vm->memory, vm->line, VM_TYPE_ERROR, "DEC");
-					continue;
-				}
-				arg->value.number -= 1;
-				break;
-			}
-			case OP_FRM: {
-				push_auto_frame(vm->memory, vm->instruction_ptr, "automatic", vm->line);
-				break;
-			}
-			case OP_END: {
-				pop_frame(vm->memory, false, &vm->instruction_ptr);
-				break;
-			}
-			case OP_MKREF: {
-				enum data_type type = vm->bytecode[vm->instruction_ptr++];
-				size_t size = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
-				struct data reference = make_data(type, data_value_ptr(NULL));
-
-				if (!is_reference(reference)) {
-					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR,
-						"MKREF called on non-reference type");
-					continue;
-				}
-
-				struct data* storage = refcnt_malloc(vm->memory, size);
-
-				// can't simply check additional_space because spread could
-				//   expand to 1 element too
-				bool has_spread = false;
-				size_t additional_space = 0;
-
-				size_t i = size;
-				while (i > 0) {
-					struct data next = pop_arg(vm->memory, vm->line);
-					storage[i - 1] = next;
-					i -= 1;
-					if (next.type == D_SPREAD) {
-						additional_space += size_of(*next.value.reference).value.number - 1;
-						has_spread = true;
-					}
-				}
-
-				// Make this valid, codegen generates a number instead of a pointer
-				if (type == D_LIST) {
-					size_t list_size = storage[0].value.number;
-					storage[0] = list_header_data(list_size, list_size);
-				}
-
-				if (has_spread) {
-					struct data* new_storage =
-						refcnt_malloc(vm->memory, size + additional_space);
-					size_t j = 0;
-					for (size_t i = 0; i < size; i++) {
-						if (storage[i].type == D_SPREAD) {
-							struct data spread = storage[i].value.reference[0];
-							if (spread.type == D_LIST) {
-								for (size_t k = 0; k < wendy_list_size(&spread); k++) {
-									new_storage[j++] = copy_data(spread.value.reference[k + 1]);
-								}
-							}
-							else if (spread.type == D_RANGE) {
-								int start = range_start(spread);
-								int end = range_end(spread);
-								for (int k = start; k != end; start < end ? k++ : k--) {
-									new_storage[j++] = make_data(D_NUMBER, data_value_num(k));
-								}
-							}
-							else if (spread.type == D_STRING) {
-								size_t len = strlen(spread.value.string);
-								for (size_t k = 0; k < len; k++) {
-									struct data str = make_data(D_STRING, data_value_str(" "));
-									str.value.string[0] = spread.value.string[k];
-									new_storage[j++] = str;
-								}
-							}
-						}
-						else {
-							new_storage[j++] = storage[i];
-						}
-					}
-					refcnt_free(vm->memory, storage);
-					storage = new_storage;
-					if (storage[0].type == D_LIST_HEADER) {
-						// - 1 for header
-						storage[0] = list_header_data(size + additional_space - 1,
-							size + additional_space - 1);
-					}
-				}
-
-				reference.value.reference = storage;
-				push_arg(vm->memory, reference);
-				break;
-			}
-			case OP_NTHPTR: {
-				struct data number = pop_arg(vm->memory, vm->line);
-				struct data list = pop_arg(vm->memory, vm->line);
-				if (number.type != D_NUMBER && number.type != D_RANGE) {
-					error_runtime(vm->memory, vm->line, VM_INVALID_LVALUE_LIST_SUBSCRIPT);
-					goto nthptr_cleanup;
-				}
-				if (list.type != D_LIST) {
-					error_runtime(vm->memory, vm->line, VM_NOT_A_LIST);
-					goto nthptr_cleanup;
-				}
-				struct data* list_data = list.value.reference;
-				if (list_data->type != D_LIST_HEADER) {
-					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "List doesn't point to list header!");
-					goto nthptr_cleanup;
-				}
-				size_t list_size = wendy_list_size(&list);
-				if (number.type == D_NUMBER) {
-					if (number.value.number >= list_size) {
-						error_runtime(vm->memory, vm->line, VM_LIST_REF_OUT_RANGE);
-						goto nthptr_cleanup;
-					}
-					push_arg(vm->memory, make_data(D_INTERNAL_POINTER,
-						data_value_ptr(&list_data[(int)number.value.number + 1])));
-				}
-				else if (number.type == D_RANGE) {
-					int start = range_start(number);
-					int end = range_end(number);
-					// Test for end is different because end is exclusive
-					if (start < 0 || end < -1 || start >= (int) list_size || end > (int) list_size) {
-						error_runtime(vm->memory, vm->line, VM_LIST_REF_OUT_RANGE);
-						goto nthptr_cleanup;
-					}
-					struct data *internal = refcnt_malloc(vm->memory, 2);
-					internal[0] = copy_data(list);
-					internal[1] = copy_data(number); // which is a range
-					push_arg(vm->memory, make_data(D_LIST_RANGE_LVALUE,
-						data_value_ptr(internal)));
-				}
-				nthptr_cleanup:
-					destroy_data_runtime(vm->memory, &list);
-					destroy_data_runtime(vm->memory, &number);
-				break;
-			}
-			case OP_CLOSURE: {
-				// create_closure() could return NULL when there's no closure, so the
-				//   refcnt code is structured to ignore null pointer references
-				push_arg(vm->memory, make_data(D_CLOSURE, data_value_ptr(create_closure(vm->memory))));
-				break;
-			}
-			case OP_MEMPTR: {
-				// Member Pointer
-				// Structs can only modify Static members, instances modify instance
-				//   members.
-				// Either will be allowed to look through static parameters.
-				struct data instance = pop_arg(vm->memory, vm->line);
-				char* member = get_string(vm->bytecode + vm->instruction_ptr, &vm->instruction_ptr);
-				if (instance.type != D_STRUCT &&
-					instance.type != D_STRUCT_INSTANCE &&
-					instance.type != D_TABLE) {
-					if (instance.type == D_NONERET) {
-						error_runtime(vm->memory, vm->line, VM_NOT_A_STRUCT_MAYBE_FORGOT_RET_THIS);
-					} else {
-						error_runtime(vm->memory, vm->line, VM_NOT_A_STRUCT);
-					}
-					destroy_data_runtime(vm->memory, &instance);
-					break;
-				}
-				if (instance.type == D_TABLE) {
-					struct table* table = (struct table*) instance.value.reference[0].value.reference;
-					if (!table_exist(table, member)) {
-						struct data type = type_of(instance);
-						error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_EXIST, member, type.value.string);
-						destroy_data_runtime(vm->memory, &type);
-						break;
-					}
-					push_arg(vm->memory,
-						make_data(D_INTERNAL_POINTER, data_value_ptr(
-								table_find(table, member)
-							)
-						)
-					);
-				}
-				else {
-					// Struct or struct instance
-					struct data* ptr = struct_get_field(vm, instance, member);
-					if (!ptr) {
-						struct data type = type_of(instance);
-						error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_EXIST, member, type.value.string);
-						destroy_data_runtime(vm->memory, &type);
-					}
-					else {
-						push_arg(vm->memory, make_data(D_INTERNAL_POINTER, data_value_ptr(ptr)));
-					}
-				}
-				destroy_data_runtime(vm->memory, &instance);
-				break;
-			}
-			case OP_JMP: {
-				address addr = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
-				vm->instruction_ptr = addr;
-				break;
-			}
-			case OP_JIF: {
-				// Jump IF False Instruction
-				struct data top = pop_arg(vm->memory, vm->line);
-				address addr = get_address(&vm->bytecode[vm->instruction_ptr], &vm->instruction_ptr);
-				if (top.type != D_TRUE && top.type != D_FALSE) {
-					error_runtime(vm->memory, vm->line, VM_COND_EVAL_NOT_BOOL);
-				}
-				if (top.type == D_FALSE) {
-					vm->instruction_ptr = addr;
-				}
-				destroy_data_runtime(vm->memory, &top);
-				break;
-			}
-			case OP_CALL:
-			wendy_vm_call: {
-				struct data top = pop_arg(vm->memory, vm->line);
-				if (top.type != D_FUNCTION && top.type != D_STRUCT && top.type != D_STRUCT_FUNCTION) {
-					error_runtime(vm->memory, vm->line, VM_FN_CALL_NOT_FN);
-					destroy_data_runtime(vm->memory, &top);
-					break;
-				}
-				struct data boundName = top.value.reference[2];
-				char* function_disp = safe_malloc((128 + strlen(boundName.value.string)) * sizeof(char));
-				function_disp[0] = 0;
-				if (boundName.value.string && streq(boundName.value.string, "self")) {
-					sprintf(function_disp, "annonymous:0x%X", vm->instruction_ptr);
-				}
-				else {
-					sprintf(function_disp, "%s:0x%X", boundName.value.string, vm->instruction_ptr);
-				}
-				push_frame(vm->memory, function_disp, vm->instruction_ptr, vm->line);
-				safe_free(function_disp);
-
-				if (top.type == D_STRUCT) {
-					// Calling Struct Constructor
-					struct data* metadata = top.value.reference;
-
-					struct data old_top = top;
-
-					// Select `init` function.
-					assert(metadata[2].type == D_TABLE, "not a table!");
-					struct table* static_table = (struct table*) metadata[2].value.reference[0].value.reference;
-
-					// Better Exist
-					assert(table_exist(static_table, "init"), "struct static table has no init!");
-					top = copy_data(*table_find(static_table, "init"));
-
-					if (top.type != D_FUNCTION) {
-						error_runtime(vm->memory, vm->line, VM_STRUCT_CONSTRUCTOR_NOT_A_FUNCTION);
-						destroy_data_runtime(vm->memory, &top);
-						break;
-					}
-					top.type = D_STRUCT_FUNCTION;
-
-					push_arg(vm->memory,
-						make_data(D_STRUCT_INSTANCE,
-							data_value_ptr(
-								struct_create_instance(vm, metadata)
-							)
-						)
-					);
-					destroy_data_runtime(vm->memory, &old_top);
-				}
-
-				struct data addr = top.value.reference[0];
-				if (addr.type != D_INSTRUCTION_ADDRESS) {
-					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "Address of function is not D_INSTRUCTION_ADDRESS");
-					destroy_data_runtime(vm->memory, &top);
-					break;
-				}
-				vm->instruction_ptr = (address) addr.value.number;
-
-				// Resolve Spread Objects in the Call List
-				size_t ptr = vm->memory->working_stack_pointer - 1;
-				bool has_spread = false;
-				size_t additional_size = 0;
-				size_t argc = 0;
-				while (vm->memory->working_stack[ptr].type != D_END_OF_ARGUMENTS) {
-					if (vm->memory->working_stack[ptr].type == D_SPREAD) {
-						has_spread = true;
-						additional_size +=
-							size_of(*vm->memory->working_stack[ptr].value.reference).value.number - 1;
-					}
-					argc += 1;
-					ptr -= 1;
-				}
-
-				if (has_spread) {
-					// Expand the Stack if required
-					ensure_working_stack_size(vm->memory, additional_size);
-					// In-place move from the back
-					size_t og_ptr = vm->memory->working_stack_pointer - 1;
-					size_t new_ptr = vm->memory->working_stack_pointer + additional_size - 1;
-					for (; vm->memory->working_stack[og_ptr].type != D_END_OF_ARGUMENTS; og_ptr--) {
-						if (vm->memory->working_stack[og_ptr].type == D_SPREAD) {
-							struct data og_spread = vm->memory->working_stack[og_ptr];
-							struct data spread = og_spread.value.reference[0];
-							if (spread.type == D_LIST) {
-								for (size_t k = 0; k < wendy_list_size(&spread); k++) {
-									vm->memory->working_stack[new_ptr--] = copy_data(spread.value.reference[k + 1]);
-								}
-							}
-							else if (spread.type == D_RANGE) {
-								int start = range_start(spread);
-								int end = range_end(spread);
-								for (int k = start; k != end; start < end ? k++ : k--) {
-									vm->memory->working_stack[new_ptr--] = make_data(D_NUMBER, data_value_num(k));
-								}
-							}
-							else if (spread.type == D_STRING) {
-								size_t len = strlen(spread.value.string);
-								for (size_t k = 0; k < len; k++) {
-									struct data str = make_data(D_STRING, data_value_str(" "));
-									str.value.string[0] = spread.value.string[k];
-									vm->memory->working_stack[new_ptr--] = str;
-								}
-							}
-							destroy_data_runtime(vm->memory, &og_spread);
-						}
-						else {
-							vm->memory->working_stack[new_ptr--] = vm->memory->working_stack[og_ptr];
-						}
-					}
-					vm->memory->working_stack_pointer += additional_size;
-				}
-
-				if (top.type == D_STRUCT_FUNCTION) {
-					// Either we pushed the new instance on the stack on top, or
-					//   codegen generated the instance on the top.
-					struct data instance = pop_arg(vm->memory, vm->line);
-					if (instance.type != D_STRUCT_INSTANCE &&
-						instance.type != D_STRUCT &&
-						instance.type != D_TABLE) {
-						error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "D_STRUCT_FUNCTION encountered but top of stack is not a instance nor a struct.");
-						destroy_data_runtime(vm->memory, &top);
-						destroy_data_runtime(vm->memory, &instance);
-						break;
-					}
-					*push_stack_entry(vm->memory, "this", vm->line) = instance;
-				}
-
-				// Push closure variables
-				struct data *list_data = top.value.reference[1].value.reference;
-				size_t size = wendy_list_size(&top.value.reference[1]);
-
-				// Move the pointer to the "first" item, because the 0th item is the list-header
-				list_data += 1;
-				for (size_t i = 0; i < size; i += 2) {
-					if (list_data[i].type != D_IDENTIFIER) {
-						error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "Did not find a D_IDENTIFIER in function closure");
-						destroy_data_runtime(vm->memory, &top);
-						break;
-					}
-					*push_closure_entry(vm->memory, list_data[i].value.string, vm->line) = copy_data(list_data[i + 1]);
-				}
-
-				// At this point, we put `top` back into the stack, so no need to destroy it
-				if (strcmp(boundName.value.string, "self") != 0) {
-					*push_stack_entry(vm->memory, "self", vm->line) = copy_data(top);
-				}
-				*push_stack_entry(vm->memory, boundName.value.string, vm->line) = top;
-				break;
-			}
-			case OP_WRITE: {
-				struct data ptr = pop_arg(vm->memory, vm->line);
-				if (ptr.type != D_INTERNAL_POINTER && ptr.type != D_LIST_RANGE_LVALUE) {
-					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "WRITE on non-pointer");
-					destroy_data_runtime(vm->memory, &ptr);
-					continue;
-				}
-
-				if (top_arg(vm->memory, vm->line)->type == D_END_OF_ARGUMENTS ||
-					top_arg(vm->memory, vm->line)->type == D_NAMED_ARGUMENT_NAME) {
-					if (ptr.value.reference->type == D_EMPTY) {
-						*(ptr.value.reference) = none_data();
-					}
-					break;
-				}
-
-				struct data value = pop_arg(vm->memory, vm->line);
-
-				// Since value is written back, we don't need to destroy it
-				if (value.type == D_NONERET) {
-					error_runtime(vm->memory, vm->line, VM_ASSIGNING_NONERET);
-					destroy_data_runtime(vm->memory, &value);
-					break;
-				}
-
-				if (ptr.type == D_INTERNAL_POINTER) {
-					destroy_data_runtime(vm->memory, &ptr.value.reference[0]);
-					*(ptr.value.reference) = value;
-
-					if (ptr.value.reference->type == D_FUNCTION) {
-						// Write Name to Function
-						char* bind_name = vm->last_pushed_identifier;
-						struct data* fn_data = ptr.value.reference->value.reference;
-						fn_data[2].value.string = safe_realloc(
-							fn_data[2].value.string, strlen(bind_name) + 1);
-						strcpy(fn_data[2].value.string, bind_name);
-					}
-					// We stole value, so don't need to destroy it here
-				}
-				else if (ptr.type == D_LIST_RANGE_LVALUE) {
-					struct data list = ptr.value.reference[0];
-					struct data* list_data = list.value.reference;
-					struct data range = ptr.value.reference[1];
-					int start = range_start(range);
-					int end = range_end(range);
-
-					// No range checking needed here, OP_NTHPTR checks the bounds, and
-					//   the rvalue side get's evaluated first, so no side effects can
-					//   occur between NTHPTR and WRITE (I hope)...
-
-					if (value.type == D_LIST) {
-						size_t needed_size = abs(start - end);
-						size_t list_size = wendy_list_size(&value);
-						struct data* value_data = value.value.reference;
-						if (list_size != needed_size) {
-							error_runtime(vm->memory, vm->line, VM_LIST_RANGE_ASSIGN_SIZE_MISMATCH,
-								needed_size, list_size);
-							goto write_list_range_lvalue_cleanup;
-						}
-						int i = 0;
-						for (int k = start; k != end; start < end ? k++ : k--) {
-							destroy_data_runtime(vm->memory, &list_data[k + 1]);
-							list_data[k + 1] = copy_data(value_data[i + 1]);
-							i++;
-						}
-					}
-					else {
-						for (int k = start; k != end; start < end ? k++ : k--) {
-							destroy_data_runtime(vm->memory, &list_data[k + 1]);
-							list_data[k + 1] = copy_data(value);
-						}
-					}
-				write_list_range_lvalue_cleanup:
-					destroy_data_runtime(vm->memory, &value);
-					destroy_data_runtime(vm->memory, &ptr);
-				}
-				break;
-			}
-			case OP_OUT: {
-				struct data t = pop_arg(vm->memory, vm->line);
-				if (t.type != D_NONERET) {
-					char* fn_name = get_print_overload_name(t);
-					if (id_exist(vm->memory, fn_name, true)) {
-						push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
-						push_arg(vm->memory, t);
-						push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
-						safe_free(fn_name);
-						/* This i-- allows the overloaded function to return
-						 * a string / object and have that be the printed
-						 * output, i.e. it will call function and execute
-						 * the OP_OUT again */
-						vm->instruction_ptr--;
-						goto wendy_vm_call;
-					}
-					safe_free(fn_name);
-					print_data(&t);
-				}
-				destroy_data_runtime(vm->memory, &t);
-				break;
-			}
-			case OP_OUTL: {
-				struct data t = pop_arg(vm->memory, vm->line);
-				if (t.type != D_NONERET) {
-					char* fn_name = get_print_overload_name(t);
-					if (id_exist(vm->memory, fn_name, true)) {
-						push_arg(vm->memory, make_data(D_END_OF_ARGUMENTS, data_value_num(0)));
-						push_arg(vm->memory, t);
-						push_arg(vm->memory, copy_data(*get_address_of_id(vm->memory, fn_name, true, NULL)));
-						safe_free(fn_name);
-						/* This i-- allows the overloaded function to return
-						 * a string / object and have that be the printed
-						 * output, i.e. it will call function and execute
-						 * the OP_OUT again */
-						vm->instruction_ptr--;
-						goto wendy_vm_call;
-					}
-					safe_free(fn_name);
-					print_data_inline(&t, stdout);
-				}
-				destroy_data_runtime(vm->memory, &t);
-				break;
-			}
-			case OP_IN: {
-				// Scan one line from the input.
-				struct data ptr = pop_arg(vm->memory, vm->line);
-				if (ptr.type != D_INTERNAL_POINTER) {
-					error_runtime(vm->memory, vm->line, VM_INTERNAL_ERROR, "INC on non-pointer");
-					continue;
-				}
-				struct data* storage = ptr.value.reference;
-				destroy_data_runtime(vm->memory, storage);
-
-				char buffer[INPUT_BUFFER_SIZE];
-				while(!fgets(buffer, INPUT_BUFFER_SIZE, stdin)) {};
-
-				char* end_ptr = buffer;
-				errno = 0;
-				double d = strtod(buffer, &end_ptr);
-				// null terminator or newline character
-				if (errno != 0 || (*end_ptr != 0 && *end_ptr != 10)) {
-					size_t len = strlen(buffer);
-					// remove last newline
-					buffer[len - 1] = 0;
-					*storage = make_data(D_STRING, data_value_str(buffer));
-				}
-				else {
-					// conversion successful
-					*storage = make_data(D_NUMBER, data_value_num(d));
-				}
-				break;
-			}
-			case OP_HALT:
-            VM_OP_HALT:
-				return;
-			// No default: here because we want compiler to catch missing cases.
-		}
+		if (op == OP_HALT) return;
+		vm_run_instruction(vm, op);
 		if (get_error_flag()) {
 			clear_working_stack(vm->memory);
 			break;
