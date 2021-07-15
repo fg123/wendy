@@ -1457,7 +1457,7 @@ static void write_data_at_buffer(struct data t, uint8_t* buffer, size_t loc) {
 void offset_addresses(uint8_t* buffer, size_t length, int offset) {
 	UNUSED(length);
 	unsigned int i = 0;
-	if (length > strlen(WENDY_VM_HEADER + 1) &&
+	if (length > strlen(WENDY_VM_HEADER) + 1 &&
 		streq(WENDY_VM_HEADER, (char*)buffer)) {
 		i += strlen(WENDY_VM_HEADER) + 1;
 	}

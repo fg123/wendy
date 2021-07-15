@@ -75,7 +75,7 @@ extern bool last_printed_newline;
 char* safe_strdup_impl(const char* s, char* allocated);
 
 /* We safe_malloc in the call so we get the right allocation location */
-#define safe_strdup(x) safe_strdup_impl(x, safe_malloc(strlen(x) + 1))
+#define safe_strdup(x) safe_strdup_impl(x, (char*)safe_malloc(strlen(x) + 1))
 #define UNUSED(var) (void)(var)
 #define forever for(;;)
 

@@ -82,7 +82,7 @@ void register_native_call(const char* name, size_t num_args,
 }
 
 
-static double native_to_numeric(struct vm* vm, struct data* t) {
+double native_to_numeric(struct vm* vm, struct data* t) {
 	if (t->type != D_NUMBER) {
 		error_runtime(vm->memory, vm->line, VM_INVALID_NATIVE_NUMERICAL_TYPE_ERROR);
 		return 0;
@@ -90,7 +90,7 @@ static double native_to_numeric(struct vm* vm, struct data* t) {
 	return t->value.number;
 }
 
-static char* native_to_string(struct vm* vm, struct data* t) {
+char* native_to_string(struct vm* vm, struct data* t) {
 	if (t->type != D_STRING) {
 		error_runtime(vm->memory, vm->line, VM_INVALID_NATIVE_STRING_TYPE_ERROR);
 		return "";
