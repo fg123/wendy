@@ -71,7 +71,7 @@ struct statement_list;
 // generate_code(ast) generates Wendy ByteCode based on the ast and
 //   returns the ByteArray
 // effects: allocates memory, caller must free
-uint8_t* generate_code(struct statement_list* ast, size_t* size);
+uint8_t* generate_code(struct statement_list* ast, size_t* size, bool include_header);
 
 // print_bytecode(bytecode, length, buffer) prints the given bytecode into
 //   a readable format into the buffer.

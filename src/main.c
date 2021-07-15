@@ -152,7 +152,7 @@ void run(char* input_string, struct vm * vm) {
 	}
 	if(!ast_error_flag()) {
 		size_t size;
-		uint8_t* bytecode = generate_code(ast, &size);
+		uint8_t* bytecode = generate_code(ast, &size, !get_settings_flag(SETTINGS_REPL));
 		if (get_settings_flag(SETTINGS_DISASSEMBLE)) {
 			print_bytecode(bytecode, size, stdout);
 		}
@@ -323,7 +323,7 @@ int main(int argc, char** argv) {
 		}
 		else {
 			// Generate Bytecode
-			bytecode_stream = generate_code(ast, &size);
+			bytecode_stream = generate_code(ast, &size, !get_settings_flag(SETTINGS_REPL));
 		}
 		free_token_list(tokens, tokens_count);
 		free_ast(ast);
@@ -384,7 +384,7 @@ int main(int argc, char** argv) {
 		
 		vm_set_instruction_pointer(vm, vm_load_code(vm, bytecode_stream, size, get_settings_flag(SETTINGS_REPL)));
 		vm_run(vm);
-		
+
 		if (!last_printed_newline) {
 			printf("\n");
 		}

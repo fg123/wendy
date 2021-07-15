@@ -1249,7 +1249,7 @@ static void codegen_expr(void* expre) {
 	}
 }
 
-uint8_t* generate_code(struct statement_list* _ast, size_t* size_ptr) {
+uint8_t* generate_code(struct statement_list* _ast, size_t* size_ptr, bool include_header) {
 	if (current_loop_context) {
 		error_general("Loop context exists already going into code generation!");
 	}
@@ -1257,7 +1257,7 @@ uint8_t* generate_code(struct statement_list* _ast, size_t* size_ptr) {
 	capacity = CODEGEN_START_SIZE;
 	bytecode = safe_calloc(capacity, sizeof(uint8_t));
 	size = 0;
-	if (!get_settings_flag(SETTINGS_REPL)) {
+	if (include_header) {
 		write_string(WENDY_VM_HEADER);
 	}
 	free_imported_libraries_ll();
