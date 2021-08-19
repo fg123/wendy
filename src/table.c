@@ -139,10 +139,20 @@ size_t table_size(struct table* table) {
 struct data* table_find(struct table* table, const char* key) {
     size_t bucket = get_string_hash(key) % table->bucket_count;
     struct entry* entry = table->buckets[bucket];
+    struct entry* prev = NULL;
     while (entry) {
         if (streq(entry->key, key)) {
+        	// LRU Policy
+        	if (prev) {
+        		prev->next = entry->next;
+        	}
+        	if (entry != table->buckets[bucket]) {
+        		entry->next = table->buckets[bucket];
+        	}
+        	table->buckets[bucket] = entry;
             return &entry->value;
         }
+        prev = entry;
         entry = entry->next;
     }
     return NULL;

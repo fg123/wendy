@@ -1,7 +1,7 @@
 CC=gcc
 BINDIR = bin
 SRCDIR = src
-WARNING_FLAGS = -Wall -Wextra -Werror -Wstrict-prototypes
+WARNING_FLAGS = -Wall -Wextra -Werror -Wstrict-prototypes -Wno-unused-result
 OPT_FLAGS = -fdata-sections -ffunction-sections -Wl,--gc-sections
 GIT_COMMIT = $(shell git rev-parse --short HEAD)
 CFLAGS = -g -std=gnu99 $(WARNING_FLAGS) $(release) $(FLAGS) $(OPT_FLAGS) -DGIT_COMMIT=\"$(GIT_COMMIT)\"
@@ -17,7 +17,8 @@ OBJ = $(filter-out $(MAINS), $(SRC:%.c=%.o))
 all: test
 
 release: release += -DRELEASE
-release: LINK_FLAGS += -O3
+release: LINK_FLAGS += -O2
+release: CFLAGS += -O2
 release: | clean all
 
 $(SRCDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
@@ -36,7 +37,7 @@ main: $(OBJ) $(SRCDIR)/main.o setup
 
 library: $(OBJ) setup $(DEPS)
 	ar rvs $(BINDIR)/wendy.a $(OBJ)
-	
+
 .PHONY: clean
 
 libraries: vm_main main
