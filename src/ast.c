@@ -790,6 +790,7 @@ static struct statement* parse_statement(void) {
 							}
 							else if (match(T_EQUAL)) {
 								assigned_value = expression();
+								while (match(T_SEMICOLON)) { }
 							}
 							else {
 								error_lexer(fn_name.t_line, fn_name.t_col,
