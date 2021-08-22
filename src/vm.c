@@ -333,7 +333,7 @@ void vm_run_instruction(struct vm* vm, enum opcode op) {
 					// next is the value at the key
 					data = key;
 					key = pop_arg(vm->memory, vm->line);
-					assert(key.type == D_TABLE_KEY, "MKTBL entry is not an Table Key type, but is %s", data_string[key.type]);
+					wendy_assert(key.type == D_TABLE_KEY, "MKTBL entry is not an Table Key type, but is %s", data_string[key.type]);
 				}
 				else {
 					data = none_data();
@@ -592,11 +592,11 @@ void vm_run_instruction(struct vm* vm, enum opcode op) {
 				struct data old_top = top;
 
 				// Select `init` function.
-				assert(metadata[2].type == D_TABLE, "not a table!");
+				wendy_assert(metadata[2].type == D_TABLE, "not a table!");
 				struct table* static_table = (struct table*) metadata[2].value.reference[0].value.reference;
 
 				// Better Exist
-				assert(table_exist(static_table, "init"), "struct static table has no init!");
+				wendy_assert(table_exist(static_table, "init"), "struct static table has no init!");
 				top = copy_data(*table_find(static_table, "init"));
 
 				if (top.type != D_FUNCTION) {

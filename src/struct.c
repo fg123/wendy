@@ -35,7 +35,7 @@ size_t struct_get_instance_table_size(struct data* metadata) {
 }
 
 struct data* struct_get_field(struct vm* vm, struct data ref, const char* member) {
-    assert((ref.type == D_STRUCT || ref.type == D_STRUCT_INSTANCE), "struct_get_field but not struct or struct_instance");
+    wendy_assert((ref.type == D_STRUCT || ref.type == D_STRUCT_INSTANCE), "struct_get_field but not struct or struct_instance");
     struct data* metadata = ref.value.reference;
     if (ref.type == D_STRUCT_INSTANCE) {
         // metadata actually points to the STRUCT_INSTANCE_HEADER
@@ -47,7 +47,7 @@ struct data* struct_get_field(struct vm* vm, struct data ref, const char* member
             if (metadata[4].type == D_STRUCT) {
                 struct data* parent_metadata = metadata[4].value.reference;
                 struct table* parent_static_table = (struct table*) parent_metadata[2].value.reference[0].value.reference;
-                assert(table_exist(parent_static_table, "init"), "parent struct static table has no init!");
+                wendy_assert(table_exist(parent_static_table, "init"), "parent struct static table has no init!");
                 return table_find(parent_static_table, "init");
             }
             else {
@@ -69,7 +69,7 @@ struct data* struct_get_field(struct vm* vm, struct data ref, const char* member
     enum data_type struct_type = ref.type;
 
     // Try find static, metadata[2] points to static D_TABLE
-    assert(metadata[2].type == D_TABLE, "not a table!");
+    wendy_assert(metadata[2].type == D_TABLE, "not a table!");
     
     struct data* possible_static = struct_find_static(metadata, member);
     struct data* curr_meta = metadata;
@@ -78,7 +78,7 @@ struct data* struct_get_field(struct vm* vm, struct data ref, const char* member
         if (curr_meta[4].type == D_NONE) {
             break;
         }
-        assert(curr_meta[4].type == D_STRUCT, "parent of struct is not a D_STRUCT");
+        wendy_assert(curr_meta[4].type == D_STRUCT, "parent of struct is not a D_STRUCT");
         curr_meta = curr_meta[4].value.reference;
         possible_static = struct_find_static(curr_meta, member);
     }
@@ -98,7 +98,7 @@ struct data* struct_get_field(struct vm* vm, struct data ref, const char* member
             if (curr_meta[4].type == D_NONE) {
                 break;
             }
-            assert(curr_meta[4].type == D_STRUCT, "parent of struct is not a D_STRUCT");
+            wendy_assert(curr_meta[4].type == D_STRUCT, "parent of struct is not a D_STRUCT");
             curr_meta = curr_meta[4].value.reference;
             possible_offset = struct_find_instance_offset(curr_meta, member, &out_offset);
         }
@@ -117,14 +117,14 @@ struct data* struct_create_instance(struct vm* vm, struct data* metadata) {
     size_t params = 0;
 
     while (curr_meta) {
-        assert(curr_meta[3].type == D_TABLE, "not a table!");
+        wendy_assert(curr_meta[3].type == D_TABLE, "not a table!");
         struct table* instance_table = (struct table*) curr_meta[3].value.reference[0].value.reference;
         params += table_size(instance_table);
         // Go to parent
         if (curr_meta[4].type == D_NONE) {
             break;
         }
-        assert(curr_meta[4].type == D_STRUCT, "parent of struct is not a D_STRUCT");
+        wendy_assert(curr_meta[4].type == D_STRUCT, "parent of struct is not a D_STRUCT");
         curr_meta = curr_meta[4].value.reference;
     }
 
