@@ -92,17 +92,15 @@ struct data* struct_get_field(struct vm* vm, struct data ref, const char* member
         bool possible_offset = struct_find_instance_offset(metadata, member, &out_offset);
         struct data* curr_meta = metadata;
         while (!possible_offset) {
-             // Try parent if exists
+            offset += struct_get_instance_table_size(curr_meta);;
+            
+            // Try parent if exists
             if (curr_meta[4].type == D_NONE) {
                 break;
             }
             assert(curr_meta[4].type == D_STRUCT, "parent of struct is not a D_STRUCT");
             curr_meta = curr_meta[4].value.reference;
             possible_offset = struct_find_instance_offset(curr_meta, member, &out_offset);
-            if (!possible_offset) {
-                // Add to offset the entire table size
-                offset += struct_get_instance_table_size(curr_meta);
-            }
         }
         if (possible_offset) {
         	return &ref.value.reference[offset + out_offset];

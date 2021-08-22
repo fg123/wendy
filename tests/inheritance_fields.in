@@ -1,0 +1,25 @@
+struct Base => (x, y) {
+    init => () {
+        this.x = 10;
+        this.y = 20;
+        ret this;
+    }  
+};
+
+
+struct Derived : Base => (z, a, b) {
+    init => () {
+        super();
+        this.z = 30;
+        this.a = 40;
+        this.b = 50;
+        ret this;
+    }
+};
+
+let d = Derived();
+d.x;
+d.y;
+d.z;
+d.a;
+d.b;
