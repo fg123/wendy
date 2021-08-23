@@ -1134,8 +1134,8 @@ static struct data eval_binop(struct vm * vm, enum vm_operator op, struct data a
 
 						// check integer
 						if (a_n != floor(a_n) || b_n != floor(b_n)) {
-							error_runtime(vm->memory, vm->line, VM_TYPE_ERROR, "/");
-							return none_data();
+							return make_data(D_NUMBER, data_value_num(
+								fmod(a.value.number, b.value.number)));
 						}
 						else {
 							return make_data(D_NUMBER, data_value_num(

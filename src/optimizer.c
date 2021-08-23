@@ -378,6 +378,12 @@ static struct expr* optimize_expr(struct expr* expression) {
 						if (b != 0 && a == floor(a) && b == floor(b)) {
 							possible_optimized.value.number = (long long)a % (long long)b;
 						}
+						else if (b != 0) {
+							possible_optimized.value.number = fmod(a, b);
+						}
+						else {
+							can_optimize = false;
+						}
 						break;
 					case O_SUB:
 						possible_optimized.value.number = a - b;
