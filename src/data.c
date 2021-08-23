@@ -71,7 +71,7 @@ void destroy_data_runtime(struct memory* memory, struct data* d) {
 	else if (!is_numeric(*d)) {
 		safe_free(d->value.string);
 	}
-	
+
 	d->type = D_EMPTY;
 }
 
@@ -89,7 +89,7 @@ void destroy_data_runtime_no_ref(struct memory* memory, struct data* d) {
 	else if (!is_numeric(*d)) {
 		safe_free(d->value.string);
 	}
-	
+
 	d->type = D_EMPTY;
 }
 
@@ -155,7 +155,7 @@ bool is_numeric(struct data t) {
 		t.type == D_EMPTY ||
 		t.type == D_RANGE ||
 		t.type == D_END_OF_ARGUMENTS ||
-		
+
 		// This uses "reference" to point to a struct list_header
 		t.type == D_LIST_HEADER ||
 
@@ -221,7 +221,7 @@ unsigned int print_params_if_available(FILE* buf, const struct data* function_da
 	struct data list_ref = function_data->value.reference[3];
 	if (list_ref.type != D_LIST) return 0;
 	unsigned int p = 0;
-	unsigned int size = list_ref.value.reference->value.number;
+	unsigned int size = wendy_list_size(&list_ref);
 	p += fprintf(buf, "(");
 	for (unsigned int i = 0; i < size; i++) {
 		if (i != 0) {
