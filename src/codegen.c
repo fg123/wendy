@@ -1210,9 +1210,18 @@ static void codegen_expr(void* expre) {
 				codegen_statement(expression->op.func_expr.body);
 				if (bytecode[size - 1] != OP_RET) {
 					// Function has no explicit Return
-					write_opcode(OP_PUSH);
-					write_data(noneret_data());
-					write_opcode(OP_RET);
+
+					// If it's a init function we default return this
+					if (expression->op.func_expr.is_struct_init) {
+						write_opcode(OP_PUSH);
+						write_data(make_data(D_IDENTIFIER, data_value_str("this")));
+						write_opcode(OP_RET);
+					}
+					else {
+						write_opcode(OP_PUSH);
+						write_data(noneret_data());
+						write_opcode(OP_RET);
+					}
 				}
 			}
 		}

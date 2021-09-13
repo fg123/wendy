@@ -1,0 +1,9 @@
+struct a => (x) {
+	init => (y) {
+		this.x = y;
+	}
+};
+
+a(10).x;
+a(20).x;
+

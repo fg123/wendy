@@ -345,7 +345,7 @@ static struct expr* access(void) {
 	if (left->type == E_LITERAL &&
 		left->op.lit_expr.type == D_IDENTIFIER &&
 		streq(left->op.lit_expr.value.string, "super")) {
-		
+
 		consume(T_LEFT_PAREN);
 		struct expr_list* args = expression_list(T_RIGHT_PAREN);
 		traverse_expr(left, &ast_safe_free_impl);
@@ -354,7 +354,7 @@ static struct expr* access(void) {
 		consume(T_RIGHT_PAREN);
 		return left;
 	}
-	
+
 	while (match(T_LEFT_BRACK, T_DOT, T_LEFT_PAREN)) {
 		struct token op = previous();
 		struct expr* right = 0;
@@ -371,7 +371,7 @@ static struct expr* access(void) {
 		else {
 			right = primary();
 			left = make_bin_expr(left, op, right);
-			// T_DOT case 
+			// T_DOT case
 			validate_member_access(left);
 		}
 	}
@@ -505,7 +505,7 @@ static void validate_struct_declaration_statement(struct statement* sm) {
 				first_stmt = init_stmt->op.block_statement->elem;
 			}
 		}
-		
+
 		if (!first_stmt) {
 			error_lexer(init_fn->line, init_fn->col, "Struct initialization must call super-class constructor first");
 			return;
@@ -755,7 +755,7 @@ static struct statement* parse_statement(void) {
 
 			consume(T_DEFFN);
 			int saved_before_iden = 0;
-			
+
 			struct expr* custom_init_fn = NULL;
 
 			while (match(T_LEFT_PAREN, T_LEFT_BRACK, T_LEFT_BRACE)) {
@@ -780,7 +780,7 @@ static struct statement* parse_statement(void) {
 						if (previous().t_type == T_IDENTIFIER) {
 							struct token fn_name = previous();
 							struct expr* assigned_value = NULL;
-						
+
 							if (match(T_DEFFN)) {
 								consume(T_LEFT_PAREN);
 								struct expr_list* parameters = expression_list(T_RIGHT_PAREN);
@@ -796,7 +796,7 @@ static struct statement* parse_statement(void) {
 								error_lexer(fn_name.t_line, fn_name.t_col,
 									"Expected = or =>");
 							}
-							
+
 							struct expr* lvalue = make_lit_expr(fn_name);
 							struct expr_list* new_static = safe_malloc(sizeof(struct expr_list));
 							new_static->next = static_members;
@@ -879,6 +879,7 @@ static struct statement* parse_statement(void) {
 
 			sm->type = S_STRUCT;
 			sm->op.struct_statement.name = safe_strdup(name.t_data.string);
+			custom_init_fn->op.func_expr.is_struct_init = true;
 			sm->op.struct_statement.init_fn = custom_init_fn;
 			sm->op.struct_statement.instance_members = instance_members;
 			sm->op.struct_statement.static_members = static_members;
@@ -1375,6 +1376,7 @@ static struct expr* make_func_expr(struct expr_list* parameters, struct statemen
 	node->op.func_expr.parameters = parameters;
 	node->op.func_expr.body = body;
 	node->op.func_expr.is_native = false;
+	node->op.func_expr.is_struct_init = false;
 	node->line = t.t_line;
 	node->col = t.t_col;
 	return node;
