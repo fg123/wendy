@@ -139,6 +139,7 @@ void assert_impl(bool condition, const char* condition_str, const char* filename
 #define VM_ASSIGNING_NONERET "Attempted to use result from function that does not return a value!"
 #define VM_SPREAD_NOT_ITERABLE "Spread vm_operator can only be called on List or Range."
 #define VM_STRING_DUPLICATION_NEGATIVE "Attempted to multiply string with negative integer."
+#define VM_LIST_DUPLICATION_NEGATIVE "Attempted to multiply list with negative integer."
 
 #define VM_INTERNAL_ERROR "An internal VM error occured: %s"
 

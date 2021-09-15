@@ -1246,7 +1246,13 @@ static struct data eval_binop(struct vm * vm, enum vm_operator op, struct data a
 				// list * number
 				size_t size_a = wendy_list_size(&a);
 				// Size expansion
-				size_t new_size = size_a * (int)b.value.number;
+				int times = (int)b.value.number;
+				if (times < 0) {
+					error_runtime(vm->memory, vm->line, VM_LIST_DUPLICATION_NEGATIVE,
+						operator_string[op]);
+			        return none_data();
+				}
+				size_t new_size = size_a * times;
 				struct data* new_list = wendy_list_malloc(vm->memory, new_size);
 				// Copy all Elements n times
 				size_t n = 1;
@@ -1279,7 +1285,13 @@ static struct data eval_binop(struct vm * vm, enum vm_operator op, struct data a
 				// number * list
 				size_t size_b = wendy_list_size(&b);
 				// Size expansion
-				size_t new_size = size_b * (int)a.value.number;
+				int times = (int)a.value.number;
+				if (times < 0) {
+					error_runtime(vm->memory, vm->line, VM_LIST_DUPLICATION_NEGATIVE,
+						operator_string[op]);
+			        return none_data();
+				}
+				size_t new_size = size_b * times;
 				struct data* new_list = wendy_list_malloc(vm->memory, new_size);
 				// Copy all Elements n times
 				size_t n = 1;
