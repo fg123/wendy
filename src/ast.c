@@ -788,7 +788,6 @@ static struct statement* parse_statement(void) {
 								consume(T_RIGHT_PAREN);
 								struct statement* fnbody = parse_statement();
 								assigned_value = make_func_expr(parameters, fnbody);
-								assigned_value->op.func_expr.belongs_to_struct = sm;
 							}
 							else if (match(T_EQUAL)) {
 								assigned_value = expression();
@@ -882,7 +881,6 @@ static struct statement* parse_statement(void) {
 			sm->type = S_STRUCT;
 			sm->op.struct_statement.name = safe_strdup(name.t_data.string);
 			custom_init_fn->op.func_expr.is_struct_init = true;
-			custom_init_fn->op.func_expr.belongs_to_struct = sm;
 			sm->op.struct_statement.init_fn = custom_init_fn;
 			sm->op.struct_statement.instance_members = instance_members;
 			sm->op.struct_statement.static_members = static_members;
@@ -1380,7 +1378,6 @@ static struct expr* make_func_expr(struct expr_list* parameters, struct statemen
 	node->op.func_expr.body = body;
 	node->op.func_expr.is_native = false;
 	node->op.func_expr.is_struct_init = false;
-	node->op.func_expr.belongs_to_struct = NULL;
 	node->line = t.t_line;
 	node->col = t.t_col;
 	return node;

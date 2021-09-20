@@ -1203,15 +1203,7 @@ static void codegen_expr(void* expre) {
 			}
 			// Process named arguments.
 			write_opcode(OP_ARGCLN);
-			// if (expression->op.func_expr.belongs_to_struct) {
-			// 	// Generate a super identifier on stack frame 
-			// 	write_opcode(OP_PUSH);
-			// 	write_data(make_data(D_IDENTIFIER, data_value_str(
-			// 		expression->op.func_expr.belongs_to_struct->op.struct_statement.name)));
-			// 	write_opcode(OP_DECL);
-			// 	write_string("*Class");
-			// 	write_opcode(OP_WRITE);
-			// }
+
 			if (expression->op.func_expr.body &&
 				expression->op.func_expr.body->type == S_EXPR) {
 				codegen_expr(expression->op.func_expr.body->op.expr_statement);
