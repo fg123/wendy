@@ -605,6 +605,9 @@ void vm_run_instruction(struct vm* vm, enum opcode op) {
 					break;
 				}
 				top.type = D_STRUCT_FUNCTION;
+				
+				// Struct ref, passed into init as *Class
+				push_arg(vm->memory, old_top);
 
 				push_arg(vm->memory,
 					make_data(D_STRUCT_INSTANCE,
@@ -612,8 +615,7 @@ void vm_run_instruction(struct vm* vm, enum opcode op) {
 							struct_create_instance(vm, metadata)
 						)
 					)
-				);
-				destroy_data_runtime(vm->memory, &old_top);
+				);				
 			}
 
 			struct data addr = top.value.reference[0];

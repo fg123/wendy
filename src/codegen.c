@@ -1029,15 +1029,30 @@ static void codegen_expr(void* expre) {
 	}
 	else if (expression->type == E_SUPER_CALL) {
 		codegen_expr_list_for_call(expression->op.super_call_expr.arguments);
+		// "this" instance passed to parent
+
+		// Do *Class.__super_init__(this, *Class.super)
+
+		// *Class.super
+		write_opcode(OP_PUSH);
+		write_data(make_data(D_MEMBER_IDENTIFIER, data_value_str("super")));
+		write_opcode(OP_PUSH);
+		write_data(make_data(D_IDENTIFIER, data_value_str("*Class")));
+		write_opcode(OP_BIN);
+		write_byte(O_MEMBER);
+
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_IDENTIFIER, data_value_str("this")));
-		write_opcode(OP_DUPTOP);
+
 		write_opcode(OP_PUSH);
 		write_data(make_data(D_MEMBER_IDENTIFIER, data_value_str("__super_init__")));
-		write_opcode(OP_ROTTWO);
+		write_opcode(OP_PUSH);
+		write_data(make_data(D_IDENTIFIER, data_value_str("*Class")));
+		
 		write_opcode(OP_BIN);
 		write_byte(O_MEMBER);
 		write_opcode(OP_CALL);
+
 		// Discard Output
 		write_opcode(OP_POP);
 		write_opcode(OP_PUSH);
@@ -1052,31 +1067,12 @@ static void codegen_expr(void* expre) {
 			// Struct Member Call, we will generate an extra "argument" that is the
 			//   reference to the LHS
 
-			// Encase this in a seperate frame in case we use imports and it's
-			//   already declared.
-			// write_opcode(OP_FRM);
-			// made_new_frame = true;
-			// char temp_variable[30];
-			// sprintf(temp_variable, "$mem_call_tmp%zd", global_member_call_id++);
 			codegen_expr(expression->op.call_expr.function->op.bin_expr.left);
 			write_opcode(OP_DUPTOP);
 			codegen_expr(expression->op.call_expr.function->op.bin_expr.right);
 			write_opcode(OP_ROTTWO);
 			write_opcode(OP_BIN);
 			write_byte(O_MEMBER);
-
-			// write_opcode(OP_DECL);
-			// write_string(temp_variable);
-			// write_opcode(OP_WRITE);
-			// write_opcode(OP_PUSH);
-			// write_data(make_data(D_IDENTIFIER, data_value_str(temp_variable)));
-
-			// traverse_expr(expression->op.call_expr.function->op.bin_expr.left, &ast_safe_free_impl);
-
-			// struct expr *temp_expr = safe_malloc(sizeof(struct expr));
-			// temp_expr->type = E_LITERAL;
-			// temp_expr->op.lit_expr = make_data(D_IDENTIFIER, data_value_str(temp_variable));
-			// expression->op.call_expr.function->op.bin_expr.left = temp_expr;
 		}
 		else {
 			codegen_expr(expression->op.call_expr.function);
@@ -1153,6 +1149,12 @@ static void codegen_expr(void* expre) {
 			}
 		}
 		else {
+			if (expression->op.func_expr.is_struct_init) {
+				// The first argument into an init is always the implicit *Class (after the implicit this)
+				write_opcode(OP_DECL);
+				write_string("*Class");
+				write_opcode(OP_WRITE);
+			}
 			struct expr_list* param = expression->op.func_expr.parameters;
 			bool has_encountered_default = false;
 			int i = 0;
@@ -1201,6 +1203,15 @@ static void codegen_expr(void* expre) {
 			}
 			// Process named arguments.
 			write_opcode(OP_ARGCLN);
+			// if (expression->op.func_expr.belongs_to_struct) {
+			// 	// Generate a super identifier on stack frame 
+			// 	write_opcode(OP_PUSH);
+			// 	write_data(make_data(D_IDENTIFIER, data_value_str(
+			// 		expression->op.func_expr.belongs_to_struct->op.struct_statement.name)));
+			// 	write_opcode(OP_DECL);
+			// 	write_string("*Class");
+			// 	write_opcode(OP_WRITE);
+			// }
 			if (expression->op.func_expr.body &&
 				expression->op.func_expr.body->type == S_EXPR) {
 				codegen_expr(expression->op.func_expr.body->op.expr_statement);

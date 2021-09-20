@@ -55,7 +55,8 @@ struct expr {
 						struct statement*   body;
 						bool                is_native;
 						char*               native_name;
-						bool                is_struct_init;  }  func_expr;
+						bool                is_struct_init;
+						struct statement*   belongs_to_struct; }  func_expr;
 			struct {	struct expr_list*   keys;
 						struct expr_list* 	values; 	     } table_expr;
 			struct {    struct expr*        condition;

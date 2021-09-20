@@ -1,0 +1,36 @@
+struct A => (a) {
+    init => (a) {
+        "A Init";
+        this.a = a;
+    }
+};
+
+struct B : A => (b) {
+    init => (a, b) {
+        super(a);
+        "B Init";
+        this.b = b;
+    }
+};
+
+struct C : B => (c) {
+    init => (a, b, c) {
+        super(a, b);
+        "C Init";
+        this.c = c;
+    }
+};
+
+struct D : C => (d) {
+    init => (a, b, c, d) {
+        super(a, b, c);
+        "D Init";
+        this.d = d;
+    }
+};
+
+A(10).a;
+B(10, 20).b;
+C(10, 20, 30).c;
+D(10, 20, 30, 40).d;
+
