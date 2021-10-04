@@ -7,7 +7,7 @@
 
 struct import_node* imported_libraries = 0;
 
-void add_imported_library(char* name) {
+void add_imported_library(const char* name) {
 	struct import_node* new_node = safe_malloc(sizeof(struct import_node));
 	new_node->name = safe_malloc(sizeof(char) * (strlen(name) + 1));
 	strcpy(new_node->name, name);
@@ -26,7 +26,7 @@ void free_imported_libraries_ll() {
 	imported_libraries = 0;
 }
 
-bool has_already_imported_library(char* name) {
+bool has_already_imported_library(const char* name) {
 	struct import_node* curr = imported_libraries;
 	while (curr) {
 		if (streq(curr->name, name)) {

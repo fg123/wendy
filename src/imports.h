@@ -14,8 +14,8 @@ struct import_node {
 
 extern struct import_node* imported_libraries;
 
-void add_imported_library(char *name);
+void add_imported_library(const char *name);
 void free_imported_libraries_ll(void);
-bool has_already_imported_library(char *name);
+bool has_already_imported_library(const char *name);
 
 #endif
