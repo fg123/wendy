@@ -13,3 +13,9 @@ let rand => (max) {
 	r_seed = (((r_seed * 1103515245) + 12345)) % 2147483647;
 	ret r_seed % max; 
 }
+
+struct Random => [float_between, float, int];
+
+Random.float => () native random_float;
+Random.float_between => (min, max) this.float() * (max - min) + min;
+Random.int => (min, max) (this.float() * (max - min) + min) \ 1;

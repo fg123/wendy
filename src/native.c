@@ -41,6 +41,7 @@ static struct data native_process_execute(struct vm* vm, struct data* args);
 static struct data native_pow(struct vm* vm, struct data* args);
 static struct data native_ln(struct vm* vm, struct data* args);
 static struct data native_log(struct vm* vm, struct data* args);
+static struct data native_random_float(struct vm* vm, struct data* args);
 
 static struct data native_dispatch(struct vm* vm, struct data* args);
 
@@ -64,6 +65,7 @@ static struct native_function native_functions[256] = {
 	{ "vm_getAt", 2, native_vm_getAt },
 	{ "process_execute", 1, native_process_execute },
 	{ "dispatch", 1, native_dispatch },
+	{ "random_float", 0, native_random_float },
 	{ 0, 0, 0 }
 };
 
@@ -414,4 +416,11 @@ void native_call(struct vm* vm, char* function_name, int expected_args) {
 	if (!found) {
 		error_runtime(vm->memory, vm->line, VM_INVALID_NATIVE_CALL, function_name);
 	}
+}
+
+
+static struct data native_random_float(struct vm* vm, struct data* args) {
+	UNUSED(args);
+	UNUSED(vm);
+	return make_data(D_NUMBER, data_value_num(rand() / (double) RAND_MAX));
 }

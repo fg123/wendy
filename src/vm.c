@@ -27,6 +27,7 @@ static struct data char_of(struct data a);
 
 struct vm *vm_init() {
 	struct vm* vm = safe_malloc(sizeof(*vm));
+	srand(time(NULL));
 	vm->bytecode = 0;
 	vm->instruction_ptr = 0;
 	vm->bytecode_size = 0;
