@@ -38,14 +38,13 @@ enum vm_operator token_operator_binary(struct token op) {
 		case T_GREATER_EQUAL: return O_GTE;
 		case T_LESS: return O_LT;
 		case T_LESS_EQUAL: return O_LTE;
-		case T_DOT: rheturn O_MEMBER;
+		case T_DOT: return O_MEMBER;
 		case T_LEFT_BRACK: return O_SUBSCRIPT;
 		case T_TILDE: return O_IN;
         case T_EQUAL: return O_ASSIGN;
 		case T_MOD_EQUAL: return O_MOD_EQUAL;
 		case T_CARET: return O_POWER;
 		case T_ELVIS: return O_ELVIS;
-		case T_SAFE_CALL: return O_SAFE_CALL;
 		case T_SAFE_NAVIGATE: return O_SAFE_NAVIGATE;
 		default:;
 	}

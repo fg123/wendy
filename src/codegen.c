@@ -1060,8 +1060,7 @@ static void codegen_expr(void* expre) {
 	}
 	else if (expression->type == E_CALL) {
 		codegen_expr_list_for_call(expression->op.call_expr.arguments);
-
-		bool made_new_frame = false;
+		
 		if (expression->op.call_expr.function->type == E_BINARY &&
 			expression->op.call_expr.function->op.bin_expr.vm_operator == O_MEMBER) {
 			// Struct Member Call, we will generate an extra "argument" that is the
@@ -1077,9 +1076,21 @@ static void codegen_expr(void* expre) {
 		else {
 			codegen_expr(expression->op.call_expr.function);
 		}
-		write_opcode(OP_CALL);
-		if (made_new_frame) {
-			write_opcode(OP_END);
+		
+		if (expression->op.call_expr.is_safe) {
+			write_opcode(OP_DUPTOP);
+			write_opcode(OP_PUSH);
+			write_data(none_data());
+			write_opcode(OP_BIN);
+			write_byte(O_NEQ);
+			write_opcode(OP_JIF);
+			int falseJumpLoc = size;
+			size += sizeof(address);
+			write_opcode(OP_CALL);
+			write_address_at(size, falseJumpLoc);
+		}
+		else {
+			write_opcode(OP_CALL);
 		}
 	}
 	else if (expression->type == E_LIST) {

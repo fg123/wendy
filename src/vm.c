@@ -1008,7 +1008,7 @@ static struct data eval_binop(struct vm * vm, enum vm_operator op, struct data a
 			return make_data(D_LIST, data_value_ptr(new_subarray));
 		}
 	}
-	if (op == O_MEMBER || op == O_SAFE_CALL) {
+	if (op == O_MEMBER || op == O_SAFE_NAVIGATE) {
 		// Member Access! Supports two built in, size and type, value.
 		// Left side should be a token.
 		// Regular Member, Must be either struct or a struct instance.
@@ -1017,7 +1017,7 @@ static struct data eval_binop(struct vm * vm, enum vm_operator op, struct data a
 			error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_IDEN);
 			return false_data();
 		}
-		if (a.type == D_NONE && op == O_SAFE_CALL) {
+		if (a.type == D_NONE && op == O_SAFE_NAVIGATE) {
 			return none_data();
 		}
 		if (a.type == D_TABLE) {

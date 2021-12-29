@@ -355,7 +355,7 @@ static struct expr* access(void) {
 		return left;
 	}
 
-	while (match(T_LEFT_BRACK, T_DOT, T_LEFT_PAREN, T_SAFE_CALL)) {
+	while (match(T_LEFT_BRACK, T_DOT, T_LEFT_PAREN, T_SAFE_CALL, T_SAFE_NAVIGATE)) {
 		struct token op = previous();
 		struct expr* right = 0;
 		if (op.t_type == T_LEFT_BRACK) {
@@ -363,10 +363,10 @@ static struct expr* access(void) {
 			consume(T_RIGHT_BRACK);
 			left = make_bin_expr(left, op, right);
 		}
-		else if (op.t_type == T_LEFT_PAREN && op.t_type == T_SAFE_CALL) {
+		else if (op.t_type == T_LEFT_PAREN || op.t_type == T_SAFE_CALL) {
 			struct expr_list* args = expression_list(T_RIGHT_PAREN);
 			left = make_call_expr(left, args);
-			left->is_safe = (op.t_type == T_SAFE_CALL);
+			left->op.call_expr.is_safe = (op.t_type == T_SAFE_CALL);
 			consume(T_RIGHT_PAREN);
 		}
 		else {
