@@ -43,7 +43,8 @@ struct expr {
 			/* call arguments are either resolvable to an expression or
 				is an assignment expression for named arguments */
 			struct {    struct expr*        function;
-						struct expr_list*   arguments; }    call_expr;
+						struct expr_list*   arguments;
+						bool                is_safe; }    call_expr;
 			struct {
 						struct expr_list*   arguments; } super_call_expr;
 			struct {    int                 length;

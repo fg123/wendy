@@ -1,0 +1,14 @@
+struct a => (c) {
+	b => () {
+		ret 10;
+	}
+};
+
+let A = a(20);
+let B = none;
+
+A.b();
+A.c;
+A?.c;
+B?.c;
+B?.b?();

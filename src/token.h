@@ -79,6 +79,9 @@
 	OP(T_DOLLAR_SIGN) \
 	OP(T_DOT_DOT_DOT) \
 	OP(T_CARET) \
+	OP(T_ELVIS) \
+	OP(T_SAFE_NAVIGATE) \
+	OP(T_SAFE_CALL) \
 	OP(T_INIT)
 
 enum token_type {

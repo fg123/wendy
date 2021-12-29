@@ -255,7 +255,20 @@ static bool scan_token(void) {
 		case '}': add_token(T_RIGHT_BRACE); break;
 		case '&': add_token(T_AND); break;
 		case '|': add_token(T_OR); break;
-		case '?': add_token(T_IF); break;
+		case '?':
+			if (match(':')) {
+				add_token(T_ELVIS);
+			}
+			else if (match('.')) {
+				add_token(T_SAFE_NAVIGATE);
+			}
+			else if (match('(')) {
+				add_token(T_SAFE_CALL);
+			}
+			else {
+				add_token(T_IF);
+			}
+			break;
 		case '~': add_token(T_TILDE); break;
 		case ',': add_token(T_COMMA); break;
 		case '.':

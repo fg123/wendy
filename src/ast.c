@@ -355,7 +355,7 @@ static struct expr* access(void) {
 		return left;
 	}
 
-	while (match(T_LEFT_BRACK, T_DOT, T_LEFT_PAREN)) {
+	while (match(T_LEFT_BRACK, T_DOT, T_LEFT_PAREN, T_SAFE_CALL)) {
 		struct token op = previous();
 		struct expr* right = 0;
 		if (op.t_type == T_LEFT_BRACK) {
@@ -363,9 +363,10 @@ static struct expr* access(void) {
 			consume(T_RIGHT_BRACK);
 			left = make_bin_expr(left, op, right);
 		}
-		else if (op.t_type == T_LEFT_PAREN) {
+		else if (op.t_type == T_LEFT_PAREN && op.t_type == T_SAFE_CALL) {
 			struct expr_list* args = expression_list(T_RIGHT_PAREN);
 			left = make_call_expr(left, args);
+			left->is_safe = (op.t_type == T_SAFE_CALL);
 			consume(T_RIGHT_PAREN);
 		}
 		else {
@@ -422,12 +423,22 @@ static struct expr* range(void) {
 	}
 	return left;
 }
-static struct expr* comparison(void) {
+static struct expr* elvis(void) {
 	struct expr* left = range();
+	while (match(T_ELVIS)) {
+		struct token op = previous();
+		struct expr* right = range();
+		left = make_bin_expr(left, op, right);
+	}
+	return left;
+}
+static struct expr* comparison(void) {
+	struct expr* left = elvis();
 	while (match(T_NOT_EQUAL, T_EQUAL_EQUAL, T_LESS, T_GREATER, T_LESS_EQUAL,
 					T_GREATER_EQUAL, T_TILDE)) {
 		struct token op = previous();
-		struct expr* right = range();
+		struct expr* right = elvis
+		();
 		left = make_bin_expr(left, op, right);
 	}
 	return left;

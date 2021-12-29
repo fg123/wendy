@@ -312,7 +312,7 @@ void vm_run_instruction(struct vm* vm, enum opcode op) {
 			break;
 		}
 		case OP_POP: {
-			pop_arg(vm->memory, vm->line);				
+			pop_arg(vm->memory, vm->line);
 			break;
 		}
 		case OP_ROTTWO: {
@@ -606,7 +606,7 @@ void vm_run_instruction(struct vm* vm, enum opcode op) {
 					break;
 				}
 				top.type = D_STRUCT_FUNCTION;
-				
+
 				// Struct ref, passed into init as *Class
 				push_arg(vm->memory, old_top);
 
@@ -616,7 +616,7 @@ void vm_run_instruction(struct vm* vm, enum opcode op) {
 							struct_create_instance(vm, metadata)
 						)
 					)
-				);				
+				);
 			}
 
 			struct data addr = top.value.reference[0];
@@ -910,6 +910,12 @@ void vm_run(struct vm *vm) {
 }
 
 static struct data eval_binop(struct vm * vm, enum vm_operator op, struct data a, struct data b) {
+	if (op == O_ELVIS) {
+		if (a.type == D_NONE) {
+			return copy_data(b);
+		}
+		return copy_data(a);
+	}
 	if (op == O_SUBSCRIPT) {
 		// Array Reference, or String
 		// A must be a list/string/range, b must be a number.
@@ -1002,7 +1008,7 @@ static struct data eval_binop(struct vm * vm, enum vm_operator op, struct data a
 			return make_data(D_LIST, data_value_ptr(new_subarray));
 		}
 	}
-	if (op == O_MEMBER) {
+	if (op == O_MEMBER || op == O_SAFE_CALL) {
 		// Member Access! Supports two built in, size and type, value.
 		// Left side should be a token.
 		// Regular Member, Must be either struct or a struct instance.
@@ -1010,6 +1016,9 @@ static struct data eval_binop(struct vm * vm, enum vm_operator op, struct data a
 		if (b.type != D_MEMBER_IDENTIFIER) {
 			error_runtime(vm->memory, vm->line, VM_MEMBER_NOT_IDEN);
 			return false_data();
+		}
+		if (a.type == D_NONE && op == O_SAFE_CALL) {
+			return none_data();
 		}
 		if (a.type == D_TABLE) {
 			struct table* table = (struct table*) a.value.reference[0].value.reference;

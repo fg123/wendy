@@ -1,0 +1,11 @@
+let a = 10;
+let b = 20;
+let c = 30;
+let d = none;
+
+a;
+d ?: a;
+d ?: d ?: b;
+d ?: d ?: d ?: c;
+
+a ?: b;
